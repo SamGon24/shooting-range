@@ -54,6 +54,13 @@ A first-person shooter MVP: a military-style firing range for testing weapons an
 ## Working style
 
 - Before writing code for a milestone, post a short plan and a list of the files you'll touch.
-- Make small commits with clear messages, one per working step.
+- Commit rules:
+  - The git repo root is `SHOOTER/` and the branch is `master`. Never push.
+  - One commit per logical change: a single responsibility that reverts cleanly on its own. Config, code, tests and docs for unrelated changes go in separate commits. A test goes in the same commit as the code it covers.
+  - Commit as you go: commit each piece as soon as it works and its tests pass, not in one batch at the end, so the commit order and times follow the order the work was actually done in.
+  - Every commit must leave the project booting and its tests passing. No broken intermediate commits.
+  - Message format: an imperative subject of 72 characters or fewer with a scope prefix (`setup:`, `player:`, `range:`, `render:`, `debug:`, `tests:`, `docs:`), a blank line, then a short body explaining what changed and why.
+  - No `Co-Authored-By` trailers or any other AI attribution lines in commit messages.
+  - Never use `--amend`, rebase, or change commit dates on existing commits.
 - Log non-obvious choices (renderer, drag model, tuning values) in `docs/DECISIONS.md`.
 - If a feature costs too much performance on the target machine, say so and propose a cheaper version. Don't silently drop it.
