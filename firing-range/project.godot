@@ -13,7 +13,7 @@ config_version=5
 config/name="Firing Range"
 config/description="FPS firing-range MVP: weapon and gunplay feel testbed."
 run/main_scene="res://range/range.tscn"
-config/features=PackedStringArray("4.7", "Mobile")
+config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
 
@@ -112,4 +112,4 @@ common/physics_interpolation=true
 
 [rendering]
 
-renderer/rendering_method="mobile"
+renderer/rendering_method="gl_compatibility"

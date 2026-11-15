@@ -19,8 +19,8 @@ func test_gravity_is_si() -> void:
 	assert_almost_eq(float(ProjectSettings.get_setting("physics/3d/default_gravity")), 9.81, 0.0001)
 
 
-func test_renderer_is_mobile() -> void:
-	assert_eq(str(ProjectSettings.get_setting("rendering/renderer/rendering_method")), "mobile")
+func test_renderer_is_compatibility() -> void:
+	assert_eq(str(ProjectSettings.get_setting("rendering/renderer/rendering_method")), "gl_compatibility")
 
 
 func test_window_is_720p() -> void:
