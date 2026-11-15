@@ -3,13 +3,16 @@ extends Node
 ## Command-line frame-rate check for the 60 fps budget.
 ##
 ## Does nothing unless the game is started with the user argument
-## `--perf-probe`:
+## `--perf-probe`. It then sprints the player downrange while sweeping the
+## view, measures frame times for a few seconds, prints a summary to stdout
+## and quits.
 ##
-##   godot --path . --disable-vsync -- --perf-probe
+##   godot --path . -- --perf-probe                              (as played)
+##   godot --path . --disable-vsync --max-fps 0 -- --perf-probe  (uncapped)
 ##
-## It then sprints the player downrange while sweeping the view, measures
-## frame times for a few seconds, prints a summary to stdout and quits.
-## Run with `--disable-vsync` to see headroom above 60 fps.
+## The report includes the real vsync mode and how much of the run the window
+## was focused. Keep the window in front while it runs: an unfocused or
+## hidden window is paced differently by macOS and gives misleading numbers.
 
 const ARGUMENT: String = "--perf-probe"
 const PLAYER_GROUP: StringName = &"player"
@@ -22,6 +25,7 @@ var _player: PlayerController
 var _elapsed: float = 0.0
 var _last_ticks_usec: int = 0
 var _frame_times_usec: PackedInt64Array = PackedInt64Array()
+var _focused_frames: int = 0
 
 
 func _ready() -> void:
@@ -54,6 +58,8 @@ func _process(delta: float) -> void:
 	if _elapsed < WARMUP_SECONDS:
 		return
 	_frame_times_usec.append(frame_usec)
+	if DisplayServer.window_is_focused():
+		_focused_frames += 1
 	if _elapsed >= WARMUP_SECONDS + MEASURE_SECONDS:
 		_report_and_quit()
 
@@ -93,6 +99,10 @@ func _report_and_quit() -> void:
 	print("renderer:        %s" % RenderingServer.get_current_rendering_method())
 	print("adapter:         %s" % RenderingServer.get_video_adapter_name())
 	print("window pixels:   %dx%d" % [window_size.x, window_size.y])
+	print("vsync mode:      %s" % _vsync_mode_name(DisplayServer.window_get_vsync_mode()))
+	# macOS only holds an OpenGL window to the refresh rate while it is in
+	# front, so a vsync reading means nothing unless this is near 100%.
+	print("window focused:  %.0f%% of measured frames" % (100.0 * float(_focused_frames) / float(count)))
 	print("viewport:        %dx%d" % [viewport_size.x, viewport_size.y])
 	print("frames measured: %d over %.1f s" % [count, float(total_usec) / 1_000_000.0])
 	print("average:         %.1f fps (%.2f ms)" % [1000.0 / average_ms, average_ms])
@@ -106,3 +116,17 @@ func _report_and_quit() -> void:
 	if _player != null:
 		print("player speed:    %.2f m/s" % _player.get_horizontal_speed())
 	get_tree().quit()
+
+
+func _vsync_mode_name(mode: DisplayServer.VSyncMode) -> String:
+	match mode:
+		DisplayServer.VSYNC_DISABLED:
+			return "disabled"
+		DisplayServer.VSYNC_ENABLED:
+			return "enabled"
+		DisplayServer.VSYNC_ADAPTIVE:
+			return "adaptive"
+		DisplayServer.VSYNC_MAILBOX:
+			return "mailbox"
+		_:
+			return "unknown (%d)" % mode
