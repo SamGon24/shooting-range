@@ -55,7 +55,7 @@ A first-person shooter MVP: a military-style firing range for testing weapons an
 
 - Before writing code for a milestone, post a short plan and a list of the files you'll touch.
 - Commit rules:
-  - The git repo root is `SHOOTER/` and the branch is `master`. Never push.
+  - The git repo root is `SHOOTER/` and the branch is `main` (tracking `origin/main`). Never push.
   - One commit per logical change: a single responsibility that reverts cleanly on its own. Config, code, tests and docs for unrelated changes go in separate commits. A test goes in the same commit as the code it covers.
   - Commit as you go: commit each piece as soon as it works and its tests pass, not in one batch at the end, so the commit order and times follow the order the work was actually done in.
   - Every commit must leave the project booting and its tests passing. No broken intermediate commits.
