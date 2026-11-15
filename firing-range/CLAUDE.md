@@ -7,7 +7,7 @@ A first-person shooter MVP: a military-style firing range for testing weapons an
 - **Target machine:** Intel MacBook Pro, quad-core i5, 8 GB RAM, Intel Iris Plus integrated GPU, macOS Sequoia. Hold **60 fps at 1280x720**, and check this at every milestone.
 - **Engine:** Godot 4.x (latest stable), **GDScript with static typing everywhere**.
 - **Physics:** set `physics/3d/physics_engine = Jolt Physics`. Physics tick is 60 Hz; never write gameplay logic that depends on frame rate.
-- **Renderer:** Mobile. Switch to Compatibility only if Mobile can't hold 60 fps, and record that switch in `docs/DECISIONS.md`.
+- **Renderer:** Compatibility (OpenGL). On the target Intel GPU, Mobile logs engine shader errors on every boot and cannot render a sky or stable sun shadows; Compatibility has none of those faults and still runs at well over twice the 60 fps budget. OpenGL on macOS does not enforce vsync, so the frame rate is capped at 60 in `project.godot`. The evidence is in `docs/DECISIONS.md`; don't switch renderer without re-running those captures and recording the result there.
 - **Units:** 1 Godot unit = 1 meter. Use real-world SI values for velocities, masses and gravity (9.81 m/s²).
 - **Original IP only:** no names, logos, UI art, sounds or assets from any existing game. Weapons get fictional names. Use greybox geometry, or CC0 assets (Kenney, Quaternius) with the source credited in `CREDITS.md`.
 - **Everything stays text-based** (`.tscn`, `.tres`, `.gd`). No binary scene formats.

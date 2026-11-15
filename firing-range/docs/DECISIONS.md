@@ -6,9 +6,11 @@ Target machine for every measurement below: MacBook Pro, Intel i5-8259U, 8 GB, I
 
 ## Project setup
 
-### Renderer: Mobile (kept), with three restrictions on this GPU
+### Renderer: Mobile, with three restrictions on this GPU (superseded)
 
-Mobile holds 60 fps with a wide margin (see Performance), so the rule in `CLAUDE.md` says stay on it. On this Intel GPU it runs through Vulkan on MoltenVK, and three things do not work:
+**Superseded:** the project now uses Compatibility. See "Renderer switch to Compatibility" at the end of this file. This entry is kept as the evidence for that switch.
+
+Mobile holds 60 fps with a wide margin (see Performance), so the rule in `CLAUDE.md` at the time said stay on it. On this Intel GPU it runs through Vulkan on MoltenVK, and three things do not work:
 
 | Problem | Evidence | What we do |
 |---|---|---|
@@ -18,7 +20,7 @@ Mobile holds 60 fps with a wide margin (see Performance), so the rule in `CLAUDE
 
 The Compatibility renderer has none of these problems on this machine: zero startup errors and clean sun shadows in the same jerky-camera test. It is slower here (about 174 fps with shadows, against about 300 fps for Mobile without) but still nearly three times the budget.
 
-**Open decision for the project owner:** switching to Compatibility would restore sun shadows and remove the startup errors. `CLAUDE.md` only allows that switch for frame rate, so it has not been made. Things that would force the question: Milestone 2 muzzle flash and impact particles (GPU particles may hit the same compute failures; CPU particles are the fallback on Mobile), and Milestone 4 targets, which read much better with shadows.
+**Outcome:** the project owner approved the switch after Milestone 1.
 
 ### HiDPI off
 
@@ -101,3 +103,54 @@ Measured with `godot --path . --disable-vsync -- --perf-probe`: 10 s sprinting d
 | Mobile, no sun shadow, vsync on | 60.0 fps | 55.5 fps | none over 25 ms |
 
 The scene is 42 draw calls and about 1,100 primitives. The single slow frame in the uncapped runs is a one-off hitch (worst 33.5 ms), not a pattern.
+
+## Renderer switch to Compatibility (after Milestone 1)
+
+### Renderer: Compatibility (OpenGL 4.1)
+
+`rendering/renderer/rendering_method="gl_compatibility"`. The project owner approved the switch because Mobile's faults on the target GPU were correctness problems, not frame rate (see the superseded entry under Project setup). Everything that was turned off as a Mobile workaround was re-tested and is back on.
+
+| Check | Mobile | Compatibility |
+|---|---|---|
+| Errors in the windowed boot log | 8 compute-pipeline failures on every boot, plus 14 first-frame errors with a `Sky` | 0 errors, 0 warnings |
+| Sun shadow, jerky-camera capture (share of the lower frame that goes dark on upward-pitched frames) | about 40% | no change from the no-shadow baseline (at most 9%, which is the unlit wall) |
+| Sun shadow, static pitched poses | clean | clean, every frame identical |
+| Procedural sky with sky ambient | errors, black or blocky ambient | clean in the same captures |
+
+The captures are the ones used for the Mobile findings: a scripted camera that jumps in yaw and pitch every frame for 40 frames, plus static poses at the firing line, 10 m downrange pitched up between 5 and 45 degrees, and facing the test area and crouch tunnel.
+
+Two things had to be retuned for how Compatibility lights the scene:
+
+- **Light levels.** Compatibility draws a shadow-casting light in a separate additive pass, which brightens lit surfaces. Sun energy went from 1.2 to 0.6 and ambient energy from 0.75 to 0.6 to keep the lit ground at the same mid grey (about 139, 157, 160 in the capture).
+- **Sky ambient at 40%.** With all ambient light taken from the sky, the ground came out strongly blue (shadowed ground 52, 85, 110). `ambient_light_sky_contribution = 0.4` mixes the sky with a neutral colour, which keeps a slight cool tint in shadows and a grey ground.
+
+### Frame cap at 60 instead of vsync
+
+Native OpenGL on this macOS does not enforce vsync. With the window focused for the whole run and `window_get_vsync_mode()` reporting enabled, the perf probe measured 119.8 fps. Re-applying the vsync mode after the window was shown changed nothing.
+
+Options tried:
+
+| Option | Result |
+|---|---|
+| Native OpenGL, vsync on | Not enforced: 120 to 145 fps across seven runs |
+| ANGLE driver (`opengl3_angle`) | 90 to 127 fps uncapped with 1% lows of 37 to 62 fps, and a 1.05 s hitch in both vsync runs. Too little headroom. |
+| Native OpenGL, `application/run/max_fps=60` | 59.8 to 60.0 fps, median frame 16.6 to 16.7 ms |
+
+So the frame rate is held by `application/run/max_fps=60`. This is a frame limiter, not a display sync: frame count is steady at 60, but frames are not aligned to the display refresh. Windowed apps on macOS go through the compositor, so there is no tearing; an occasional repeated frame is possible. Revisit if play-testing shows judder.
+
+### Performance after the switch
+
+1280x720 window, final configuration (sun shadow with 2 splits, procedural sky), same 10 s sprint-and-sweep probe as Milestone 1.
+
+| Run | Average | 1% low | Worst frame |
+|---|---|---|---|
+| As played (60 fps cap), focus steady | 60.0 fps | 54.0 fps | 18.8 ms |
+| Uncapped (`--disable-vsync --max-fps 0`), 7 runs | 145 to 193 fps | 84 to 111 fps in runs with steady focus | 9.6 to 26.4 ms |
+
+47 to 52 draw calls, about 1,250 primitives.
+
+Caveats on these numbers:
+
+- Whenever the window gained or lost focus during a run, that run had one frame of about 70 ms. It happened in several probe runs because the probe is launched from a background shell and focus moved mid-run; those runs' 1% lows (down to 26 fps capped, 61 fps uncapped) are excluded above. It is an app-switch hitch, not a steady-state one: no run without a focus change had a frame over 26.4 ms. Focus tracking was added to the probe partway through, so for the first three uncapped runs steady focus is inferred from the absence of that hitch.
+- The steady as-played run happened to be unfocused throughout. A fully focused capped run was not captured, so confirm it by eye with the overlay (`ms worst`) during play-testing.
+- Uncapped averages vary by about 30% between runs on this machine, so treat the range as the result rather than any single figure. Mobile without shadows was about 300 fps; Compatibility with shadows and sky is roughly half that and still well over twice the budget.
