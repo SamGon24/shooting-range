@@ -1,0 +1,29 @@
+# Godot 4 editor cache and imported data (regenerated with `godot --headless --import`)
+.godot/
+
+# Godot-specific
+*.translation
+export_presets.cfg
+export_credentials.cfg
+/builds/
+/android/
+
+# Mono / .NET (not used, but keep the repo clean if someone enables it)
+.mono/
+data_*/
+mono_crash.*.json
+
+# GUT output
+/gut_results/
+*.junit.xml
+
+# Movie Maker / perf scratch output
+/frames/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
