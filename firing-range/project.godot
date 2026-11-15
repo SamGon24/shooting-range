@@ -13,6 +13,7 @@ config_version=5
 config/name="Firing Range"
 config/description="FPS firing-range MVP: weapon and gunplay feel testbed."
 run/main_scene="res://range/range.tscn"
+run/max_fps=60
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]

@@ -23,6 +23,11 @@ func test_renderer_is_compatibility() -> void:
 	assert_eq(str(ProjectSettings.get_setting("rendering/renderer/rendering_method")), "gl_compatibility")
 
 
+func test_frame_rate_is_capped_at_60() -> void:
+	# OpenGL on macOS does not enforce vsync, so the cap is what holds 60 fps.
+	assert_eq(int(ProjectSettings.get_setting("application/run/max_fps")), 60)
+
+
 func test_window_is_720p() -> void:
 	assert_eq(int(ProjectSettings.get_setting("display/window/size/viewport_width")), 1280)
 	assert_eq(int(ProjectSettings.get_setting("display/window/size/viewport_height")), 720)
