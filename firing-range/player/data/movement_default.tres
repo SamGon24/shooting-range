@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="MovementSettings" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://player/movement_settings.gd" id="1_settings"]
+
+[resource]
+script = ExtResource("1_settings")
+walk_speed = 4.5
+sprint_speed = 7.0
+crouch_speed = 2.2
+sprint_min_forward = 0.5
+ground_accel = 9.0
+ground_friction = 6.0
+stop_speed = 2.5
+air_accel = 1.5
+jump_height = 0.65
+coyote_time = 0.1
+jump_buffer_time = 0.1
+slide_min_entry_speed = 5.5
+slide_boost = 1.5
+slide_max_speed = 9.0
+slide_deceleration = 6.0
+slide_end_speed = 3.0
+slide_steer_accel = 2.0
+slide_boost_cooldown = 1.5
+capsule_radius = 0.35
+stand_height = 1.8
+crouch_height = 1.1
+eye_offset_from_top = 0.12
+crouch_transition_speed = 3.5
+floor_snap_length = 0.25
+floor_max_angle_degrees = 45.0
