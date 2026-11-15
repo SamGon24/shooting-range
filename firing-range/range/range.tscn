@@ -1,0 +1,37 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://range/range_builder.gd" id="1_builder"]
+[ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://debug/debug_overlay.tscn" id="3_overlay"]
+[ext_resource type="Script" path="res://debug/perf_probe.gd" id="4_probe"]
+[ext_resource type="Script" path="res://debug/debug_pose.gd" id="5_pose"]
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 1
+background_color = Color(0.56, 0.69, 0.84, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.66, 0.72, 0.8, 1)
+ambient_light_energy = 0.75
+reflected_light_source = 1
+tonemap_mode = 2
+
+[node name="Range" type="Node3D"]
+script = ExtResource("1_builder")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.819152, 0.439385, -0.368688, 0, 0.642788, 0.766044, 0.573576, -0.627507, 0.526541, 0, 20, 0)
+light_energy = 1.2
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.5)
+
+[node name="DebugOverlay" parent="." instance=ExtResource("3_overlay")]
+
+[node name="PerfProbe" type="Node" parent="."]
+script = ExtResource("4_probe")
+
+[node name="DebugPose" type="Node" parent="."]
+script = ExtResource("5_pose")
