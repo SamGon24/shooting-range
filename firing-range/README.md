@@ -4,7 +4,7 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 ## Status
 
-**Built so far (Milestones 1 to 3). Milestone 3 is awaiting its play-test.**
+**Built so far (Milestones 1 to 4). Targets are ready for play-testing.**
 
 Movement and range (Milestone 1):
 
@@ -29,7 +29,15 @@ Ballistics and recoil (Milestone 3):
 - Spread: a hip-fire cone plus bloom that builds per shot and settles after a pause. Both weapons have zero aimed spread, so the first aimed shot from a settled weapon goes exactly where the sights point.
 - A debug view of bullet paths (F4): each bullet's simulated path, coloured from yellow to red as it slows, with a cross at the impact.
 
-**Not built yet:** targets (Milestone 4) and the full HUD (Milestone 5). Shots currently hit only the ground, walls and props. See the [Roadmap](#roadmap).
+Targets (Milestone 4):
+
+- Six solid humanoid hit zones: head, torso, two arms and two legs. Head damage is 1.5× (2× for the sniper), torso 1×, limbs 0.8×.
+- 100 health and 0–3 armor plates of 50 each. Armor absorbs damage first, with overflow reaching health. A killed dummy folds down, ignores shots and returns fully restored after 3 seconds.
+- Stationary dummies at 25/50/100/200/300 m, staggered from left to right. Their armor counts are 0/1/2/3/0 respectively.
+- Walk (1.5 m/s, left) and sprint (6 m/s, right) movers at both 50 and 100 m on 4 m rails. Movers are unarmored and keep travelling while down.
+- Hinged steel at 100/200/300 m swings from bullet momentum and plays a generated placeholder ring.
+
+**Not built yet:** full hit feedback and range statistics (Milestone 5). See the [Roadmap](#roadmap).
 
 ## Requirements
 
@@ -141,6 +149,10 @@ For Movie Maker captures, add `--always-on-top`. macOS throttles a Godot window 
 | View settings: FOV, mouse sensitivity, invert Y, bob and FOV-kick scale | Defaults in `player/view_settings.gd`; the player's changes are saved to `user://settings.cfg` |
 | Weapon stats: fire rate, magazine, reload times, recoil pattern and recovery, spread and bloom, ADS time, FOV and sensitivity, bolt cycle, raise and lower times, viewmodel poses and kick | `weapons/data/halberd_rifle.tres` and `weapons/data/longwatch_sniper.tres` (fields documented in `weapons/weapon_data.gd`) |
 | Bullet stats: muzzle velocity, damage and falloff, mass, diameter, drag coefficient | The `projectile` sub-resource inside each weapon `.tres` (fields documented in `ballistics/projectile_spec.gd`) |
+| Dummy health, plate strength, default armor, zone multipliers, pop-down and reset times | `targets/data/dummy_default.tres` (`targets/target_settings.gd`) |
+| Target layout, armor by distance, rail length and speeds | Target exports and `_build_targets()` in `range/range_builder.gd` |
+| Steel size, mass, impulse scale, hinge limits and ring volume / attenuation | Exported properties in `targets/steel_plate.gd` |
+| Projectile weapon class (sniper head multiplier) | `weapon_class` in the weapon's projectile sub-resource |
 | Air density | Exported on the `Projectiles` node in `range/range.tscn` |
 | Bullet path view: paths kept, colours, impact cross size | Exported properties on the `BulletPaths` node in `range/range.tscn` |
 | Viewmodel motion: sway, bob, inertia, kick spring, sprint and reload poses, muzzle flash | Exported properties on the `WeaponView` node in `player/player.tscn` |
@@ -159,7 +171,7 @@ firing-range/
 ├── player/           FPS controller, movement math, camera feel, view settings
 │   └── data/         Movement tuning resource (.tres)
 ├── range/            Greybox range builder, grid shader, main scene
-├── targets/          Dummies, steel plates, moving targets (Milestone 4, empty)
+├── targets/          Dummy health, hit zones, rail carriers, hinged steel and tuning
 ├── tests/            GUT tests
 ├── ui/               HUD, crosshair and scope overlay
 └── weapons/          Weapon stats, state machine, recoil and spread, controller and viewmodel
@@ -185,9 +197,17 @@ The main scene is `range/range.tscn`. Every scene and resource is text-based (`.
 - [x] **1. Movement:** FPS controller (walk, sprint, crouch, jump, slide), head bob, FOV and sensitivity settings, greybox range with distance markers.
 - [x] **2. Shooting core:** assault rifle and scoped bolt-action sniper, hip fire and ADS, reloads, weapon switching, viewmodel sway and bob, muzzle flash and impact effects.
 - [x] **3. Ballistics and recoil:** simulated projectiles with gravity and drag, damage falloff, recoil patterns and recovery, a debug view of bullet paths. Built; play-test pending.
-- [ ] **4. Targets:** humanoid dummies with hit zones and armor plates, pop-down and reset, moving targets on rails, swinging steel plates.
+- [x] **4. Targets:** humanoid dummies with hit zones and armor plates, pop-down and reset, moving targets on rails, swinging steel plates. Built; play-test pending.
 - [ ] **5. Feedback and HUD:** hitmarkers, damage numbers, dynamic crosshair, ammo counter, range stats panel, placeholder sounds.
 - [ ] **6. Polish:** physics props, ragdolls, pause and settings menu, performance pass.
+
+## Target play-test
+
+- Walk across the firing stalls to line up with the staggered stationary dummies. Check head, torso and limb hits with both weapons; the 25 m and 300 m stationary dummies are unarmored.
+- Shoot armored dummies until they fold down. Check that shots pass through during the 3 s downtime and that armor and health return together.
+- Track the movers at 50 and 100 m, watching the end reversals and resets while moving.
+- Shoot steel at 100/200/300 m and check swing direction, settling and ring audibility. Bullet drop still applies; F4 helps inspect misses.
+- Judge silhouette readability, armor durability, pop-down feel and distant ring volume. Dedicated hitmarkers and damage numbers arrive in Milestone 5.
 
 ## Further reading
 

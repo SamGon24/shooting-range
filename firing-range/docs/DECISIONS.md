@@ -269,3 +269,41 @@ Perf probe walking downrange and firing full-auto with reloads, 1280x720, window
 | Firing with bullet paths, uncapped | 132.1 fps | 53.0 fps | 23.9 ms |
 
 Drag, recoil and spread cost about 0.5 ms a frame against Milestone 2's 177.8 fps uncapped (5.6 to 6.1 ms). No capped run had a frame over 25 ms. 206 tests pass.
+
+## Milestone 4: targets
+
+### One swept hit path, solid humanoid zones
+
+`TargetHits` listens to the existing `ProjectileSystem.projectile_hit` and dispatches only to the collider named in that report. There are no target raycasts, overlap checks or separate damage sweeps. Each humanoid has six `AnimatableBody3D` boxes (head, torso, two arms, two legs), on the same layer the projectile sweep already hits. The carrier moves them at the physics tick with `sync_to_physics` off, so collider and visible positions agree. Using animatable rather than static bodies also keeps the existing impact effects from leaving floating marks on moving or folding targets.
+
+Zone multipliers live in `targets/data/dummy_default.tres`: head 1.5, sniper head 2.0, torso 1.0, limbs 0.8. `ProjectileSpec.weapon_class` selects the sniper rule explicitly; neither weapon names nor damage thresholds select it. Ballistics applies distance falloff before the target applies its zone multiplier, then armor and health. The zone enum belongs to the tuning Resource: making that Resource depend on the hit-zone node created a circular preload through the dummy's default Resource, which retained GUT resources at shutdown. Keeping data dependencies independent of nodes removes that cycle.
+
+### Armor is a contiguous pool of plates
+
+`TargetHealth` is node-free. Remaining armor is a float pool initialized to `plate_count * plate_health`, with the count clamped to 0–3. Damage subtracts `min(armor, damage)` from armor and sends the remainder to health. An exact break on the final plate leaves health untouched; there is no rounding or lost overflow between plates. `remaining_plates()` rounds upward so a partially damaged plate still counts. Negative damage and hits while dead do nothing.
+
+A kill disables all hit-zone layers immediately, folds the silhouette backward over 0.15 s, and restores its health, initial armor and upright pose exactly 3 s after the kill (not 3 s after folding finishes). The clock and pose update at the physics tick. Movers continue on their rails during downtime; a reset happens wherever the carrier is, without teleporting the rail.
+
+### Layout and rail motion
+
+Nine dummies are active: stationary at 25/50/100/200/300 m with 0/1/2/3/0 plates, plus four unarmored movers. The stationary targets are staggered across the five lanes rather than stacked directly behind each other. At both 50 and 100 m, the left rail walks at 1.5 m/s and the right rail sprints at 6 m/s. Each rail is 4 m long. These are exported layout values on `RangeBuilder`; the armor assignment and placement are in `_build_targets()`.
+
+A rail folds an increasing travelled-distance phase into an outgoing and returning leg. It preserves endpoint overshoot, reverses immediately on exact endpoints, and handles several reversals in one step. Tests check speed, both endpoints, large versus small steps, and a real projectile striking a rail-carried zone at its moved position.
+
+### Steel uses physics, not an animation
+
+Three 8 kg steel boxes hang at 100/200/300 m from world-anchored `HingeJoint3D` nodes. The hinge's axis is world X at the top of each plate, limited to ±65 degrees. On an existing projectile report, the plate receives an off-centre impulse of `bullet mass * impact velocity * impulse_scale`; Jolt supplies the swing, gravity and settling. Tuning exports are in `targets/steel_plate.gd`. A real-projectile test checks the ring event, hinge constraint and physical rotation.
+
+The placeholder ring is a cached, one-second decaying pair of inharmonic sine tones in `SfxFactory.steel_ring()`, played spatially with a 60 m unit distance so it remains audible downrange. This intentionally generous attenuation is for range feedback; judge distant volume during play-testing. No audio or other binary assets were added.
+
+### Verification and performance (Milestone 4)
+
+Headless GUT: 221 tests cover the complete project, including armor-first carry-over, an exact final-plate break, both weapons' zone multipliers, pop-down and exact reset timing, real sniper headshot / rifle body-shot outcomes at 100 m, all four limb colliders, rail movement and moved hit zones, and a real projectile ringing and swinging steel. Windowed and headless boots have zero errors. Movie Maker frames were inspected from the range and close to the 25 m dummy; human play-testing of readability, durability, motion feel and distant ring volume remains pending.
+
+1280×720, Compatibility, all nine dummies and three steel targets active, walking and firing full-auto with reloads (`godot --always-on-top -- --perf-probe --perf-fire`). Window focused for 100% of measured frames:
+
+| Average | 1% low | Worst frame | Frames over 25 ms | Draw calls / primitives |
+|---|---|---|---|---|
+| 60.0 fps | 53.3 fps | 21.18 ms | 0 of 601 | 162 / 2,750 |
+
+The extra meshes and physics bodies retain the 60 fps target on the Intel Iris Plus 655. Values above describe a capped run, not an uncapped headroom measurement.
