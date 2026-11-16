@@ -4,7 +4,7 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 ## Status
 
-**Built so far (Milestones 1 to 5). Feedback and HUD are ready for play-testing.**
+**MVP complete (Milestones 1 to 6). Final manual play-test pending.**
 
 Movement and range (Milestone 1):
 
@@ -32,7 +32,7 @@ Ballistics and recoil (Milestone 3):
 Targets (Milestone 4):
 
 - Six solid humanoid hit zones: head, torso, two arms and two legs. Head damage is 1.5× (2× for the sniper), torso 1×, limbs 0.8×.
-- 100 health and 0–3 armor plates of 50 each. Armor absorbs damage first, with overflow reaching health. A killed dummy folds down, ignores shots and returns fully restored after 3 seconds.
+- 100 health and 0–3 armor plates of 50 each. Armor absorbs damage first, with overflow reaching health. A killed dummy becomes a six-part ragdoll, ignores shots and returns fully restored after 3 seconds.
 - Stationary dummies at 25/50/100/200/300 m, staggered from left to right. Their armor counts are 0/1/2/3/0 respectively.
 - Walk (1.5 m/s, left) and sprint (6 m/s, right) movers at both 50 and 100 m on 4 m rails. Movers are unarmored and keep travelling while down.
 - Hinged steel at 100/200/300 m swings from bullet momentum and plays a generated placeholder ring.
@@ -42,11 +42,19 @@ Feedback and HUD (Milestone 5):
 - White hitmarkers, blue markers when any armor plate breaks, and a red X on kills. Kill feedback takes priority over an armor break in the same hit.
 - Floating damage numbers anchored at the hit point: white for body / limb hits and amber for headshots. Values include zone multipliers and overkill, rounded to the nearest whole point.
 - A crosshair that projects the current spread cone, including bloom, through the active camera FOV. It hides when ADS passes halfway; hitmarkers remain visible while aiming and scoped.
-- An always-visible gameplay FPS readout and ammo counter. F3 still controls only the separate diagnostic overlay.
+- A toggleable gameplay FPS readout and an ammo counter. F3 still controls only the separate diagnostic overlay.
 - A range stats panel with shots, target hits, accuracy, headshot percentage and time to kill on the last killed dummy. **T** resets stats and clears hitmarkers and damage numbers.
 - Distinct original placeholder hit, armor-break and kill confirmation chirps, synthesized before play and credited in `CREDITS.md`.
 
-**Not built yet:** Milestone 6 polish. See the [Roadmap](#roadmap).
+Polish (Milestone 6):
+
+- Eight bounded rigid props: crates and barrels near the line and movement test area. Bullets apply their momentum; walking into props pushes them. Escaped props return to their original positions.
+- Esc pause/settings menu with Resume, mouse sensitivity, ADS sensitivity multiplier, vertical FOV, head bob / FOV-kick scales, master / effects volume and a gameplay FPS toggle. Settings save on resume to `user://settings.cfg` through ViewSettings.
+- Keyboard and controller menu navigation with initial focus, directional / Tab cycling, sliders and an accessible Resume button. Game simulation, target resets, stats timers and in-game audio stop while paused.
+- Six-part pooled ragdolls on all nine dummies, using killing-shot momentum and rail velocity. Their original hit zones return after 3 seconds of gameplay time.
+- Worst-case stress probe: all 54 ragdoll parts awake, eight moving props, three moving steel plates, firing and HUD. Verified at 60.0 fps on the target machine; details and before/after numbers are in `docs/DECISIONS.md`.
+
+Post-MVP work is listed under [Future phases and known limitations](#future-phases-and-known-limitations).
 
 ## Requirements
 
@@ -104,7 +112,27 @@ You can also open `project.godot` in the editor and press F5.
 | Toggle debug overlay | F3 or `\` |
 | Toggle bullet paths | F4 |
 | Reset range stats, hitmarkers and damage numbers | T |
-| Release mouse | Esc (click the window to capture it again) |
+| Pause / resume; release / restore mouse | Esc or controller Start |
+| Navigate menu | Up/Down, Tab/Shift+Tab; controller D-pad or left stick |
+| Adjust focused slider | Left/Right; controller D-pad or left stick |
+| Activate focused menu control | Enter / Space; controller A |
+| Close menu / resume | Esc, controller Start or B, or Resume |
+
+## Settings and pause
+
+Open the menu with **Esc**. Resume receives focus immediately. Use arrows or Tab to select controls, Left/Right to change a slider, and Enter/Space to activate a control. Controller Start opens the menu, D-pad / left stick navigates and adjusts, A activates and B resumes. Menu navigation needs no mouse. Full controller gameplay is a later phase.
+
+| Setting | Default | Range / meaning |
+|---|---|---|
+| Mouse sensitivity | 0.10 degrees/count | 0.01–1.00 |
+| ADS sensitivity multiplier | 1.00 | 0.10–2.00, multiplied by the equipped weapon's ADS sensitivity |
+| Vertical FOV | 65° | 50–100° |
+| Head bob scale | 1.00 | 0–2; 0 disables bob and landing dip |
+| FOV kick scale | 1.00 | 0–2; 0 disables sprint / slide FOV kick |
+| Master / effects volume | 1.00 / 1.00 | 0–1 linear gain; 0 mutes |
+| Show gameplay FPS | On | Independent of F3 diagnostics |
+
+Changes apply live and save when you resume. Previous view settings, including invert-Y, remain supported in the same config file. Pause freezes simulation, projectile travel, weapon/reload timing, target resets, ragdolls, props and range-stat timestamps. Menu wall time is excluded from TTK. The cursor returns to its prior capture mode on resume; menu activation cannot become a buffered shot or jump.
 
 ## Development
 
@@ -126,7 +154,14 @@ The perf probe sprints the player downrange while sweeping the view, measures 10
 godot -- --perf-probe                              # as played, capped at 60 fps
 godot --disable-vsync --max-fps 0 -- --perf-probe  # uncapped, to see headroom
 godot -- --perf-probe --perf-fire                  # walking and firing full-auto
+godot --always-on-top -- --perf-probe --perf-fire --perf-stress
+# Stress comparison without ragdolls:
+godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-popdown
+# Uncapped worst-case headroom:
+godot --always-on-top --disable-vsync --max-fps 0 -- --perf-probe --perf-fire --perf-stress
 ```
+
+The stress fixture is opt-in: it repeatedly kills all dummies through their normal damage entry point on reset, keeps all ragdoll parts and props awake and drives steel hinges. Those fixture kills do not count as launched shots. The report verifies 54 awake parts throughout the measurement. Do not open the pause menu while benchmarking.
 
 The cap comes from `application/run/max_fps=60` in `project.godot`, because OpenGL on macOS doesn't enforce vsync.
 
@@ -156,10 +191,16 @@ For Movie Maker captures, add `--always-on-top`. macOS throttles a Godot window 
 |---|---|
 | Movement: speeds, acceleration, friction, jump, slide, crouch, capsule size | `player/data/movement_default.tres` (fields documented in `player/movement_settings.gd`) |
 | Camera feel: head bob, landing dip, slide tilt, FOV kick | Exported properties on the `CameraFeel` node in `player/player.tscn` |
-| View settings: FOV, mouse sensitivity, invert Y, bob and FOV-kick scale | Defaults in `player/view_settings.gd`; the player's changes are saved to `user://settings.cfg` |
+| Settings: FOV, sensitivity, ADS multiplier, invert Y, bob / FOV-kick scales, volume and FPS | Defaults in `player/view_settings.gd`; the player's changes are saved to `user://settings.cfg` |
 | Weapon stats: sight zero distance and height, fire rate, magazine, reload times, recoil pattern and recovery, spread and bloom, ADS time, FOV and sensitivity, bolt cycle, raise and lower times, viewmodel poses and kick | `weapons/data/halberd_rifle.tres` and `weapons/data/longwatch_sniper.tres` (fields documented in `weapons/weapon_data.gd`) |
 | Bullet stats: muzzle velocity, damage and falloff, mass, diameter, drag coefficient | The `projectile` sub-resource inside each weapon `.tres` (fields documented in `ballistics/projectile_spec.gd`) |
 | Dummy health, plate strength, default armor, zone multipliers, pop-down and reset times | `targets/data/dummy_default.tres` (`targets/target_settings.gd`) |
+| Physics props: cap and placement | `prop_count` and `_build_props()` in `range/range_builder.gd` |
+| Prop mass, dimensions, player push force, recycling distance and damping | `props/physics_prop.gd` |
+| Ragdoll switch, masses, damping, joints, impulse scale | `targets/target_dummy.gd` and `targets/dummy_ragdoll.gd` |
+| Pause menu layout, slider increments, focus and input mappings | `ui/pause_menu.gd` and `project.godot` |
+| Audio routing and volume bounds | `default_bus_layout.tres` and `player/view_settings.gd` |
+| Worst-case fixture and benchmark parameters | `debug/range_stress.gd` and `debug/perf_probe.gd` |
 | Target layout, armor by distance, rail length and speeds | Target exports and `_build_targets()` in `range/range_builder.gd` |
 | Steel size, mass, impulse scale, hinge limits and ring volume / attenuation | Exported properties in `targets/steel_plate.gd` |
 | Projectile weapon class (sniper head multiplier) | `weapon_class` in the weapon's projectile sub-resource |
@@ -186,6 +227,7 @@ firing-range/
 ├── docs/             DECISIONS.md: design and tuning decisions with evidence
 ├── player/           FPS controller, movement math, camera feel, view settings
 │   └── data/         Movement tuning resource (.tres)
+├── props/            Bounded pushable crates and barrels
 ├── range/            Greybox range builder, grid shader, main scene
 ├── targets/          Dummy health, hit zones, rail carriers, hinged steel and tuning
 ├── tests/            GUT tests
@@ -215,7 +257,7 @@ The main scene is `range/range.tscn`. Every scene and resource is text-based (`.
 - [x] **3. Ballistics and recoil:** simulated projectiles with gravity and drag, damage falloff, recoil patterns and recovery, a debug view of bullet paths. Built; play-test pending.
 - [x] **4. Targets:** humanoid dummies with hit zones and armor plates, pop-down and reset, moving targets on rails, swinging steel plates. Built; play-test pending.
 - [x] **5. Feedback and HUD:** hitmarkers, damage numbers, dynamic crosshair, ammo counter and FPS, resettable range stats, placeholder sounds. Built; play-test pending.
-- [ ] **6. Polish:** physics props, ragdolls, pause and settings menu, performance pass.
+- [x] **6. Polish:** capped physics props, pooled ragdolls, navigable pause/settings menu, persisted preferences and worst-case performance pass. MVP complete; manual play-test pending.
 
 ## Range stats definitions
 
@@ -238,10 +280,29 @@ Time to kill is measured in physics time from the first damaging hit on each dum
 ## Target play-test
 
 - Walk across the firing stalls to line up with the staggered stationary dummies. Check head, torso and limb hits with both weapons; the 25 m and 300 m stationary dummies are unarmored.
-- Shoot armored dummies until they fold down. Check that shots pass through during the 3 s downtime and that armor and health return together.
+- Shoot armored dummies until they ragdoll. Check that shots pass through during the 3 s downtime and that armor and health return together.
 - Track the movers at 50 and 100 m, watching the end reversals and resets while moving.
 - Shoot steel at 100/200/300 m and check swing direction, settling and ring audibility. Bullet drop still applies; F4 helps inspect misses.
 - Judge silhouette readability, armor durability, pop-down feel and distant ring volume. Hitmarkers, damage numbers and confirmation sounds are now available for this check.
+
+## Final MVP play-test checklist
+
+1. Start normally. Walk into a crate and barrel near x = ±18 m behind the firing line, then into the props at x = ±6 m, z = 12 / 17 m in the test area. They should move without launching or trapping the player.
+2. Shoot props from the front and off-centre. Expect movement away from the shot and rotation from off-centre hits. Props are not scoring targets.
+3. Open Esc during a burst, reload or target reset. Check that projectiles, props, ragdolls and target reset timing stop. Wait, then resume; TTK must not include menu time.
+4. Navigate every setting using only arrows / Tab and Enter / Space. Repeat with controller Start, D-pad / left stick, A and B. Confirm focus is always visible and cycles back to Resume.
+5. Change every setting, resume, then restart the app. Confirm saved values return. Check ADS scaling with both weapons, bob / FOV kick at 0 and 2, both volume sliders at 0 and 1, and FPS visibility independently of F3.
+6. Resume with Enter, Space, controller A and a mouse click. Confirm no unwanted shot or jump occurs and the cursor capture mode is restored.
+7. Kill stationary and moving dummies. The killing shot should affect the corpse, rails should leave the corpse behind, and the dummy should return upright with armor and exact hit zones after 3 seconds of unpaused play.
+8. Run the existing Feedback and HUD checklist above to check markers, numbers, accuracy, headshots and per-life TTK after ragdoll resets.
+9. Run the capped worst-case command above, keeping the window focused. Confirm about 60 fps, eight stress props and `54 min / 54 max` awake ragdoll parts. Inspect the uncapped run if diagnosing headroom.
+
+## Future phases and known limitations
+
+- **Web:** browser export and browser performance are not yet validated. Test pointer-lock gestures, audio unlock, user-config persistence and the selected physics backend in the export templates. Runtime code uses built-in Godot APIs and `user://` storage; no native plugin, subprocess or platform-specific service was added.
+- **Controller:** menus have explicit bindings and focus navigation. Full movement / right-stick aiming, gameplay mappings, dead-zone tuning, remapping and device-specific prompts remain post-MVP. Physical controller validation is still needed.
+- **Physics:** ragdolls are six greybox parts with pin joints, without anatomical angular limits. Corpses collide with the world / props but not other corpses, the player or bullets; this bounds contact cost. Props are capped at eight and recycle after escaping their area.
+- **Display / assets:** OpenGL on the tested Mac uses a 60 fps limiter rather than enforced vsync. Occasional pacing spikes remain possible. Visuals and sounds are placeholders; Movie Maker can still warn about active audio playbacks at capture shutdown.
 
 ## Further reading
 

@@ -419,3 +419,72 @@ Final standard firing probe, `godot --always-on-top -- --perf-probe --perf-fire`
 Windowed startup completed with zero errors. Movie Maker captures were inspected for white hitmarkers, blue armor breaks, red kill Xs, amber headshot numbers, stats and TTK, plus the final fixed panel layout. Capture-only audio shutdown warnings match the earlier recorded Movie Maker limitation; normal windowed startup and the performance probe are clean. Human judgment of feedback timing, clutter, audio balance and distant readability remains pending; the step-by-step procedure is in README.
 
 Final full headless GUT suite: **245/245 tests pass**, 4,558 assertions, with no errors or shutdown leaks. Coverage includes stats maths and resets, per-target TTK, authoritative damage-marker selection, in-flight reset boundaries, HUD reset input, spread projection / bloom recovery, feedback pooling / lifetime, confirmation sound data / selection, and bounded stats-display latency.
+
+## Milestone 6: final MVP polish
+
+### Capped pushable props and the existing bullet path
+
+Eight props (four crates, four barrels) are built once near the firing line and test area. Their placement avoids the lane centres and movement obstacles. `PhysicsProp.receive_hit()` receives the same `ProjectileHit` dispatched by `TargetHits` for steel and dummies. The off-centre impulse is exactly bullet mass in kg times impact velocity; there is no additional raycast or overlap path. A 4 g rifle round at 850 m/s therefore applies 3.4 N·s, before ordinary damping and contacts.
+
+After `move_and_slide()`, the player forwards rigid-prop contacts and its pre-slide velocity. Pushing is horizontal, capped by both `push_force * physics_delta` and the relative closing momentum. It cannot add vertical launch velocity or keep accelerating a prop already moving away faster than the player. Prop count is capped at eight, and a body below y = -10 m or beyond its home radius returns to its initial transform with velocities cleared. GUT checks both masses' bullet impulse, force-limited player pushing and actual swept-projectile dispatch.
+
+### Pause, settings and mouse-free navigation
+
+The range root explicitly uses `PROCESS_MODE_PAUSABLE`. Only `PauseMenu` uses `PROCESS_MODE_ALWAYS`; opening it pauses the SceneTree, leaving physics, projectile integration, player / weapon ticks, prop simulation, rail motion, ragdoll / target reset clocks, stats timestamps and in-game audio stopped. The renderer and menu still run. Tests check that gameplay tick counts, physical position, a live projectile and the range-stat clock remain unchanged during real elapsed menu time, then advance after resume. This freezes gameplay ticks, not the engine's global frame counter.
+
+All added commands use InputMap actions. `pause` is Esc / controller Start, and UI accept / cancel / directions have explicit keyboard, A/B, D-pad and left-stick bindings. Resume receives focus on every open; vertical and Tab focus neighbours form a cycle, and the scroll container follows focus. Sliders adjust with Left/Right, checkbox / Resume activate with Enter, Space or A, and B cancels back to gameplay. The player's old Esc-only cursor release handler is replaced by this menu. Mouse recapture uses the existing fire action rather than a hard-coded mouse button. Menu transitions clear buffered fire/reload and fire / aim / reload / jump action presses so activating Resume does not act in-game.
+
+`ViewSettings` remains the single persistence owner. Its existing `view` section in `user://settings.cfg` gains ADS sensitivity multiplier, master / effects volume and gameplay FPS visibility; legacy invert-Y and view values still load. Settings apply immediately and save on resume. `ConfigFile` preserves any other sections. Tests round-trip every preference through a separate config path and never overwrite the player's settings. ADS scaling is the per-weapon value multiplied by the global preference, blended from unscaled hip sensitivity.
+
+A text AudioBusLayout defines Effects -> Master. All weapon, handling, impact, steel and HUD players use Effects, and ViewSettings controls both buses with linear gain; zero mutes. The FPS preference affects only the gameplay HUD, never F3 diagnostics. No native extension, OS subprocess, service or runtime path outside `user://` was introduced. Browser export and physical-controller validation remain future acceptance work, not claims made by this native MVP.
+
+### Pooled ragdolls replace pop-downs
+
+Ragdolls are enabled after passing the all-awake performance check below. Each dummy creates six frozen rigid bodies and five disconnected pin joints once at startup, reusing the existing hit-zone shapes and meshes. A killing shot disables live hit-zone collision, hides the standing silhouette, activates the parts at the exact hit-zone transforms, connects the pins and applies bullet momentum to the struck part. Moving targets contribute their carrier velocity. The ragdoll subtree is top-level/world-space, so the rail continues without dragging the corpse.
+
+Ragdoll bodies use layer 4 and mask 1: they contact the world and props, while excluding player, projectile and corpse-to-corpse contacts. Adjacent joints also use the engine's connected-body collision exclusion. Only 54 ragdoll bodies / 45 pins can be active in the shipped nine-target layout. Connecting joints only after unfreezing avoids trying to constrain two static bodies; disconnecting before freezing avoids retaining unnecessary idle constraints.
+
+At exactly 3 seconds of gameplay time, the parts freeze and hide, their collisions and velocities clear, and the original standing hit zones / armor / health return. No new nodes are allocated on kill or reset. Tests snapshot every original zone transform and layer and verify exact restoration, no extra nodes, killing momentum and separation from a moving rail. `ragdoll_enabled = false` retains the tested pop-down fallback, but is not the shipped default. The rig is deliberately greybox with pin joints rather than anatomical angular limits.
+
+### Complete Milestone 6 tuning reference
+
+This table covers newly introduced values and the existing view preferences exposed by the menu; prior milestone tables still describe unchanged movement, weapons and feedback.
+
+| File | Values / policy |
+|---|---|
+| `range/range_builder.gd` | `prop_count = 8`, hard cap eight locations. Alternating crate / barrel locations (x,z), metres: (-18,1), (18,1), (-18,4), (18,4), (-6,12), (6,12), (-6,17), (6,17). Spawn y is half the corresponding height. |
+| `props/physics_prop.gd` | Crate mass 8 kg, side 0.65 m; barrel mass 12 kg, radius 0.30 m, height 0.9 m, 12 radial mesh segments. `push_force = 60` N; `return_radius = 30` m; recycle below y = -10 m. Linear / angular damping 0.2 / 0.4 (combined with world damping). Collision layer / mask 1 / 3. |
+| Same file, appearance | Crate color `(0.48,0.36,0.22,1)`, barrel `(0.28,0.36,0.32,1)`, roughness 0.85. |
+| `player/view_settings.gd` | FOV default 65°, range 50–100°, hotkey step 5°. Sensitivity default 0.10 °/count, range 0.01–1.0, hotkey ratio 1.1. Invert-Y false. Head bob and FOV-kick scales both 1.0, range 0–2. ADS multiplier 1.0, range 0.1–2.0. Master / effects volume 1.0 / 1.0, range 0–1. Show FPS true. Storage `user://settings.cfg`, section `view`; linear gain floor 0.0001 for dB conversion, zero explicitly mutes. |
+| `ui/pause_menu.gd`, slider increments | Sensitivity 0.01; ADS multiplier 0.05; FOV 1°; head bob / FOV kick 0.05; master / effects volume 0.05. Readouts use two decimals. Bounds are the ViewSettings ranges above. |
+| Same file, layout / focus | Canvas layer 200; black shade alpha 0.65; centred panel 660×580 px; margins 20; row separation 10; title font 24; help font 14; setting-label minimum width 250; slider minimum 220×30; value width 60. Focus starts on Resume and wraps through nine controls. Scroll follows focus. |
+| `project.godot`, added menu input | Pause: Esc (physical key 4194305), Start (button 6). Accept: Enter / Space, A (0). Cancel: Esc, B (1). Directions: arrows, D-pad 11/12/13/14 and left-stick axes 1/0 ±1; UI dead zone 0.5. Default Tab / Shift+Tab actions remain available. |
+| `default_bus_layout.tres` | Master and Effects start at 0 dB; Effects sends to Master. Individual player volumes remain as authored in previous milestones. |
+| `targets/target_dummy.gd` | `ragdoll_enabled = true`; carrier velocity from successive physics-tick positions. Live hit-zone transforms and materials remain the source of body geometry. |
+| `targets/dummy_ragdoll.gd` | Masses in existing zone order (head, torso, left arm, left leg, right arm, right leg): 4 / 24 / 3 / 8 / 3 / 8 kg (50 kg total). `impulse_scale = 1.0`; linear / angular damping 0.25 / 1.0, combined with world damping. Active collision layer / mask 4 / 1; idle 0 / 0. |
+| Same file, pins | Torso connects to part indices 0,2,3,4,5. Local anchors, metres: (0,1.49,0), (-0.27,1.43,0), (-0.14,0.88,0), (0.27,1.43,0), (0.14,0.88,0). Pins use engine defaults and connected-body collision exclusion. |
+| `targets/data/dummy_default.tres` | Reset remains 3.0 s of gameplay time; fallback fold duration remains 0.15 s. |
+| `debug/range_stress.gd` | Opt-in `--perf-stress`; `--perf-popdown` disables ragdolls only in that run. Re-kill damage 400, sniper projectile momentum at 900 m/s, torso point offset (0,0.1,0.1) m. Keeps rag parts awake with 0.005 N·m·s yaw impulses each tick; props get 8 m/s² rotating horizontal forcing at a 0.2 m lever, speed capped at 4 m/s; steel gets 0.03 N·m·s X torque impulses each tick. No fixture forcing runs in ordinary play. |
+| `debug/perf_probe.gd` | Existing 2 s warmup / 10 s measurement, 50° yaw sweep / 4 s period and -4° pitch. Reports min/max awake ragdoll parts in every measured frame and count of stress props. |
+
+### Performance pass, before / after and ragdoll decision
+
+All measurements below are on the documented target Mac at 1280×720, Compatibility, full HUD and firing/reloads, with the window focused for 100% of measured frames. The stress fixture continually wakes all props and steel and immediately re-kills every dummy on restore, including activation/reset cost throughout the measurement. Ragdoll runs reported **54 min / 54 max awake parts**; this is not a test of already-sleeping corpses. The fixture applies no scoring shots for its synthetic kills.
+
+| Configuration | Average | 1% low | Worst | Frames >25 ms |
+|---|---|---|---|---|
+| Before Milestone 6, Milestone 5 ordinary firing | 60.0 fps | 55.2 fps | 18.32 ms | 0 / 601 |
+| Milestone 6 stress, pop-down baseline, eight moving props / steel | 60.0 fps | 37.0 fps | 27.39 ms | 23 / 601 |
+| Initial all-ragdoll stress, capped | 60.0 fps | 43.9 fps | 28.58 ms | 1 / 602 |
+| All-ragdoll stress, uncapped headroom | 115.4 fps | 70.6 fps | 15.09 ms | 0 / 1,156 |
+| Final isolated all-ragdoll stress, capped | 60.0 fps | 49.0 fps | 21.92 ms | 0 / 601 |
+
+The uncapped run had **zero frames over 16.67 ms**, keeping worst-case simulation/render work within the 60 fps budget. Ragdolls are retained. The final capped run had 166 draw calls / 3,012 primitives, eight continuously awake props, all 54 rag parts awake, three driven steel hinges and 83 fired rounds. Bounded prop count, pooled bodies, disconnected idle constraints, shared geometry and corpse collision filtering keep physics and allocation costs controlled; the earlier HUD refresh bound remains in force. No gameplay feedback or ragdoll feature was silently removed.
+
+Capped runs are paced by the limiter rather than enforced OpenGL vsync. The earlier capped spikes also appeared in the pop-down baseline, whereas the uncapped all-ragdoll run stayed below 16.67 ms on every frame. Treat those as measured pacing variability rather than claiming that adding ragdolls made rendering faster. The final isolated run confirms the requested capped behavior; the table retains the earlier results instead of reporting only the best run.
+
+### Final verification and future phases
+
+**254/254 headless GUT tests pass**, 4,632 assertions, clean shutdown. Windowed startup and the final stress probe have zero errors. Movie Maker frames were inspected for the focused pause menu, props at the movement area and articulated ragdolls. The pause-menu capture retains the existing Movie Maker active-audio shutdown warning; ordinary startup and probes are clean. Final manual judgment is pending; README contains the numbered MVP checklist.
+
+Web work still needs an actual browser export, physics/template validation, pointer-lock / audio activation gestures, persistence and browser performance tests. Menu controls have InputMap bindings and synthetic keyboard/controller event tests, but physical-device checks and full controller gameplay (right-stick look, mappings, dead zones, rebinding, prompts) remain post-MVP. No web-incompatible runtime service, native library or OS operation was added. The MVP uses simplified greybox ragdolls and capped recycling props rather than an unrestricted physics sandbox.
