@@ -1,0 +1,49 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://player/player_controller.gd" id="1_controller"]
+[ext_resource type="Resource" path="res://player/data/movement_default.tres" id="2_settings"]
+[ext_resource type="Script" path="res://player/camera_feel.gd" id="3_feel"]
+[ext_resource type="Script" path="res://weapons/weapon_controller.gd" id="4_weapons"]
+[ext_resource type="Script" path="res://weapons/weapon_view.gd" id="7_view"]
+[ext_resource type="Script" path="res://weapons/effects/weapon_audio.gd" id="8_audio"]
+[ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data_type"]
+[ext_resource type="Resource" path="res://weapons/data/halberd_rifle.tres" id="5_rifle"]
+[ext_resource type="Resource" path="res://weapons/data/longwatch_sniper.tres" id="6_sniper"]
+
+[node name="Player" type="CharacterBody3D" groups=["player"]]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_controller")
+settings = ExtResource("2_settings")
+
+[node name="Collider" type="CollisionShape3D" parent="."]
+
+[node name="Head" type="Node3D" parent="."]
+top_level = true
+physics_interpolation_mode = 2
+
+[node name="CameraFeel" type="Node3D" parent="Head" node_paths=PackedStringArray("player", "camera")]
+script = ExtResource("3_feel")
+player = NodePath("../..")
+camera = NodePath("Camera")
+
+[node name="Camera" type="Camera3D" parent="Head/CameraFeel"]
+current = true
+fov = 65.0
+near = 0.05
+far = 700.0
+
+[node name="WeaponView" type="Node3D" parent="Head/CameraFeel/Camera" node_paths=PackedStringArray("controller", "player", "camera_feel")]
+script = ExtResource("7_view")
+controller = NodePath("../../../../Weapons")
+player = NodePath("../../../..")
+camera_feel = NodePath("../..")
+
+[node name="Weapons" type="Node" parent="." node_paths=PackedStringArray("player")]
+script = ExtResource("4_weapons")
+loadout = Array[ExtResource("1_data_type")]([ExtResource("5_rifle"), ExtResource("6_sniper")])
+player = NodePath("..")
+
+[node name="Audio" type="Node" parent="Weapons" node_paths=PackedStringArray("controller")]
+script = ExtResource("8_audio")
+controller = NodePath("..")

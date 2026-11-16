@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2_spec"]
+[ext_resource type="PackedScene" path="res://weapons/viewmodels/halberd_rifle_viewmodel.tscn" id="3_viewmodel"]
+
+[sub_resource type="Resource" id="projectile"]
+script = ExtResource("2_spec")
+muzzle_velocity = 850.0
+gravity_scale = 1.0
+max_lifetime = 3.0
+damage = 32.0
+falloff_start_distance = 50.0
+falloff_end_distance = 200.0
+min_damage_fraction = 0.7
+drag_coefficient = 0.3
+mass_grams = 4.0
+diameter_mm = 5.7
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Halberd R-5"
+automatic = true
+rounds_per_minute = 700.0
+bolt_cycle_time = 0.0
+projectile = SubResource("projectile")
+zero_distance_m = 100.0
+sight_height_m = 0.05
+magazine_size = 30
+recoil_pattern = PackedVector2Array(0, 0.45, 0.02, 0.5, 0.04, 0.55, 0.06, 0.6, 0.08, 0.6, 0.15, 0.6, 0.2, 0.6, 0.22, 0.55, 0.2, 0.5, 0.15, 0.45, 0.05, 0.4, -0.1, 0.4, -0.2, 0.35, -0.25, 0.35, -0.25, 0.35, -0.2, 0.3, -0.15, 0.3, -0.1, 0.3, 0, 0.3, 0.1, 0.3, 0.15, 0.3, 0.1, 0.3, -0.05, 0.3, -0.15, 0.3, -0.1, 0.3, 0.05, 0.3, 0.15, 0.3, 0.1, 0.3, -0.05, 0.3, -0.1, 0.3)
+recoil_loop_length = 10
+recoil_random_degrees = Vector2(0.12, 0.08)
+aimed_recoil_scale = 0.8
+recoil_recovery_delay = 0.12
+recoil_recovery_rate = 9.0
+recoil_reset_time = 0.25
+hip_spread_degrees = 2.0
+aimed_spread_degrees = 0.0
+spread_per_shot_degrees = 0.15
+max_bloom_degrees = 1.2
+bloom_recovery_rate = 4.0
+reload_tactical_time = 1.9
+reload_empty_time = 2.4
+ads_time = 0.25
+ads_fov_degrees = 45.0
+ads_sensitivity_scale = 0.7
+scoped = false
+raise_time = 0.4
+lower_time = 0.3
+viewmodel_scene = ExtResource("3_viewmodel")
+hip_position = Vector3(0.17, -0.17, -0.42)
+ads_position = Vector3(0, -0.064, -0.4)
+kick_back = 0.035
+kick_pitch_degrees = 1.6
+shot_sound_pitch_hz = 120.0
+shot_sound_duration = 0.2

@@ -1,0 +1,135 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://ui/hud.gd" id="1_hud"]
+[ext_resource type="Script" path="res://ui/crosshair.gd" id="2_crosshair"]
+[ext_resource type="Shader" path="res://ui/scope_overlay.gdshader" id="3_scope"]
+
+[ext_resource type="Script" path="res://ui/range_feedback.gd" id="4_feedback"]
+[ext_resource type="Script" path="res://ui/feedback_view.gd" id="5_feedback_view"]
+
+[ext_resource type="Script" path="res://ui/feedback_audio.gd" id="6_audio"]
+
+[sub_resource type="StyleBoxFlat" id="stats_background"]
+bg_color = Color(0.035, 0.045, 0.055, 0.78)
+content_margin_left = 14.0
+content_margin_top = 10.0
+content_margin_right = 14.0
+content_margin_bottom = 10.0
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_left = 4
+corner_radius_bottom_right = 4
+
+[sub_resource type="ShaderMaterial" id="scope_material"]
+shader = ExtResource("3_scope")
+
+[node name="Hud" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_hud")
+
+[node name="Scope" type="ColorRect" parent="."]
+material = SubResource("scope_material")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Crosshair" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_crosshair")
+
+[node name="WeaponName" type="Label" parent="."]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -340.0
+offset_top = -92.0
+offset_right = -28.0
+offset_bottom = -66.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.86, 0.88, 0.9, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 2
+
+[node name="Ammo" type="Label" parent="."]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -340.0
+offset_top = -68.0
+offset_right = -28.0
+offset_bottom = -22.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 2
+
+[node name="RangeFeedback" type="Node" parent="."]
+script = ExtResource("4_feedback")
+
+[node name="FeedbackView" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_feedback_view")
+
+[node name="FPS" type="Label" parent="."]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -150.0
+offset_right = -28.0
+offset_top = 18.0
+offset_bottom = 42.0
+horizontal_alignment = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 16
+theme_override_constants/outline_size = 4
+text = "— FPS"
+
+[node name="Stats" type="Panel" parent="."]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -288.0
+offset_right = -28.0
+offset_top = 52.0
+offset_bottom = 235.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("stats_background")
+
+[node name="Readout" type="Label" parent="Stats"]
+layout_mode = 0
+offset_left = 14.0
+offset_top = 10.0
+offset_right = 246.0
+offset_bottom = 173.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 16
+theme_override_constants/line_spacing = 5
+
+[node name="FeedbackAudio" type="Node" parent="." node_paths=PackedStringArray("feedback")]
+script = ExtResource("6_audio")
+feedback = NodePath("../RangeFeedback")

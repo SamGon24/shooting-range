@@ -1,0 +1,121 @@
+[gd_scene load_steps=14 format=3]
+
+[sub_resource type="StandardMaterial3D" id="metal"]
+albedo_color = Color(0.16, 0.17, 0.19, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="polymer"]
+albedo_color = Color(0.3, 0.31, 0.27, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="box_0"]
+material = SubResource("metal")
+size = Vector3(0.055, 0.07, 0.36)
+
+[sub_resource type="BoxMesh" id="box_1"]
+material = SubResource("polymer")
+size = Vector3(0.05, 0.05, 0.28)
+
+[sub_resource type="BoxMesh" id="box_2"]
+material = SubResource("metal")
+size = Vector3(0.026, 0.026, 0.42)
+
+[sub_resource type="BoxMesh" id="box_3"]
+material = SubResource("polymer")
+size = Vector3(0.045, 0.085, 0.3)
+
+[sub_resource type="BoxMesh" id="box_4"]
+material = SubResource("metal")
+size = Vector3(0.032, 0.06, 0.07)
+
+[sub_resource type="BoxMesh" id="box_5"]
+material = SubResource("polymer")
+size = Vector3(0.032, 0.085, 0.04)
+
+[sub_resource type="BoxMesh" id="box_6"]
+material = SubResource("metal")
+size = Vector3(0.05, 0.014, 0.014)
+
+[sub_resource type="BoxMesh" id="box_7"]
+material = SubResource("metal")
+size = Vector3(0.02, 0.03, 0.02)
+
+[sub_resource type="BoxMesh" id="box_8"]
+material = SubResource("metal")
+size = Vector3(0.02, 0.03, 0.02)
+
+[sub_resource type="CylinderMesh" id="cyl_0"]
+material = SubResource("metal")
+top_radius = 0.024
+bottom_radius = 0.024
+height = 0.3
+radial_segments = 12
+rings = 1
+
+[sub_resource type="CylinderMesh" id="cyl_1"]
+material = SubResource("metal")
+top_radius = 0.032
+bottom_radius = 0.032
+height = 0.07
+radial_segments = 12
+rings = 1
+
+[node name="LongwatchSniperViewmodel" type="Node3D"]
+
+[node name="Receiver" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+cast_shadow = 0
+mesh = SubResource("box_0")
+
+[node name="Forend" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.006, -0.3)
+cast_shadow = 0
+mesh = SubResource("box_1")
+
+[node name="Barrel" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.012, -0.62)
+cast_shadow = 0
+mesh = SubResource("box_2")
+
+[node name="Stock" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.02, 0.32)
+cast_shadow = 0
+mesh = SubResource("box_3")
+
+[node name="Magazine" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.06, -0.03)
+cast_shadow = 0
+mesh = SubResource("box_4")
+
+[node name="Grip" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.07, 0.11)
+cast_shadow = 0
+mesh = SubResource("box_5")
+
+[node name="BoltHandle" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.045, 0.02, 0.12)
+cast_shadow = 0
+mesh = SubResource("box_6")
+
+[node name="ScopeMountFront" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, -0.08)
+cast_shadow = 0
+mesh = SubResource("box_7")
+
+[node name="ScopeMountRear" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0.07)
+cast_shadow = 0
+mesh = SubResource("box_8")
+
+[node name="Scope" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0.085, -0.01)
+cast_shadow = 0
+mesh = SubResource("cyl_0")
+
+[node name="ScopeBell" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0.085, -0.18)
+cast_shadow = 0
+mesh = SubResource("cyl_1")
+
+[node name="Muzzle" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.012, -0.84)
