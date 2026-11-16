@@ -47,6 +47,7 @@ func test_zone_multipliers_for_both_weapon_resources() -> void:
 
 func test_pop_down_and_exact_three_second_reset() -> void:
 	var dummy := TargetDummy.new()
+	dummy.ragdoll_enabled = false
 	dummy.armor_plates = 3
 	add_child_autofree(dummy)
 	dummy.set_physics_process(false)

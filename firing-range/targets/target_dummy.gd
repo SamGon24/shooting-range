@@ -12,6 +12,10 @@ signal restored
 
 ## Plates broken by the damage event currently being emitted.
 var last_plate_breaks: int = 0
+@export var ragdoll_enabled: bool = true
+var ragdoll: DummyRagdoll
+var _previous_position: Vector3
+var _carrier_velocity: Vector3 = Vector3.ZERO
 var state: TargetHealth
 var zones: Array[TargetHitZone] = []
 var _pivot: Node3D
@@ -28,18 +32,34 @@ func _ready() -> void:
 		_add_zone(TargetSettings.Zone.LIMB, Vector3(0.16, 0.64, 0.22), Vector3(side * 0.35, 1.16, 0), Color(0.56, 0.56, 0.56))
 		_add_zone(TargetSettings.Zone.LIMB, Vector3(0.19, 0.82, 0.24), Vector3(side * 0.14, 0.45, 0), Color(0.56, 0.56, 0.56))
 
+	_previous_position = global_position
+	ragdoll = DummyRagdoll.new()
+	add_child(ragdoll)
+	var transforms: Array[Transform3D] = []
+	var shapes: Array[Shape3D] = []
+	var meshes: Array[Mesh] = []
+	for zone: TargetHitZone in zones:
+		transforms.append(zone.global_transform)
+		shapes.append((zone.get_child(0) as CollisionShape3D).shape)
+		meshes.append((zone.get_child(1) as MeshInstance3D).mesh)
+	ragdoll.setup(transforms, shapes, meshes, global_transform)
+
 
 func _physics_process(delta: float) -> void:
+	_carrier_velocity = (global_position - _previous_position) / delta
+	_previous_position = global_position
 	advance(delta)
 
 
 func advance(delta: float) -> void:
 	if state.advance(delta):
+		ragdoll.deactivate()
+		_pivot.visible = true
 		_pivot.rotation.x = 0.0
 		_set_hittable(true)
 		reset_physics_interpolation()
 		restored.emit()
-	elif state.dead:
+	elif state.dead and not ragdoll.active:
 		_pivot.rotation.x = -PI * 0.5 * clampf(state.down_time / settings.pop_seconds, 0.0, 1.0)
 
 
@@ -53,6 +73,15 @@ func receive_hit(hit: ProjectileHit, zone: TargetSettings.Zone) -> void:
 	damaged.emit(hit, zone, amount)
 	if state.dead:
 		_set_hittable(false)
+		if ragdoll_enabled:
+			var transforms: Array[Transform3D] = []
+			for body: TargetHitZone in zones:
+				transforms.append(body.global_transform)
+			var index: int = zones.find(hit.collider)
+			if index < 0:
+				index = 0 if zone == TargetSettings.Zone.HEAD else 1
+			ragdoll.activate(transforms, global_transform, hit, index, _carrier_velocity)
+			_pivot.visible = false
 		killed.emit()
 
 
