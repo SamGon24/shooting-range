@@ -59,6 +59,8 @@ func test_records_each_tick_and_ends_at_the_impact() -> void:
 	assert_lt(speeds[speeds.size() - 1], 0.92, "drag slowed it by about 11% over 100 m")
 	for i: int in speeds.size() - 1:
 		assert_true(speeds[i + 1] < speeds[i], "speed only falls")
+	_paths._rebuild()
+	assert_eq(_paths.get_drawn_vertex_count(), 8 * 2 + 6, "eight segments and the impact cross")
 
 
 func test_records_nothing_while_off() -> void:

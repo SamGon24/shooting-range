@@ -6,7 +6,9 @@ extends Node3D
 ## it hit. Toggle with F4, or start with it on using `-- --bullet-paths`.
 ##
 ## Only listens to the ProjectileSystem; it never changes a projectile. It
-## records nothing while turned off.
+## records nothing while turned off. Each path keeps its own line vertices,
+## built as it is recorded, so a redraw is one native concatenation and one
+## mesh upload rather than a vertex-by-vertex rebuild.
 
 const ARGUMENT: String = "--bullet-paths"
 
@@ -31,7 +33,7 @@ var _system: ProjectileSystem
 var _live: Dictionary[int, BulletPath] = {}
 var _finished: Array[BulletPath] = []
 var _dirty: bool = false
-var _mesh: ImmediateMesh
+var _mesh: ArrayMesh
 var _mesh_instance: MeshInstance3D
 
 
@@ -42,12 +44,15 @@ class BulletPath:
 	var speeds: PackedFloat32Array = PackedFloat32Array()
 	var muzzle_speed: float = 1.0
 	var hit: bool = false
+	## Line-list vertices and colours for drawing, two per segment.
+	var line_vertices: PackedVector3Array = PackedVector3Array()
+	var line_colours: PackedColorArray = PackedColorArray()
 
 
 func _ready() -> void:
 	# Sample after the ProjectileSystem (priority 100) has moved everything.
 	process_physics_priority = 101
-	_mesh = ImmediateMesh.new()
+	_mesh = ArrayMesh.new()
 	_mesh_instance = MeshInstance3D.new()
 	_mesh_instance.mesh = _mesh
 	_mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -96,8 +101,7 @@ func sample() -> void:
 		if not _system.is_slot_active(slot):
 			continue
 		var path: BulletPath = _live[slot]
-		path.points.append(_system.get_slot_position(slot))
-		path.speeds.append(_system.get_slot_velocity(slot).length() / path.muzzle_speed)
+		_add_point(path, _system.get_slot_position(slot), _system.get_slot_velocity(slot).length())
 		_dirty = true
 
 
@@ -149,9 +153,14 @@ func _on_hit(hit: ProjectileHit) -> void:
 	var path: BulletPath = _live.get(hit.slot)
 	if path == null:
 		return
-	path.points.append(hit.position)
-	path.speeds.append(hit.velocity.length() / path.muzzle_speed)
+	_add_point(path, hit.position, hit.velocity.length())
 	path.hit = true
+	var half: float = impact_cross_size * 0.5
+	for axis: Vector3 in [Vector3.RIGHT, Vector3.UP, Vector3.BACK]:
+		path.line_vertices.append(hit.position - axis * half)
+		path.line_vertices.append(hit.position + axis * half)
+		path.line_colours.append(impact_colour)
+		path.line_colours.append(impact_colour)
 	_finish(hit.slot)
 
 
@@ -168,34 +177,41 @@ func _finish(slot: int) -> void:
 	_dirty = true
 
 
+func _add_point(path: BulletPath, point: Vector3, speed: float) -> void:
+	var fraction: float = speed / path.muzzle_speed
+	path.line_vertices.append(path.points[path.points.size() - 1])
+	path.line_colours.append(_speed_colour(path.speeds[path.speeds.size() - 1]))
+	path.line_vertices.append(point)
+	path.line_colours.append(_speed_colour(fraction))
+	path.points.append(point)
+	path.speeds.append(fraction)
+
+
 func _rebuild() -> void:
 	_dirty = false
 	_mesh.clear_surfaces()
 	if not enabled:
 		return
-	var paths: Array[BulletPath] = _finished.duplicate()
+	var vertices := PackedVector3Array()
+	var colours := PackedColorArray()
+	for path: BulletPath in _finished:
+		vertices.append_array(path.line_vertices)
+		colours.append_array(path.line_colours)
 	for slot: int in _live:
-		paths.append(_live[slot])
-	var vertex_count: int = 0
-	for path: BulletPath in paths:
-		vertex_count += (path.points.size() - 1) * 2 + (6 if path.hit else 0)
-	if vertex_count <= 0:
+		vertices.append_array(_live[slot].line_vertices)
+		colours.append_array(_live[slot].line_colours)
+	if vertices.is_empty():
 		return
-	_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-	for path: BulletPath in paths:
-		for i: int in path.points.size() - 1:
-			_mesh.surface_set_color(_speed_colour(path.speeds[i]))
-			_mesh.surface_add_vertex(path.points[i])
-			_mesh.surface_set_color(_speed_colour(path.speeds[i + 1]))
-			_mesh.surface_add_vertex(path.points[i + 1])
-		if path.hit:
-			var end: Vector3 = path.points[path.points.size() - 1]
-			var half: float = impact_cross_size * 0.5
-			_mesh.surface_set_color(impact_colour)
-			for axis: Vector3 in [Vector3.RIGHT, Vector3.UP, Vector3.BACK]:
-				_mesh.surface_add_vertex(end - axis * half)
-				_mesh.surface_add_vertex(end + axis * half)
-	_mesh.surface_end()
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_COLOR] = colours
+	_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arrays)
+
+
+## Vertices currently drawn, for tests and the perf check.
+func get_drawn_vertex_count() -> int:
+	return _mesh.surface_get_array_len(0) if _mesh.get_surface_count() > 0 else 0
 
 
 func _speed_colour(fraction: float) -> Color:
