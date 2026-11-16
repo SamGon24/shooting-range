@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://range/range_builder.gd" id="1_builder"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://ballistics/projectile_system.gd" id="6_projectiles"]
 [ext_resource type="Script" path="res://weapons/effects/impact_effects.gd" id="7_impacts"]
 [ext_resource type="PackedScene" path="res://ui/hud.tscn" id="8_hud"]
+[ext_resource type="Script" path="res://debug/hit_logger.gd" id="9_hits"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_material"]
 sky_top_color = Color(0.32, 0.5, 0.74, 1)
@@ -60,3 +61,6 @@ script = ExtResource("4_probe")
 
 [node name="DebugPose" type="Node" parent="."]
 script = ExtResource("5_pose")
+
+[node name="HitLogger" type="Node" parent="."]
+script = ExtResource("9_hits")

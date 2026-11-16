@@ -9,12 +9,18 @@ extends Node
 ##
 ##   godot --path . -- --perf-probe                              (as played)
 ##   godot --path . --disable-vsync --max-fps 0 -- --perf-probe  (uncapped)
+##   godot --path . -- --perf-probe --perf-fire                  (firing)
+##
+## With `--perf-fire` the player walks instead of sprinting (sprinting blocks
+## firing) and holds the trigger, so the rifle fires full-auto and reloads
+## for the whole run.
 ##
 ## The report includes the real vsync mode and how much of the run the window
 ## was focused. Keep the window in front while it runs: an unfocused or
 ## hidden window is paced differently by macOS and gives misleading numbers.
 
 const ARGUMENT: String = "--perf-probe"
+const FIRE_ARGUMENT: String = "--perf-fire"
 const PLAYER_GROUP: StringName = &"player"
 const WARMUP_SECONDS: float = 2.0
 const MEASURE_SECONDS: float = 10.0
@@ -26,15 +32,32 @@ var _elapsed: float = 0.0
 var _last_ticks_usec: int = 0
 var _frame_times_usec: PackedInt64Array = PackedInt64Array()
 var _focused_frames: int = 0
+var _firing: bool = false
+var _shots: int = 0
+var _hits: int = 0
 
 
 func _ready() -> void:
 	if not OS.get_cmdline_user_args().has(ARGUMENT):
 		set_process(false)
 		return
+	_firing = OS.get_cmdline_user_args().has(FIRE_ARGUMENT)
 	Input.action_press("move_forward")
-	Input.action_press("sprint")
+	if _firing:
+		Input.action_press("fire")
+		_count_shots.call_deferred()
+	else:
+		Input.action_press("sprint")
 	_last_ticks_usec = Time.get_ticks_usec()
+
+
+func _count_shots() -> void:
+	var weapons := get_tree().get_first_node_in_group(WeaponController.GROUP) as WeaponController
+	if weapons != null:
+		weapons.shot_fired.connect(func(_data: WeaponData) -> void: _shots += 1)
+	var projectiles := get_tree().get_first_node_in_group(ProjectileSystem.GROUP) as ProjectileSystem
+	if projectiles != null:
+		projectiles.projectile_hit.connect(func(_hit: ProjectileHit) -> void: _hits += 1)
 
 
 func _process(delta: float) -> void:
@@ -68,6 +91,7 @@ func _report_and_quit() -> void:
 	set_process(false)
 	Input.action_release("move_forward")
 	Input.action_release("sprint")
+	Input.action_release("fire")
 
 	var sorted: PackedInt64Array = _frame_times_usec.duplicate()
 	sorted.sort()
@@ -115,6 +139,8 @@ func _report_and_quit() -> void:
 	print("primitives:      %d" % int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)))
 	if _player != null:
 		print("player speed:    %.2f m/s" % _player.get_horizontal_speed())
+	if _firing:
+		print("shots fired:     %d (%d hits) since start" % [_shots, _hits])
 	get_tree().quit()
 
 
