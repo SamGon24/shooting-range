@@ -1,27 +1,62 @@
 class_name DebugPose
 extends Node
-## Places the player at a fixed pose from the command line, for Movie Maker
-## screenshots of a specific view:
+## Command-line helpers for Movie Maker captures. Does nothing without its
+## arguments.
 ##
-##   godot --path . --write-movie /tmp/frames/frame.png --quit-after 60 \
-##       -- --pose=0,0,12,180,-5
+## `--pose=x,y,z,yaw_deg,pitch_deg` places the player. Position is in metres;
+## yaw 0 looks downrange (-Z), 180 looks back at the movement test area.
 ##
-## The values are x, y, z in metres, then yaw and pitch in degrees. Yaw 0
-## looks downrange (-Z); 180 looks back at the movement test area.
-## Does nothing without the `--pose=` argument.
+## `--hold=action[@seconds],...` presses input actions and keeps them down,
+## each from the given time after start (default 0). For example, switch to
+## the second weapon, aim after 1.5 s and fire at 2.5 s:
+##
+##   godot --path . --write-movie /tmp/frames/frame.png --quit-after 240 \
+##       -- --pose=0,0,0,0,-1 --hold=weapon_2,aim@1.5,fire@2.5
 
-const PREFIX: String = "--pose="
+const POSE_PREFIX: String = "--pose="
+const HOLD_PREFIX: String = "--hold="
 const PLAYER_GROUP: StringName = &"player"
+
+var _elapsed: float = 0.0
+## Actions still waiting for their press time: [action, seconds] pairs.
+var _pending_holds: Array[Array] = []
 
 
 func _ready() -> void:
+	set_process(false)
 	for argument: String in OS.get_cmdline_user_args():
-		if argument.begins_with(PREFIX):
-			_apply.call_deferred(argument.trim_prefix(PREFIX))
-			return
+		if argument.begins_with(POSE_PREFIX):
+			_apply_pose.call_deferred(argument.trim_prefix(POSE_PREFIX))
+		elif argument.begins_with(HOLD_PREFIX):
+			_parse_holds(argument.trim_prefix(HOLD_PREFIX))
+	if not _pending_holds.is_empty():
+		set_process(true)
 
 
-func _apply(value: String) -> void:
+func _process(delta: float) -> void:
+	_elapsed += delta
+	for index: int in range(_pending_holds.size() - 1, -1, -1):
+		var action: StringName = _pending_holds[index][0]
+		var at_seconds: float = _pending_holds[index][1]
+		if _elapsed >= at_seconds:
+			Input.action_press(action)
+			_pending_holds.remove_at(index)
+	if _pending_holds.is_empty():
+		set_process(false)
+
+
+func _parse_holds(value: String) -> void:
+	for entry: String in value.split(",", false):
+		var parts: PackedStringArray = entry.split("@")
+		var action := StringName(parts[0])
+		if not InputMap.has_action(action):
+			push_warning("DebugPose: unknown action '%s' in --hold" % action)
+			continue
+		var at_seconds: float = parts[1].to_float() if parts.size() > 1 else 0.0
+		_pending_holds.append([action, at_seconds])
+
+
+func _apply_pose(value: String) -> void:
 	var parts: PackedFloat64Array = value.split_floats(",")
 	if parts.size() != 5:
 		push_warning("DebugPose: expected --pose=x,y,z,yaw_deg,pitch_deg, got '%s'" % value)
