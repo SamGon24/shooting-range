@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data"]
 [ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2_spec"]
+[ext_resource type="PackedScene" path="res://weapons/viewmodels/longwatch_sniper_viewmodel.tscn" id="3_viewmodel"]
 
 [sub_resource type="Resource" id="projectile"]
 script = ExtResource("2_spec")
@@ -25,8 +26,9 @@ ads_sensitivity_scale = 0.2
 scoped = true
 raise_time = 0.6
 lower_time = 0.45
+viewmodel_scene = ExtResource("3_viewmodel")
 hip_position = Vector3(0.18, -0.18, -0.46)
-ads_position = Vector3(0, -0.1, -0.36)
+ads_position = Vector3(0, -0.085, -0.38)
 kick_back = 0.09
 kick_pitch_degrees = 5.0
 shot_sound_pitch_hz = 70.0

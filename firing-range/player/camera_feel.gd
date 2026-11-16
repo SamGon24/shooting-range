@@ -41,6 +41,12 @@ extends Node3D
 @export_range(0.0, 20.0, 0.5, "suffix:°") var slide_fov_add: float = 7.0
 @export_range(1.0, 30.0, 0.5, "suffix:1/s") var fov_blend_rate: float = 8.0
 
+## Set by the weapon view while aiming: 0 at the hip, 1 fully aimed. The
+## camera FOV blends from the player's FOV setting to `aim_fov_degrees`.
+var aim_blend: float = 0.0
+## Vertical FOV when fully aimed, from the current weapon.
+var aim_fov_degrees: float = 65.0
+
 var _bob_phase: float = 0.0
 var _bob_weight: float = 0.0
 var _dip: float = 0.0
@@ -92,7 +98,8 @@ func _process(delta: float) -> void:
 	elif player.is_sprinting and speed > player.settings.walk_speed:
 		kick_target = sprint_fov_add
 	_fov_kick = lerpf(_fov_kick, kick_target, _blend(fov_blend_rate, delta))
-	camera.fov = ViewSettings.fov_degrees + _fov_kick * ViewSettings.fov_kick_scale
+	var hip_fov: float = ViewSettings.fov_degrees + _fov_kick * ViewSettings.fov_kick_scale
+	camera.fov = lerpf(hip_fov, aim_fov_degrees, clampf(aim_blend, 0.0, 1.0))
 
 
 func _on_player_landed(impact_speed: float) -> void:
