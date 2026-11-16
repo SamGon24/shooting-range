@@ -6,6 +6,7 @@
 
 [sub_resource type="Resource" id="projectile"]
 script = ExtResource("2_spec")
+weapon_class = 1
 muzzle_velocity = 900.0
 gravity_scale = 1.0
 max_lifetime = 3.0

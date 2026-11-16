@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="TargetSettings" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://targets/target_settings.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+max_health = 100.0
+plate_health = 50.0
+armor_plates = 0
+reset_seconds = 3.0
+pop_seconds = 0.15
+head_multiplier = 1.5
+sniper_head_multiplier = 2.0
+torso_multiplier = 1.0
+limb_multiplier = 0.8

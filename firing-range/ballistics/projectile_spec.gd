@@ -3,6 +3,11 @@ extends Resource
 ## What a weapon fires. Units are SI except where the suffix says otherwise
 ## (grams and millimetres read more naturally for bullets).
 
+enum WeaponClass { DEFAULT, SNIPER }
+
+## Selects target multiplier rules independently of projectile damage.
+@export var weapon_class: WeaponClass = WeaponClass.DEFAULT
+
 ## Speed leaving the barrel, m/s.
 @export_range(50.0, 1500.0, 1.0, "suffix:m/s") var muzzle_velocity: float = 850.0
 ## Multiplies world gravity for this projectile. 1 is real gravity.
