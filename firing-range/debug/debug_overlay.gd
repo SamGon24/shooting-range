@@ -16,14 +16,11 @@ var _frame_time_sum: float = 0.0
 var _frame_time_worst: float = 0.0
 
 @onready var _label: Label = $Readout
-@onready var _dot: ColorRect = $CentreDot
 
 
 func _ready() -> void:
 	if OS.get_cmdline_user_args().has(HIDE_ARGUMENT):
 		visible = false
-	_centre_dot()
-	get_viewport().size_changed.connect(_centre_dot)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -104,8 +101,3 @@ func _refresh() -> void:
 	)
 	lines.append("[ ] fov   - = sensitivity   F3 or \\ overlay   Esc free mouse")
 	_label.text = "\n".join(lines)
-
-
-func _centre_dot() -> void:
-	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	_dot.position = (viewport_size - _dot.size) * 0.5

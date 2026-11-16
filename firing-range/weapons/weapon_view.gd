@@ -17,6 +17,7 @@ signal muzzle_flashed(world_position: Vector3)
 
 ## The flash is hidden by shrinking it, not with `visible`; see
 ## `_set_model_shown` for why.
+const GROUP: StringName = &"weapon_view"
 const FLASH_HIDDEN_SCALE: Vector3 = Vector3(0.0001, 0.0001, 0.0001)
 
 @export var controller: WeaponController
@@ -99,6 +100,7 @@ func _ready() -> void:
 		set_process(false)
 		return
 
+	add_to_group(GROUP)
 	_pivot = Node3D.new()
 	_pivot.name = "Pivot"
 	add_child(_pivot)
