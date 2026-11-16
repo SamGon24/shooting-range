@@ -39,6 +39,7 @@ func _ready() -> void:
 	instance.mesh = mesh
 	add_child(instance)
 	_audio = AudioStreamPlayer3D.new()
+	_audio.bus = &"Effects"
 	_audio.stream = SfxFactory.steel_ring()
 	_audio.volume_db = ring_volume_db
 	_audio.unit_size = ring_unit_size

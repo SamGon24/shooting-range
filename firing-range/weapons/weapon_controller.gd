@@ -120,7 +120,7 @@ func _physics_process(delta: float) -> void:
 		player.add_recoil(deg_to_rad(kick.y), -deg_to_rad(kick.x))
 	player.recover_recoil(deg_to_rad(recoil.recovery_allowance(delta)))
 
-	player.look_sensitivity_scale = lerpf(1.0, logic.data.ads_sensitivity_scale, logic.aim_progress)
+	player.look_sensitivity_scale = lerpf(1.0, logic.data.ads_sensitivity_scale * ViewSettings.ads_sensitivity_multiplier, logic.aim_progress)
 
 	if logic.ammo != _last_ammo:
 		_last_ammo = logic.ammo
@@ -275,3 +275,9 @@ func _on_logic_reload_finished(_logic: WeaponLogic) -> void:
 
 func _on_logic_reload_cancelled(_logic: WeaponLogic) -> void:
 	reload_cancelled.emit()
+
+
+## Menu activation must not carry a buffered click into resumed gameplay.
+func clear_input_latches() -> void:
+	_fire_latched = false
+	_reload_latched = false

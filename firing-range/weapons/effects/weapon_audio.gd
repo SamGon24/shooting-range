@@ -22,6 +22,7 @@ func _ready() -> void:
 		return
 	for data: WeaponData in controller.loadout:
 		var player := AudioStreamPlayer.new()
+		player.bus = &"Effects"
 		player.stream = SfxFactory.gunshot(data.shot_sound_pitch_hz, data.shot_sound_duration)
 		player.volume_db = shot_volume_db
 		player.max_polyphony = shot_polyphony
@@ -29,6 +30,7 @@ func _ready() -> void:
 		_shot_players[data] = player
 
 	_handling_player = AudioStreamPlayer.new()
+	_handling_player.bus = &"Effects"
 	_handling_player.volume_db = handling_volume_db
 	_handling_player.max_polyphony = 3
 	add_child(_handling_player)

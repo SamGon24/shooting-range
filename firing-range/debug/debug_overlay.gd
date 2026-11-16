@@ -99,5 +99,5 @@ func _refresh() -> void:
 			ViewSettings.mouse_sensitivity,
 		]
 	)
-	lines.append("[ ] fov   - = sensitivity   F3 or \\ overlay   Esc free mouse")
+	lines.append("[ ] fov   - = sensitivity   F3 or \\ overlay   Esc pause/settings")
 	_label.text = "\n".join(lines)

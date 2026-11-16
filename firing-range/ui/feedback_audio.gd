@@ -33,6 +33,7 @@ func _ready() -> void:
 
 func _add_player(start: float, end: float, duration: float, volume: float) -> void:
 	var player := AudioStreamPlayer.new()
+	player.bus = &"Effects"
 	player.stream = SfxFactory.confirmation(start, end, duration)
 	player.volume_db = volume
 	player.max_polyphony = polyphony

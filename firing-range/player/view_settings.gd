@@ -2,8 +2,7 @@ extends Node
 ## Autoload `ViewSettings`: player-facing view options (FOV, mouse sensitivity,
 ## head bob). Persisted to `user://settings.cfg`.
 ##
-## These are presentation/input preferences only. Nothing here may change
-## movement or hit results.
+## Preferences never change movement tuning or projectile simulation.
 
 signal changed
 
@@ -50,8 +49,42 @@ var fov_kick_scale: float = 1.0:
 		changed.emit()
 
 
+var ads_sensitivity_multiplier: float = 1.0:
+	set(value):
+		ads_sensitivity_multiplier = clampf(value, 0.1, 2.0)
+		changed.emit()
+
+var master_volume: float = 1.0:
+	set(value):
+		master_volume = clampf(value, 0.0, 1.0)
+		changed.emit()
+
+var effects_volume: float = 1.0:
+	set(value):
+		effects_volume = clampf(value, 0.0, 1.0)
+		changed.emit()
+
+var show_fps: bool = true:
+	set(value):
+		show_fps = value
+		changed.emit()
+
+const KEYS: PackedStringArray = ["fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps"]
+
+
 func _ready() -> void:
 	load_from_disk()
+	changed.connect(_apply_audio)
+	_apply_audio()
+
+
+func _apply_audio() -> void:
+	for entry: Array in [[&"Master", master_volume], [&"Effects", effects_volume]]:
+		var index: int = AudioServer.get_bus_index(entry[0])
+		if index >= 0:
+			var volume: float = entry[1]
+			AudioServer.set_bus_volume_db(index, linear_to_db(maxf(volume, 0.0001)))
+			AudioServer.set_bus_mute(index, volume <= 0.0)
 
 
 ## Horizontal FOV in degrees for the given aspect ratio (width / height).
@@ -71,24 +104,21 @@ func step_sensitivity(direction: int) -> void:
 		mouse_sensitivity /= SENSITIVITY_STEP_RATIO
 
 
-func load_from_disk() -> void:
+func load_from_disk(path: String = SAVE_PATH) -> void:
 	var config := ConfigFile.new()
-	if config.load(SAVE_PATH) != OK:
+	if config.load(path) != OK:
 		return
-	fov_degrees = float(config.get_value(SECTION, "fov_degrees", fov_degrees))
-	mouse_sensitivity = float(config.get_value(SECTION, "mouse_sensitivity", mouse_sensitivity))
-	invert_y = bool(config.get_value(SECTION, "invert_y", invert_y))
-	head_bob_scale = float(config.get_value(SECTION, "head_bob_scale", head_bob_scale))
-	fov_kick_scale = float(config.get_value(SECTION, "fov_kick_scale", fov_kick_scale))
+	for key: String in KEYS:
+		set(key, config.get_value(SECTION, key, get(key)))
 
 
-func save_to_disk() -> void:
+func save_to_disk(path: String = SAVE_PATH) -> Error:
 	var config := ConfigFile.new()
-	config.set_value(SECTION, "fov_degrees", fov_degrees)
-	config.set_value(SECTION, "mouse_sensitivity", mouse_sensitivity)
-	config.set_value(SECTION, "invert_y", invert_y)
-	config.set_value(SECTION, "head_bob_scale", head_bob_scale)
-	config.set_value(SECTION, "fov_kick_scale", fov_kick_scale)
-	var error: Error = config.save(SAVE_PATH)
+	# Retain other sections if later phases add their own preferences.
+	config.load(path)
+	for key: String in KEYS:
+		config.set_value(SECTION, key, get(key))
+	var error: Error = config.save(path)
 	if error != OK:
-		push_warning("ViewSettings: could not save %s (error %d)" % [SAVE_PATH, error])
+		push_warning("ViewSettings: could not save %s (error %d)" % [path, error])
+	return error

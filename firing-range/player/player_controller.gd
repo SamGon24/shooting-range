@@ -100,13 +100,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 			var motion := event as InputEventMouseMotion
 			_apply_look(motion.screen_relative)
-	elif event is InputEventMouseButton:
-		var button := event as InputEventMouseButton
-		if button.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	elif event.is_action_pressed("ui_cancel"):
-		# Esc frees the mouse; clicking the window grabs it again.
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif event.is_action_pressed("fire") and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
 
 
 func _process(_delta: float) -> void:

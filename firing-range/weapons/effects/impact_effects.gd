@@ -164,6 +164,7 @@ func _build_sounds() -> void:
 	var stream: AudioStreamWAV = SfxFactory.impact()
 	for index: int in sound_players:
 		var player := AudioStreamPlayer3D.new()
+		player.bus = &"Effects"
 		player.name = "ImpactSound%d" % index
 		player.stream = stream
 		player.volume_db = sound_volume_db

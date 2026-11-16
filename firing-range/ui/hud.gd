@@ -30,6 +30,8 @@ var _view: WeaponView
 
 
 func _ready() -> void:
+	ViewSettings.changed.connect(_refresh_preferences)
+	_refresh_preferences()
 	feedback.feedback.connect(feedback_view.show_feedback)
 	feedback.stats_changed.connect(_mark_stats_dirty)
 	_refresh_stats()
@@ -149,3 +151,7 @@ func _refresh_stats() -> void:
 	var stats: RangeStats = feedback.stats
 	var ttk: String = "—" if stats.last_time_to_kill < 0.0 else "%.3f s" % stats.last_time_to_kill
 	_stats_label.text = "RANGE STATS\nShots  %d     Hits  %d\nAccuracy  %.1f%%\nHeadshots  %.1f%%\nLast TTK  %s\n[T] Reset stats" % [stats.shots, stats.hits, stats.accuracy_percent(), stats.headshot_percent(), ttk]
+
+
+func _refresh_preferences() -> void:
+	_fps.visible = ViewSettings.show_fps
