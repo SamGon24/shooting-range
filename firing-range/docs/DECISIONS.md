@@ -268,4 +268,4 @@ Perf probe walking downrange and firing full-auto with reloads, 1280x720, window
 | Firing, uncapped | 163.7 fps | 102.0 fps | 11.4 ms |
 | Firing with bullet paths, uncapped | 132.1 fps | 53.0 fps | 23.9 ms |
 
-Drag, recoil and spread cost about 0.3 ms a frame against Milestone 2's 177.8 fps uncapped. No capped run had a frame over 25 ms. 206 tests pass.
+Drag, recoil and spread cost about 0.5 ms a frame against Milestone 2's 177.8 fps uncapped (5.6 to 6.1 ms). No capped run had a frame over 25 ms. 206 tests pass.
