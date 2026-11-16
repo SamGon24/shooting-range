@@ -35,6 +35,9 @@ var _focused_frames: int = 0
 var _firing: bool = false
 var _shots: int = 0
 var _hits: int = 0
+var _stress: Node
+var _min_ragdoll_parts: int = 1000000
+var _max_ragdoll_parts: int = 0
 
 
 func _ready() -> void:
@@ -81,6 +84,12 @@ func _process(delta: float) -> void:
 	if _elapsed < WARMUP_SECONDS:
 		return
 	_frame_times_usec.append(frame_usec)
+	if _stress == null:
+		_stress = get_tree().get_first_node_in_group(&"range_stress")
+	if _stress != null:
+		var active: int = int(_stress.call("get_active_part_count"))
+		_min_ragdoll_parts = mini(_min_ragdoll_parts, active)
+		_max_ragdoll_parts = maxi(_max_ragdoll_parts, active)
 	if DisplayServer.window_is_focused():
 		_focused_frames += 1
 	if _elapsed >= WARMUP_SECONDS + MEASURE_SECONDS:
@@ -141,6 +150,9 @@ func _report_and_quit() -> void:
 		print("player speed:    %.2f m/s" % _player.get_horizontal_speed())
 	if _firing:
 		print("shots fired:     %d (%d hits) since start" % [_shots, _hits])
+	if _stress != null:
+		print("stress props:    %d (awake throughout)" % int(_stress.call("get_prop_count")))
+		print("ragdoll parts:   %d min / %d max during measurement" % [_min_ragdoll_parts, _max_ragdoll_parts])
 	get_tree().quit()
 
 

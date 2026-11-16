@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://range/range_builder.gd" id="1_builder"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -12,6 +12,8 @@
 [ext_resource type="Script" path="res://debug/bullet_paths.gd" id="10_paths"]
 
 [ext_resource type="Script" path="res://ui/pause_menu.gd" id="11_pause"]
+
+[ext_resource type="Script" path="res://debug/range_stress.gd" id="12_stress"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_material"]
 sky_top_color = Color(0.32, 0.5, 0.74, 1)
@@ -74,3 +76,6 @@ script = ExtResource("10_paths")
 
 [node name="PauseMenu" type="CanvasLayer" parent="."]
 script = ExtResource("11_pause")
+
+[node name="RangeStress" type="Node" parent="."]
+script = ExtResource("12_stress")
