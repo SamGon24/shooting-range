@@ -7,6 +7,11 @@ extends CanvasLayer
 @export_range(0.0, 1.0, 0.05) var crosshair_hide_aim_blend: float = 0.5
 
 @export var fps_update_seconds: float = 0.25
+## Stats are recorded immediately; throttle expensive text shaping.
+@export var stats_update_seconds: float = 0.2
+
+var _stats_dirty: bool = false
+var _stats_elapsed: float = 0.0
 
 var _fps_elapsed: float = 0.0
 var _fps_frames: int = 0
@@ -26,7 +31,7 @@ var _view: WeaponView
 
 func _ready() -> void:
 	feedback.feedback.connect(feedback_view.show_feedback)
-	feedback.stats_changed.connect(_refresh_stats)
+	feedback.stats_changed.connect(_mark_stats_dirty)
 	_refresh_stats()
 	_scope.visible = false
 	_update_scope_aspect()
@@ -43,10 +48,14 @@ func _physics_process(_delta: float) -> void:
 	if _reset_latched or Input.is_action_just_pressed("range_stats_reset"):
 		_reset_latched = false
 		feedback.reset_stats()
+		_refresh_stats()
 		feedback_view.clear_feedback()
 
 
 func _process(delta: float) -> void:
+	_stats_elapsed += delta
+	if _stats_dirty and _stats_elapsed >= stats_update_seconds:
+		_refresh_stats()
 	_fps_elapsed += delta
 	_fps_frames += 1
 	if _fps_elapsed >= fps_update_seconds:
@@ -130,7 +139,13 @@ func _update_scope_aspect() -> void:
 	material.set_shader_parameter(&"aspect", viewport_size.x / maxf(viewport_size.y, 1.0))
 
 
+func _mark_stats_dirty() -> void:
+	_stats_dirty = true
+
+
 func _refresh_stats() -> void:
+	_stats_dirty = false
+	_stats_elapsed = 0.0
 	var stats: RangeStats = feedback.stats
 	var ttk: String = "—" if stats.last_time_to_kill < 0.0 else "%.3f s" % stats.last_time_to_kill
 	_stats_label.text = "RANGE STATS\nShots  %d     Hits  %d\nAccuracy  %.1f%%\nHeadshots  %.1f%%\nLast TTK  %s\n[T] Reset stats" % [stats.shots, stats.hits, stats.accuracy_percent(), stats.headshot_percent(), ttk]

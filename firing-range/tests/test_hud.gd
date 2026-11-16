@@ -148,3 +148,13 @@ func test_stats_reset_key_clears_session_and_transient_feedback() -> void:
 	assert_false(_hud.feedback_view.is_marker_active())
 	assert_string_contains((_hud.get_node("Stats/Readout") as Label).text, "Shots  0")
 	assert_string_contains((_hud.get_node("FPS") as Label).text, "FPS")
+
+
+func test_stats_record_immediately_and_display_within_refresh_interval() -> void:
+	var readout := _hud.get_node("Stats/Readout") as Label
+	_hud.feedback.stats.record_shot()
+	_hud.feedback.stats_changed.emit()
+	assert_eq(_hud.feedback.stats.shots, 1)
+	assert_string_contains(readout.text, "Shots  0", "text work is deferred, not the statistics")
+	await wait_physics_frames(15)
+	assert_string_contains(readout.text, "Shots  1")
