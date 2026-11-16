@@ -286,6 +286,27 @@ func test_switching_to_the_current_weapon_does_nothing() -> void:
 	assert_eq(_weapons.get_current_logic().state, WeaponLogic.State.READY)
 
 
+func test_a_click_shorter_than_one_tick_still_fires() -> void:
+	# A real click arrives as input events. Press and release both land
+	# before the next physics tick, so polling the action would see nothing.
+	_weapons.request_switch(1)
+	await wait_physics_frames(_seconds(_rifle.lower_time + _sniper.raise_time) + 4)
+	watch_signals(_weapons)
+
+	var press := InputEventAction.new()
+	press.action = &"fire"
+	press.pressed = true
+	Input.parse_input_event(press)
+	var release := InputEventAction.new()
+	release.action = &"fire"
+	release.pressed = false
+	Input.parse_input_event(release)
+	await wait_physics_frames(4)
+
+	assert_signal_emit_count(_weapons, "shot_fired", 1)
+	assert_eq(_weapons.get_current_logic().ammo, _sniper.magazine_size - 1)
+
+
 func test_sniper_fires_one_round_per_pull_through_the_controller() -> void:
 	_weapons.request_switch(1)
 	await wait_physics_frames(_seconds(_rifle.lower_time + _sniper.raise_time) + 4)

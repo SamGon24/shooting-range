@@ -32,6 +32,9 @@ var _pending: int = -1
 var _input: WeaponInput = WeaponInput.new()
 var _last_ammo: int = -1
 var _warned_no_system: bool = false
+## Fire and reload presses seen since the last physics tick.
+var _fire_latched: bool = false
+var _reload_latched: bool = false
 
 
 func _ready() -> void:
@@ -55,12 +58,17 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Mouse wheel "presses" last a single frame, so they are caught as events
-	# here and applied on the next physics tick.
+	# Presses are caught as events and applied on the next physics tick. A
+	# mouse wheel "press" lasts a single frame, and a quick click can start
+	# and end between two ticks; polling in the tick would miss both.
 	if event.is_action_pressed("weapon_next"):
 		request_switch_relative(1)
 	elif event.is_action_pressed("weapon_prev"):
 		request_switch_relative(-1)
+	elif event.is_action_pressed("fire"):
+		_fire_latched = true
+	elif event.is_action_pressed("reload"):
+		_reload_latched = true
 
 
 func _physics_process(delta: float) -> void:
@@ -75,10 +83,16 @@ func _physics_process(delta: float) -> void:
 
 	var logic: WeaponLogic = _logics[_current]
 	var controls_live: bool = _controls_live()
-	_input.trigger_held = controls_live and Input.is_action_pressed("fire")
-	_input.trigger_pressed = controls_live and Input.is_action_just_pressed("fire")
+	# Edges come from the latches (real input events) or from polling (input
+	# injected with Input.action_press, as tests and debug tools do).
+	var fire_pressed: bool = _fire_latched or Input.is_action_just_pressed("fire")
+	var reload_pressed: bool = _reload_latched or Input.is_action_just_pressed("reload")
+	_fire_latched = false
+	_reload_latched = false
+	_input.trigger_pressed = controls_live and fire_pressed
+	_input.trigger_held = controls_live and (fire_pressed or Input.is_action_pressed("fire"))
 	_input.aim_held = controls_live and Input.is_action_pressed("aim")
-	_input.reload_pressed = controls_live and Input.is_action_just_pressed("reload")
+	_input.reload_pressed = controls_live and reload_pressed
 	_input.sprinting = player.is_sprinting
 
 	var shots: int = logic.tick(delta, _input)
