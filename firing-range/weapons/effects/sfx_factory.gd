@@ -76,6 +76,19 @@ static func impact() -> AudioStreamWAV:
 	return _store(key, samples)
 
 
+## A decaying inharmonic pair of tones for the hinged steel targets.
+static func steel_ring() -> AudioStreamWAV:
+	const KEY: String = "steel_ring"
+	if _cache.has(KEY):
+		return _cache[KEY]
+	var samples := PackedFloat32Array()
+	samples.resize(MIX_RATE)
+	for index: int in MIX_RATE:
+		var t: float = float(index) / float(MIX_RATE)
+		samples[index] = (sin(TAU * 1600.0 * t) + 0.4 * sin(TAU * 2671.0 * t)) * exp(-t * 5.0) * 0.5
+	return _store(KEY, samples)
+
+
 static func _store(key: String, samples: PackedFloat32Array) -> AudioStreamWAV:
 	var data := PackedByteArray()
 	data.resize(samples.size() * 2)

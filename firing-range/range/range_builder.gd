@@ -47,6 +47,12 @@ const WORLD_LAYER: int = 1
 @export var sign_board_color: Color = Color(0.10, 0.11, 0.12)
 @export var sign_text_color: Color = Color(0.96, 0.92, 0.55)
 
+@export_group("Targets")
+@export var dummy_settings: TargetSettings = preload("res://targets/data/dummy_default.tres")
+@export var rail_length: float = 4.0
+@export var walk_target_speed: float = 1.5
+@export var sprint_target_speed: float = 6.0
+
 var _geometry: Node3D
 var _grid_materials: Dictionary[Color, ShaderMaterial] = {}
 var _flat_materials: Dictionary[Color, StandardMaterial3D] = {}
@@ -62,6 +68,7 @@ func _ready() -> void:
 	_build_lanes()
 	_build_distance_markers()
 	_build_movement_test_area()
+	_build_targets()
 
 
 ## Total width of all lanes, metres.
@@ -249,6 +256,47 @@ func _build_movement_test_area() -> void:
 		Vector3(tunnel_centre.x, clearance + 0.15, tunnel_centre.z),
 		prop_color
 	)
+
+
+## Stagger the stationary silhouettes across lanes so near ones do not mask
+## every distant target. The middle of each lane remains a walking route.
+func _build_targets() -> void:
+	var targets := Node3D.new()
+	targets.name = "Targets"
+	add_child(targets)
+	var hits := TargetHits.new()
+	targets.add_child(hits)
+	for index: int in marker_distances.size():
+		var lane: int = index % lane_count
+		var x: float = -get_lanes_width() * 0.5 + lane_width * (float(lane) + 0.3)
+		var dummy := TargetDummy.new()
+		dummy.name = "Dummy%dm" % marker_distances[index]
+		dummy.settings = dummy_settings
+		dummy.armor_plates = index % 4
+		dummy.position = Vector3(x, 0.0, -float(marker_distances[index]))
+		targets.add_child(dummy)
+	for distance: int in [50, 100]:
+		for fast: bool in [false, true]:
+			var rail := TargetRail.new()
+			rail.name = "Rail%d%s" % [distance, "Sprint" if fast else "Walk"]
+			rail.length = rail_length
+			rail.speed = sprint_target_speed if fast else walk_target_speed
+			var x: float = get_lanes_width() * 0.5 - lane_width if fast else -get_lanes_width() * 0.5 + 0.5
+			rail.position = Vector3(x, 0.0, -float(distance))
+			targets.add_child(rail)
+			var dummy := TargetDummy.new()
+			dummy.settings = dummy_settings
+			rail.add_child(dummy)
+			_add_paint("Rail", Vector3(rail_length, 0.04, 0.10), Vector3(x + rail_length * 0.5, 0.03, -float(distance)), wall_color, targets)
+	for index: int in 3:
+		var distance: int = [100, 200, 300][index]
+		var x: float = -get_lanes_width() * 0.5 + lane_width * (float(index * 2 % lane_count) + 0.75)
+		var plate := SteelPlate.new()
+		plate.name = "Steel%dm" % distance
+		plate.position = Vector3(x, 1.5, -float(distance))
+		targets.add_child(plate)
+		_add_box("SteelPost", Vector3(0.10, 2.1, 0.10), Vector3(x - 0.5, 1.05, -float(distance)), wall_color, targets)
+		_add_box("SteelBar", Vector3(1.0, 0.08, 0.10), Vector3(x, 1.89, -float(distance)), wall_color, targets)
 
 
 # --- Helpers ---

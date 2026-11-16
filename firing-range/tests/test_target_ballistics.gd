@@ -51,3 +51,15 @@ func test_rifle_hits_each_limb_with_limb_multiplier() -> void:
 		_fire("res://weapons/data/halberd_rifle.tres", aim.x, aim.y)
 		assert_eq(_hits.size(), 1)
 		assert_almost_eq(_dummy.state.health, 100.0 - 28.8 * 0.8, 0.02)
+
+
+func test_rail_carried_zones_are_hit_at_their_moved_position() -> void:
+	var rail := TargetRail.new()
+	add_child_autofree(rail)
+	rail.set_physics_process(false)
+	_dummy.reparent(rail)
+	rail.advance(0.5)
+	await wait_physics_frames(2)
+	_fire("res://weapons/data/halberd_rifle.tres", 0.75, 1.25)
+	assert_eq(_hits.size(), 1)
+	assert_almost_eq(_dummy.state.health, 71.2, 0.02)

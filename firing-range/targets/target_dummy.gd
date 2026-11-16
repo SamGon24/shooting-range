@@ -2,7 +2,7 @@ class_name TargetDummy
 extends Node3D
 ## Greybox humanoid: six non-overlapping colliders, one shared health state.
 
-signal damaged(hit: ProjectileHit, zone: TargetHitZone.Zone, amount: float)
+signal damaged(hit: ProjectileHit, zone: TargetSettings.Zone, amount: float)
 signal killed
 signal restored
 
@@ -20,11 +20,11 @@ func _ready() -> void:
 	state = TargetHealth.new(settings, armor_plates)
 	_pivot = Node3D.new()
 	add_child(_pivot)
-	_add_zone(TargetHitZone.Zone.HEAD, Vector3(0.30, 0.30, 0.28), Vector3(0, 1.65, 0), Color(0.65, 0.65, 0.65))
-	_add_zone(TargetHitZone.Zone.TORSO, Vector3(0.48, 0.60, 0.28), Vector3(0, 1.18, 0), Color(0.48, 0.48, 0.48))
+	_add_zone(TargetSettings.Zone.HEAD, Vector3(0.30, 0.30, 0.28), Vector3(0, 1.65, 0), Color(0.65, 0.65, 0.65))
+	_add_zone(TargetSettings.Zone.TORSO, Vector3(0.48, 0.60, 0.28), Vector3(0, 1.18, 0), Color(0.48, 0.48, 0.48))
 	for side: float in [-1.0, 1.0]:
-		_add_zone(TargetHitZone.Zone.LIMB, Vector3(0.16, 0.64, 0.22), Vector3(side * 0.35, 1.16, 0), Color(0.56, 0.56, 0.56))
-		_add_zone(TargetHitZone.Zone.LIMB, Vector3(0.19, 0.82, 0.24), Vector3(side * 0.14, 0.45, 0), Color(0.56, 0.56, 0.56))
+		_add_zone(TargetSettings.Zone.LIMB, Vector3(0.16, 0.64, 0.22), Vector3(side * 0.35, 1.16, 0), Color(0.56, 0.56, 0.56))
+		_add_zone(TargetSettings.Zone.LIMB, Vector3(0.19, 0.82, 0.24), Vector3(side * 0.14, 0.45, 0), Color(0.56, 0.56, 0.56))
 
 
 func _physics_process(delta: float) -> void:
@@ -41,7 +41,7 @@ func advance(delta: float) -> void:
 		_pivot.rotation.x = -PI * 0.5 * clampf(state.down_time / settings.pop_seconds, 0.0, 1.0)
 
 
-func receive_hit(hit: ProjectileHit, zone: TargetHitZone.Zone) -> void:
+func receive_hit(hit: ProjectileHit, zone: TargetSettings.Zone) -> void:
 	if state.dead:
 		return
 	var amount: float = hit.damage * settings.multiplier(zone, hit.spec)
@@ -57,7 +57,7 @@ func _set_hittable(enabled: bool) -> void:
 		zone.collision_layer = 1 if enabled else 0
 
 
-func _add_zone(kind: TargetHitZone.Zone, size: Vector3, centre: Vector3, color: Color) -> void:
+func _add_zone(kind: TargetSettings.Zone, size: Vector3, centre: Vector3, color: Color) -> void:
 	var body := TargetHitZone.new()
 	body.name = ["Head", "Torso", "Limb"][kind]
 	body.zone = kind

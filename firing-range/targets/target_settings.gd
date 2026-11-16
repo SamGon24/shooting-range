@@ -2,6 +2,8 @@ class_name TargetSettings
 extends Resource
 ## Shared dummy tuning. Distances and dimensions use metres, times seconds.
 
+enum Zone { HEAD, TORSO, LIMB }
+
 @export var max_health: float = 100.0
 @export var plate_health: float = 50.0
 @export_range(0, 3) var armor_plates: int = 0
@@ -13,10 +15,10 @@ extends Resource
 @export var limb_multiplier: float = 0.8
 
 
-func multiplier(zone: TargetHitZone.Zone, spec: ProjectileSpec) -> float:
+func multiplier(zone: Zone, spec: ProjectileSpec) -> float:
 	match zone:
-		TargetHitZone.Zone.HEAD:
+		Zone.HEAD:
 			return sniper_head_multiplier if spec.weapon_class == ProjectileSpec.WeaponClass.SNIPER else head_multiplier
-		TargetHitZone.Zone.LIMB:
+		Zone.LIMB:
 			return limb_multiplier
 	return torso_multiplier
