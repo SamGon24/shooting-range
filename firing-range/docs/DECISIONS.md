@@ -163,6 +163,8 @@ Caveats on these numbers:
 
 ### Shots leave from the eye, not the muzzle
 
+**Superseded by sight zeroing below:** the fixed gameplay bore origin is now one configured sight height below the eye. Animated viewmodel geometry still has no effect on hits.
+
 Bullets start at `PlayerController.get_eye_position()` along `get_aim_basis()`. The viewmodel, its kick and the muzzle flash are cosmetic. A test fires a second of full-auto and checks every round lands on the same point.
 
 ### Weapon timing
@@ -307,3 +309,51 @@ Headless GUT: 221 tests cover the complete project, including armor-first carry-
 | 60.0 fps | 53.3 fps | 21.18 ms | 0 of 601 | 162 / 2,750 |
 
 The extra meshes and physics bodies retain the 60 fps target on the Intel Iris Plus 655. Values above describe a capped run, not an uncapped headroom measurement.
+
+
+## Sight zeroing (after Milestone 4)
+
+### Geometry-derived bore offset and equip-time calibration
+
+Both weapon Resources now specify `zero_distance_m = 100.0`. `sight_height_m` is measured from the reference geometry, rather than from the animated pose or the camera-relative ADS translation:
+
+| Weapon | Sight reference | Bore reference | Sight height |
+|---|---|---|---|
+| Halberd R-5 | FrontSightPost tip: centre y 0.045 + half-height 0.015 = 0.060 m | Barrel / Muzzle centre y 0.010 m | 0.050 m |
+| Longwatch B-9 | Scope optical axis y 0.085 m | Barrel / Muzzle centre y 0.012 m | 0.073 m |
+
+The projectile starts at `gameplay eye - gameplay aim up * sight_height_m`, without forward or sideways cosmetic muzzle offsets. The reference geometry supplies the tuning value only; removing the viewmodel, changing its kick or moving its rendered pose cannot alter the shot. This replaces the earlier eye-origin convention and makes the below-sight start and both sight-line crossings possible.
+
+`SightZeroing.solve()` bisects the upward low-arc bracket from 0 to 45 degrees, using full `sin` and `cos` to form each trial launch velocity. Every trial uses `ProjectileMath.step_drag()` at the actual physics tick, including projectile gravity scale and drag at the active system's air density. Its final sample intersects the sight-distance plane along the same straight chord used by the projectile sweep, rather than integrating a shorter final tick. There is no flat-fire formula, small-angle approximation or separate hit path in calibration.
+
+`WeaponController` solves once when the weapon is equipped, including the initial equip. Switching back solves again with the current atmosphere and physics settings. Each shot rotates the gameplay aim upward by the cached angle and applies spread around that bore direction. Existing recoil remains in the gameplay aim, and this shot's recoil is still applied after its bullet leaves. The calibration is for a horizontal line of sight; it is a fixed mechanical bore/sight angle when aiming uphill or downhill. A zero distance of 0 disables the angular correction; an unreachable low-arc zero warns and falls back to an uncalibrated bore.
+
+### Angles and trajectory table
+
+Godot's own integrator and swept-plane intersection, 60 Hz, gravity 9.81 m/s², air density 1.225 kg/m³, original weapon bullet specs, level settled aim:
+
+| Weapon | Elevation above sight line (radians) | Elevation (degrees) |
+|---|---|---|
+| Halberd R-5 | 0.001238613 | 0.070967308° |
+| Longwatch B-9 | 0.001367129 | 0.078330732° |
+
+Signed impact height relative to point of aim, in centimetres. Positive is above aim; negative is below. These are zeroed trajectories, not the old unzeroed horizontal-launch drop figures.
+
+| Distance | Halberd R-5 | Longwatch B-9 |
+|---|---|---|
+| 25 m | -2.359 | -4.295 |
+| 50 m | -0.604 | -2.048 |
+| 75 m | +0.203 | -0.597 |
+| 100 m | 0.000 | 0.000 |
+| 125 m | -1.276 | -0.302 |
+| 150 m | -3.689 | -1.501 |
+| 200 m | -12.187 | -6.746 |
+| 300 m | -46.218 | -29.710 |
+
+**The requested above-aim impact at 50 m conflicts with the measured sight heights and a 100 m zero.** The rifle is still below its first crossing at 50 m; it is above aim at 75 m and returns through aim at 100 m. The sniper's 73 mm sight height puts its first crossing at 100 m, with its second crossing a little farther downrange. Keeping the geometry and 100 m zeros therefore requires the below-aim values shown at 50 m. Getting both weapons above aim there would require changing sight geometry or zero distance. The tests preserve these physical inputs and the computed offsets rather than assuming a sign; a separate lower-sight test demonstrates the expected positive 50 m rise and two crossings.
+
+### Verification
+
+Pure solver tests compare against independent 240 Hz integration with and without drag, exercise a launch angle above 20 degrees to guard against small-angle shortcuts, and cover disabled and unreachable zeros. Geometry tests measure the front sight tip and scope axis against the viewmodel muzzle references. Live controller tests equip both weapons and fire into real Jolt walls at 50, 100 and 300 m: zero-distance impacts must be within 1 cm of aim, and other distances must agree with the integrator within 1 mm. A switch test changes air density and verifies recalibration on equip. Existing recoil, spread and viewmodel-independence tests remain in the full suite.
+
+Full headless suite: **228/228 tests pass**, with clean shutdown. Headless and windowed startup checks both completed without errors.
