@@ -57,3 +57,8 @@ A first-person shooter MVP: a military-style firing range for testing weapons an
 - Make small commits with clear messages, one per working step.
 - Log non-obvious choices (renderer, drag model, tuning values) in `docs/DECISIONS.md`.
 - If a feature costs too much performance on the target machine, say so and propose a cheaper version. Don't silently drop it.
+
+## Future phases (not now, but don't block them)
+
+- **Web export:** keep the Compatibility renderer and GDScript only; avoid threads, native plugins and file system access in gameplay code.
+- **Controller support:** all input goes through InputMap actions, never hardcoded keys or mouse buttons. Look/aim code takes an input delta that a gamepad stick can feed later.
