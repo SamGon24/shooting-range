@@ -4,8 +4,8 @@ extends Node
 ## weapon's `WeaponLogic` each physics tick, handles switching, and fires
 ## through the `ProjectileSystem`.
 ##
-## Shots leave from the player's gameplay eye along the gameplay aim
-## direction. The viewmodel, camera effects and sounds listen to the signals
+## Shots leave a fixed sight-height below the gameplay eye, along the
+## gameplay aim plus the equipped weapon's numerical zero angle. The viewmodel, camera effects and sounds listen to the signals
 ## below and never feed anything back.
 
 signal weapon_changed(data: WeaponData)
@@ -33,6 +33,7 @@ var _logics: Array[WeaponLogic] = []
 var _recoils: Array[RecoilLogic] = []
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _current: int = -1
+var _zero_angle: float = 0.0
 ## Slot the player asked to switch to, or -1.
 var _pending: int = -1
 var _input: WeaponInput = WeaponInput.new()
@@ -112,7 +113,8 @@ func _physics_process(delta: float) -> void:
 	for _shot: int in shots:
 		# The bullet leaves inside the current cone around the aim, before
 		# this shot's kick moves it.
-		var aim: Vector3 = -player.get_aim_basis().z
+		var aim_basis: Basis = player.get_aim_basis()
+		var aim: Vector3 = (-aim_basis.z).rotated(aim_basis.x, _zero_angle)
 		_launch_projectile(logic.data, recoil.deviate(aim, recoil.spread_degrees(logic.aim_progress)))
 		var kick: Vector2 = recoil.on_shot(logic.aim_progress)
 		player.add_recoil(deg_to_rad(kick.y), -deg_to_rad(kick.x))
@@ -144,6 +146,11 @@ func request_switch_relative(step: int) -> void:
 		return
 	var from: int = _pending if _pending != -1 else _current
 	request_switch(posmod(from + step, _logics.size()))
+
+
+## Cached upward bore angle in radians, calibrated on equip for level aim.
+func get_zero_angle() -> float:
+	return _zero_angle
 
 
 func get_current_slot() -> int:
@@ -219,10 +226,23 @@ func _update_switch() -> void:
 
 
 func _announce_weapon() -> void:
+	_calibrate_zero()
 	var logic: WeaponLogic = _logics[_current]
 	_last_ammo = logic.ammo
 	weapon_changed.emit(logic.data)
 	ammo_changed.emit(logic.ammo, logic.data.magazine_size)
+
+
+func _calibrate_zero() -> void:
+	if projectile_system == null:
+		projectile_system = get_tree().get_first_node_in_group(ProjectileSystem.GROUP) as ProjectileSystem
+	var density: float = projectile_system.air_density if projectile_system != null else ProjectileMath.SEA_LEVEL_AIR_DENSITY
+	var data: WeaponData = get_current_data()
+	var gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
+	_zero_angle = SightZeroing.solve(data.projectile, data.zero_distance_m, data.sight_height_m, gravity, density, 1.0 / float(Engine.physics_ticks_per_second))
+	if is_nan(_zero_angle):
+		_zero_angle = 0.0
+		push_warning("WeaponController: sight zero is unreachable; using the uncalibrated bore.")
 
 
 func _launch_projectile(data: WeaponData, direction: Vector3) -> void:
@@ -233,7 +253,8 @@ func _launch_projectile(data: WeaponData, direction: Vector3) -> void:
 			_warned_no_system = true
 			push_warning("WeaponController: no ProjectileSystem in the scene; shots go nowhere.")
 		return
-	projectile_system.fire(player.get_eye_position(), direction, data.projectile)
+	var origin: Vector3 = player.get_eye_position() - player.get_aim_basis().y * data.sight_height_m
+	projectile_system.fire(origin, direction, data.projectile)
 
 
 func _on_logic_fired(logic: WeaponLogic) -> void:

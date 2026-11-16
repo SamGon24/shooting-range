@@ -16,6 +16,14 @@ extends Resource
 ## What the weapon fires (muzzle velocity and, later, drag and damage).
 @export var projectile: ProjectileSpec
 
+@export_group("Sight zero")
+## Horizontal distance where a level sight line meets the calibrated path.
+## 0 disables angular calibration (the bore offset still applies).
+@export_range(0.0, 1000.0, 1.0, "suffix:m") var zero_distance_m: float = 100.0
+## Sight line above the bore, measured from the reference viewmodel geometry.
+## Gameplay uses this fixed value, never the animated viewmodel transform.
+@export_range(0.0, 0.5, 0.001, "suffix:m") var sight_height_m: float = 0.0
+
 @export_group("Magazine")
 @export_range(1, 200) var magazine_size: int = 30
 ## Reload time with rounds left in the magazine.

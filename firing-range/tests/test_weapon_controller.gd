@@ -83,7 +83,7 @@ func _aim_fully() -> void:
 	await wait_physics_frames(_seconds(_weapons.get_current_data().ads_time) + 2)
 
 
-func test_fire_launches_a_projectile_from_the_eye_along_the_aim() -> void:
+func test_fire_launches_from_the_bore_with_the_equipped_zero() -> void:
 	# Aimed and settled, so the first shot has no spread at all.
 	_add_slab(Vector3(40.0, 40.0, 1.0), Vector3(0.0, 0.0, -30.5))
 	await _aim_fully()
@@ -100,9 +100,8 @@ func test_fire_launches_a_projectile_from_the_eye_along_the_aim() -> void:
 		var hit: ProjectileHit = _hits[0]
 		assert_almost_eq(hit.position.z, -30.0, 0.001)
 		assert_almost_eq(hit.position.x, 0.0, 0.001, "straight down the aim line")
-		var drag: float = _rifle.projectile.drag_factor(_projectiles.air_density)
-		var drop: float = ProjectileMath.drop_at_distance(30.0, _rifle.projectile.muzzle_velocity, 9.81, drag)
-		assert_almost_eq(hit.position.y, _player.get_eye_position().y - drop, 0.003, "from eye height, minus gravity drop")
+		var offset: float = SightZeroing.height_at_distance(_rifle.projectile, 30.0, _rifle.sight_height_m, _weapons.get_zero_angle(), 9.81, _projectiles.air_density, 1.0 / 60.0)
+		assert_almost_eq(hit.position.y, _player.get_eye_position().y + offset, 0.003, "from bore height, with zero and gravity")
 		assert_eq(hit.spec, _rifle.projectile)
 
 
@@ -110,13 +109,16 @@ func test_shots_follow_yaw_and_pitch() -> void:
 	_player.yaw = deg_to_rad(90.0)  # Facing -X.
 	_player.pitch = deg_to_rad(-45.0)
 	await _aim_fully()
+	var basis: Basis = _player.get_aim_basis()
+	var origin: Vector3 = _player.get_eye_position() - basis.y * _rifle.sight_height_m
+	var direction: Vector3 = (-basis.z).rotated(basis.x, _weapons.get_zero_angle())
+	var expected_x: float = origin.x - origin.y / direction.y * direction.x
 	await _tap(&"fire")
 	await wait_physics_frames(4)
 	assert_gt(_hits.size(), 0, "aimed down, so it hits the floor")
 	if _hits.size() > 0:
-		var eye_height: float = _player.get_eye_position().y
 		assert_almost_eq(_hits[0].position.y, 0.0, 0.001)
-		assert_almost_eq(_hits[0].position.x, -eye_height, 0.01, "45 degrees down lands one eye-height ahead")
+		assert_almost_eq(_hits[0].position.x, expected_x, 0.003, "bore offset and elevation rotate with gameplay aim")
 		assert_almost_eq(_hits[0].position.z, 0.0, 0.01)
 
 
@@ -385,7 +387,8 @@ func test_pulling_down_against_recoil_cancels_it() -> void:
 func test_first_aimed_shot_is_exact_and_bloom_spreads_the_rest() -> void:
 	_add_slab(Vector3(40.0, 40.0, 1.0), Vector3(0.0, 0.0, -30.5))
 	await _aim_fully()
-	var aim_before: Vector3 = -_player.get_aim_basis().z
+	var basis: Basis = _player.get_aim_basis()
+	var aim_before: Vector3 = (-basis.z).rotated(basis.x, _weapons.get_zero_angle())
 	var directions: Array[Vector3] = []
 	_projectiles.projectile_fired.connect(
 		func(_slot: int, _origin: Vector3, velocity: Vector3, _spec: ProjectileSpec) -> void:
@@ -396,7 +399,7 @@ func test_first_aimed_shot_is_exact_and_bloom_spreads_the_rest() -> void:
 	Input.action_release("fire")
 	assert_gt(directions.size(), 4)
 	if directions.size() > 4:
-		assert_almost_eq(directions[0].angle_to(aim_before), 0.0, 0.000001, "first shot dead on the sights")
+		assert_almost_eq(directions[0].angle_to(aim_before), 0.0, 0.000001, "first shot has no spread around the calibrated bore")
 		var recoil: RecoilLogic = _weapons.get_current_recoil()
 		assert_almost_eq(recoil.bloom, _rifle.spread_per_shot_degrees * directions.size(), 0.0001, "bloom built up")
 
@@ -412,3 +415,44 @@ func test_hip_shots_land_inside_the_hip_cone() -> void:
 		assert_true(angle <= spread + 0.0001, "inside the cone")
 		largest = maxf(largest, angle)
 	assert_gt(largest, spread * 0.8, "and fills it")
+
+
+# --- Sight zero ---
+
+
+func test_equipped_weapons_impact_at_zero_and_match_integrator_at_50_and_300() -> void:
+	for slot: int in [0, 1]:
+		_weapons.request_switch(slot)
+		await wait_physics_frames(65)
+		await _aim_fully()
+		var data: WeaponData = _weapons.get_current_data()
+		assert_eq(data.zero_distance_m, 100.0)
+		for distance: float in [50.0, 100.0, 300.0]:
+			var wall: StaticBody3D = _add_slab(Vector3(20.0, 20.0, 0.02), Vector3(0, 2, -distance - 0.01))
+			await wait_physics_frames(2)
+			_hits.clear()
+			var eye: Vector3 = _player.get_eye_position()
+			await _tap(&"fire")
+			await wait_physics_frames(90)
+			assert_eq(_hits.size(), 1, "%s at %d m" % [data.display_name, distance])
+			if _hits.size() == 1:
+				var offset: float = _hits[0].position.y - eye.y
+				var expected: float = SightZeroing.height_at_distance(data.projectile, distance, data.sight_height_m, _weapons.get_zero_angle(), 9.81, _projectiles.air_density, 1.0 / 60.0)
+				assert_almost_eq(offset, expected, 0.001, "live hit matches the drag integrator")
+				if distance == data.zero_distance_m:
+					assert_almost_eq(offset, 0.0, 0.01, "point of aim within 1 cm")
+				else:
+					assert_lt(offset, 0.0, "geometry-derived sights put both 50 and 300 m below aim")
+			wall.free()
+
+
+func test_switch_recalibrates_using_the_live_air_density() -> void:
+	var initial: float = _weapons.get_zero_angle()
+	_projectiles.air_density = 0.0
+	_weapons.request_switch(1)
+	await wait_physics_frames(65)
+	var expected: float = SightZeroing.solve(_sniper.projectile, _sniper.zero_distance_m, _sniper.sight_height_m, 9.81, 0.0, 1.0 / 60.0)
+	assert_almost_eq(_weapons.get_zero_angle(), expected, 0.000001)
+	_weapons.request_switch(0)
+	await wait_physics_frames(65)
+	assert_lt(_weapons.get_zero_angle(), initial, "reequip recalibrates instead of keeping the old atmosphere")
