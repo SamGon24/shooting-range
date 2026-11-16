@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2_spec"]
+
+[sub_resource type="Resource" id="projectile"]
+script = ExtResource("2_spec")
+muzzle_velocity = 850.0
+gravity_scale = 1.0
+max_lifetime = 3.0
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Halberd R-5"
+automatic = true
+rounds_per_minute = 700.0
+bolt_cycle_time = 0.0
+projectile = SubResource("projectile")
+magazine_size = 30
+reload_tactical_time = 1.9
+reload_empty_time = 2.4
+ads_time = 0.25
+ads_fov_degrees = 45.0
+ads_sensitivity_scale = 0.7
+scoped = false
+raise_time = 0.4
+lower_time = 0.3
+hip_position = Vector3(0.17, -0.17, -0.42)
+ads_position = Vector3(0, -0.085, -0.34)
+kick_back = 0.035
+kick_pitch_degrees = 1.6
+shot_sound_pitch_hz = 120.0
+shot_sound_duration = 0.2
