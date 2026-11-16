@@ -210,3 +210,62 @@ Perf probe walking downrange and firing full-auto with reloads, 1280x720, window
 | Sprinting, uncapped (Milestone 1 probe) | 184.3 fps | 110.0 fps | 9.7 ms |
 
 73 draw calls and about 2,050 primitives while firing. 167 tests pass.
+
+## Milestone 3: ballistics and recoil
+
+### Drag model: quadratic, constant Cd, RK4 per tick
+
+Drag deceleration is `k * |v| * v` with `k = 0.5 * air density * Cd * area / mass`. Cd is held constant rather than varying with Mach number. That is a simplification, but over the 0 to 400 m the range covers both bullets stay supersonic, where a real G7-style Cd changes slowly. Each physics tick takes one RK4 step: it is within a millimetre of a 240 Hz run at 300 m, and the drop matches the analytic flat-fire solution to 2 mm at 100, 200 and 300 m (tests in `test_projectile_math.gd` and `test_projectile_system.gd`). The flat-fire solution treats |v| as the horizontal speed, which for these shots is exact to a few parts per million. A spec with Cd 0 keeps the exact vacuum parabola.
+
+The swept raycast still goes in a straight line from the old position to the new one. Over one tick the curved path sags 0.3 mm from that chord.
+
+| Bullet | Mass, diameter, Cd | k (1/m) | Speed at 300 m | Drop at 100 / 200 / 300 m (vacuum) |
+|---|---|---|---|---|
+| Halberd R-5, 850 m/s | 4.0 g, 5.7 mm, 0.30 | 0.00117 | 598 m/s | 7.3 / 32 / 78 cm (6.8 / 27 / 61) |
+| Longwatch B-9, 900 m/s | 10.9 g, 7.82 mm, 0.27 | 0.00073 | 723 m/s | 6.4 / 27 / 63 cm (6.1 / 24 / 55) |
+
+The rifle loses about 30% of its speed by 300 m and the sniper about 20%, in line with real 5.56 mm and 7.62 mm rifle rounds.
+
+### Damage falloff by distance, not by impact speed
+
+Damage is full out to a start distance, then falls linearly to a minimum fraction at an end distance, measured along the flight path. Scaling with impact energy would have tied damage to the drag tuning; separate distance knobs are easier to balance. The rifle does 32, falling to 70% between 50 and 200 m. The sniper does 110, falling to 80% between 150 and 400 m. Hit zones and armor come in Milestone 4, on top of `ProjectileHit.damage`.
+
+### Recoil moves the real aim
+
+Each shot adds its pattern entry plus a random deviation to a recoil offset on the player (`recoil_pitch`, `recoil_yaw`). That offset sits on top of the mouse look angles, and both the bullets and the camera follow it, so recoil is gameplay rather than an effect. The camera blends the offset between ticks so a kick does not step at high frame rates.
+
+- **Recovery.** Once the weapon has rested for `recoil_recovery_delay`, the offset returns to zero at `recoil_recovery_rate`. The rifle's 0.12 s delay is longer than its 0.086 s shot interval, so nothing recovers mid-burst.
+- **Compensation is not recovered twice.** Mouse movement against the offset cancels it before it moves the base angle. Without this, a player who pulls the spray down would then have the view recover further down, below the target.
+- **Pattern reset.** The pattern restarts at shot 1 after `recoil_reset_time` without a shot. Past its last entry, the last `recoil_loop_length` entries repeat.
+- **Aimed scale.** The rifle kicks at 80% while aimed; the sniper kicks the same either way.
+
+The rifle pattern climbs about 0.45 to 0.6 degrees per shot for the first 10 rounds, drifts right, swings left, then wanders at 0.3 degrees per shot. That is about 11.8 degrees over a full magazine before the aimed scale. The sniper kicks 4 degrees up and 0.3 degrees right, ±0.5 degrees, and recovers at 12 degrees per second, well inside its 1.1 s bolt cycle.
+
+### Spread and first-shot accuracy
+
+Shots leave inside a cone: hip spread blended to aimed spread by ADS progress, plus bloom. Each shot adds bloom, and it shrinks only after the same rest delay as recoil recovery, so it builds through a burst and settles between taps. Both weapons have zero aimed spread, so the first aimed shot from a settled weapon goes exactly along the sights. Hip spread is 2 degrees for the rifle and 4 for the sniper. The rifle blooms 0.15 degrees per shot up to 1.2. Points in the cone are spread evenly over its cross-section.
+
+Recoil and spread draw from one seeded random generator on `WeaponController` (`random_seed`, or `reseed()`). Tests seed it. The Milestone 2 test that "every round lands on the same point" no longer holds now that recoil moves the aim. It is replaced by a test that a seeded burst lands identically with the `WeaponView` node removed entirely, which still proves the viewmodel never feeds into hits.
+
+### Bullet path view
+
+`debug/bullet_paths.gd` draws the points the simulation actually visited, one per tick, with no smoothing, so it shows exactly what the hit test swept. It is drawn without a depth test, so paths stay visible behind walls and over the viewmodel.
+
+The first version rebuilt an ImmediateMesh vertex by vertex every tick, which cost about 6 ms a frame with 40 long paths (84 fps uncapped against 162). Each path now builds its own line vertices as it records, and a redraw concatenates them natively into one ArrayMesh surface, at about 1 ms.
+
+### Movie Maker frames repeating (correction to the Milestone 2 note)
+
+The Milestone 2 note blamed physics for running behind in Movie Maker. The actual cause is macOS throttling a Godot window that is not in front: Movie Maker then reports far fewer frames rendered than written (25 of 200) and repeats the last one. Running with `--always-on-top` fixed it; all 200 frames were distinct.
+
+### Performance (Milestone 3)
+
+Perf probe walking downrange and firing full-auto with reloads, 1280x720, window focused for the whole run.
+
+| Run | Average | 1% low | Worst frame |
+|---|---|---|---|
+| Firing, as played (60 cap) | 60.0 fps | 53.7 fps | 18.8 ms |
+| Firing with bullet paths, as played (60 cap) | 60.0 fps | 53.6 fps | 18.7 ms |
+| Firing, uncapped | 163.7 fps | 102.0 fps | 11.4 ms |
+| Firing with bullet paths, uncapped | 132.1 fps | 53.0 fps | 23.9 ms |
+
+Drag, recoil and spread cost about 0.3 ms a frame against Milestone 2's 177.8 fps uncapped. No capped run had a frame over 25 ms. 206 tests pass.
