@@ -1,7 +1,7 @@
 class_name Crosshair
 extends Control
 ## A simple four-line crosshair with a centre dot, drawn at the middle of
-## the screen. Static for now; Milestone 5 makes the gap follow weapon spread.
+## the screen. The extra radius projects the current gameplay spread cone.
 
 ## Distance from the centre to the start of each line, pixels.
 @export_range(0.0, 40.0, 0.5, "suffix:px") var gap: float = 6.0:
@@ -15,6 +15,17 @@ extends Control
 @export var outline_color: Color = Color(0.0, 0.0, 0.0, 0.6)
 
 
+var spread_radius: float = 0.0
+
+
+## Project a cone half-angle through the active camera's vertical FOV.
+func set_spread(spread_degrees: float, vertical_fov: float, viewport_height: float) -> void:
+	var radius: float = tan(deg_to_rad(spread_degrees)) * viewport_height / (2.0 * tan(deg_to_rad(vertical_fov) * 0.5))
+	if not is_equal_approx(radius, spread_radius):
+		spread_radius = radius
+		queue_redraw()
+
+
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	resized.connect(queue_redraw)
@@ -23,8 +34,8 @@ func _ready() -> void:
 func _draw() -> void:
 	var centre: Vector2 = (size * 0.5).floor()
 	for direction: Vector2 in [Vector2.RIGHT, Vector2.LEFT, Vector2.DOWN, Vector2.UP]:
-		var from: Vector2 = centre + direction * gap
-		var to: Vector2 = centre + direction * (gap + line_length)
+		var from: Vector2 = centre + direction * (gap + spread_radius)
+		var to: Vector2 = centre + direction * (gap + spread_radius + line_length)
 		_draw_bar(from, to, thickness + 2.0, outline_color)
 		_draw_bar(from, to, thickness, color)
 	if dot_size > 0.0:

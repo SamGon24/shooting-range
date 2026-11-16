@@ -1,8 +1,22 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://ui/hud.gd" id="1_hud"]
 [ext_resource type="Script" path="res://ui/crosshair.gd" id="2_crosshair"]
 [ext_resource type="Shader" path="res://ui/scope_overlay.gdshader" id="3_scope"]
+
+[ext_resource type="Script" path="res://ui/range_feedback.gd" id="4_feedback"]
+[ext_resource type="Script" path="res://ui/feedback_view.gd" id="5_feedback_view"]
+
+[sub_resource type="StyleBoxFlat" id="stats_background"]
+bg_color = Color(0.035, 0.045, 0.055, 0.78)
+content_margin_left = 14.0
+content_margin_top = 10.0
+content_margin_right = 14.0
+content_margin_bottom = 10.0
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_left = 4
+corner_radius_bottom_right = 4
 
 [sub_resource type="ShaderMaterial" id="scope_material"]
 shader = ExtResource("3_scope")
@@ -67,3 +81,44 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 32
 horizontal_alignment = 2
+
+[node name="RangeFeedback" type="Node" parent="."]
+script = ExtResource("4_feedback")
+
+[node name="FeedbackView" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_feedback_view")
+
+[node name="FPS" type="Label" parent="."]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -150.0
+offset_right = -28.0
+offset_top = 18.0
+offset_bottom = 42.0
+horizontal_alignment = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 16
+theme_override_constants/outline_size = 4
+text = "— FPS"
+
+[node name="Stats" type="PanelContainer" parent="."]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -288.0
+offset_right = -28.0
+offset_top = 52.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("stats_background")
+
+[node name="Readout" type="Label" parent="Stats"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 16
+theme_override_constants/line_spacing = 5

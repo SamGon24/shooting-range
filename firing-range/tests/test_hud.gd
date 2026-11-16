@@ -120,3 +120,31 @@ func test_scope_overlay_shows_only_when_the_sniper_is_aimed() -> void:
 	await wait_physics_frames(_seconds(_sniper.ads_time) + 6)
 	assert_false(_hud.is_scope_visible())
 	assert_true(_hud.is_crosshair_visible())
+
+
+func test_crosshair_projects_current_spread_and_bloom_then_recovers() -> void:
+	var crosshair := _hud.get_node("Crosshair") as Crosshair
+	var initial: float = crosshair.spread_radius
+	assert_gt(initial, 0.0)
+	Input.action_press("fire")
+	await wait_physics_frames(30)
+	Input.action_release("fire")
+	assert_gt(crosshair.spread_radius, initial)
+	await wait_physics_frames(60)
+	assert_almost_eq(crosshair.spread_radius, initial, 0.02)
+
+
+func test_stats_reset_key_clears_session_and_transient_feedback() -> void:
+	_hud.feedback.stats.record_shot()
+	_hud.feedback.stats.record_hit(1, true, true, 1.0)
+	_hud.feedback.stats_changed.emit()
+	_hud.feedback_view.show_feedback(HitFeedback.Kind.KILL, Vector3(0, 1.5, -25), 100.0, true)
+	Input.action_press("range_stats_reset")
+	await wait_physics_frames(2)
+	Input.action_release("range_stats_reset")
+	assert_eq(_hud.feedback.stats.shots, 0)
+	assert_eq(_hud.feedback.stats.hits, 0)
+	assert_eq(_hud.feedback.stats.last_time_to_kill, -1.0)
+	assert_false(_hud.feedback_view.is_marker_active())
+	assert_string_contains((_hud.get_node("Stats/Readout") as Label).text, "Shots  0")
+	assert_string_contains((_hud.get_node("FPS") as Label).text, "FPS")
