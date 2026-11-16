@@ -31,6 +31,7 @@ func before_each() -> void:
 	_weapons = _player.get_node("Weapons") as WeaponController
 	_rifle = _weapons.loadout[0]
 	_sniper = _weapons.loadout[1]
+	_weapons.reseed(99)
 	await wait_physics_frames(5)
 
 
@@ -76,9 +77,16 @@ func test_starts_with_the_rifle_ready_and_the_sniper_holstered() -> void:
 # --- Firing ---
 
 
+## Holds aim until the current weapon is fully aimed.
+func _aim_fully() -> void:
+	Input.action_press("aim")
+	await wait_physics_frames(_seconds(_weapons.get_current_data().ads_time) + 2)
+
+
 func test_fire_launches_a_projectile_from_the_eye_along_the_aim() -> void:
+	# Aimed and settled, so the first shot has no spread at all.
 	_add_slab(Vector3(40.0, 40.0, 1.0), Vector3(0.0, 0.0, -30.5))
-	await wait_physics_frames(2)
+	await _aim_fully()
 	watch_signals(_weapons)
 	watch_signals(_projectiles)
 
@@ -101,6 +109,7 @@ func test_fire_launches_a_projectile_from_the_eye_along_the_aim() -> void:
 func test_shots_follow_yaw_and_pitch() -> void:
 	_player.yaw = deg_to_rad(90.0)  # Facing -X.
 	_player.pitch = deg_to_rad(-45.0)
+	await _aim_fully()
 	await _tap(&"fire")
 	await wait_physics_frames(4)
 	assert_gt(_hits.size(), 0, "aimed down, so it hits the floor")
@@ -342,14 +351,16 @@ func test_a_burst_kicks_the_aim_up_and_it_recovers() -> void:
 
 func test_later_shots_in_a_burst_land_higher() -> void:
 	_add_slab(Vector3(40.0, 40.0, 1.0), Vector3(0.0, 0.0, -30.5))
-	await wait_physics_frames(2)
+	await _aim_fully()
 	Input.action_press("fire")
 	await wait_physics_frames(_seconds(0.6))
 	Input.action_release("fire")
 	await wait_physics_frames(4)
 	assert_gt(_hits.size(), 5)
 	if _hits.size() > 5:
-		assert_gt(_hits[5].position.y, _hits[0].position.y + 1.0, "six shots climb over a metre at 30 m")
+		# Aimed, five kicks climb about 2.2 degrees (1.15 m at 30 m); bloom
+		# can move the sixth round by at most 0.75 degrees (0.39 m).
+		assert_gt(_hits[5].position.y, _hits[0].position.y + 0.7, "the burst climbs")
 
 
 func test_pulling_down_against_recoil_cancels_it() -> void:
@@ -365,3 +376,39 @@ func test_pulling_down_against_recoil_cancels_it() -> void:
 	_player._apply_look(Vector2(0.0, counts))
 	assert_almost_eq(_player.pitch + _player.recoil_pitch, view_before - kicked * 0.5, 0.00001)
 	assert_almost_eq(_player.recoil_pitch, kicked * 0.5, 0.00001, "half the kick left to recover")
+
+
+
+# --- Spread ---
+
+
+func test_first_aimed_shot_is_exact_and_bloom_spreads_the_rest() -> void:
+	_add_slab(Vector3(40.0, 40.0, 1.0), Vector3(0.0, 0.0, -30.5))
+	await _aim_fully()
+	var aim_before: Vector3 = -_player.get_aim_basis().z
+	var directions: Array[Vector3] = []
+	_projectiles.projectile_fired.connect(
+		func(_slot: int, _origin: Vector3, velocity: Vector3, _spec: ProjectileSpec) -> void:
+			directions.append(velocity.normalized())
+	)
+	Input.action_press("fire")
+	await wait_physics_frames(_seconds(0.5))
+	Input.action_release("fire")
+	assert_gt(directions.size(), 4)
+	if directions.size() > 4:
+		assert_almost_eq(directions[0].angle_to(aim_before), 0.0, 0.000001, "first shot dead on the sights")
+		var recoil: RecoilLogic = _weapons.get_current_recoil()
+		assert_almost_eq(recoil.bloom, _rifle.spread_per_shot_degrees * directions.size(), 0.0001, "bloom built up")
+
+
+func test_hip_shots_land_inside_the_hip_cone() -> void:
+	var recoil: RecoilLogic = _weapons.get_current_recoil()
+	var aim: Vector3 = -_player.get_aim_basis().z
+	var spread: float = recoil.spread_degrees(0.0)
+	assert_eq(spread, _rifle.hip_spread_degrees, "settled hip spread")
+	var largest: float = 0.0
+	for _sample: int in 300:
+		var angle: float = rad_to_deg(recoil.deviate(aim, spread).angle_to(aim))
+		assert_true(angle <= spread + 0.0001, "inside the cone")
+		largest = maxf(largest, angle)
+	assert_gt(largest, spread * 0.8, "and fills it")

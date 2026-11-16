@@ -41,6 +41,19 @@ extends Resource
 ## Seconds without a shot before the pattern starts again from shot 1.
 @export_range(0.0, 5.0, 0.01, "suffix:s") var recoil_reset_time: float = 0.3
 
+@export_group("Spread")
+## Shots leave inside a cone around the aim. Half-angle from the hip, degrees.
+@export_range(0.0, 15.0, 0.05, "suffix:°") var hip_spread_degrees: float = 2.0
+## Cone half-angle when fully aimed. With 0, the first shot from a settled
+## weapon goes exactly where the sights point.
+@export_range(0.0, 15.0, 0.05, "suffix:°") var aimed_spread_degrees: float = 0.0
+## Cone added by each shot (bloom), degrees.
+@export_range(0.0, 5.0, 0.01, "suffix:°") var spread_per_shot_degrees: float = 0.0
+@export_range(0.0, 15.0, 0.05, "suffix:°") var max_bloom_degrees: float = 1.0
+## How fast bloom shrinks once `recoil_recovery_delay` has passed without
+## a shot, degrees per second.
+@export_range(0.0, 60.0, 0.1, "suffix:°/s") var bloom_recovery_rate: float = 4.0
+
 @export_group("Aim down sights")
 ## Time to go from hip to fully aimed, and back.
 @export_range(0.05, 1.5, 0.01, "suffix:s") var ads_time: float = 0.25

@@ -110,8 +110,10 @@ func _physics_process(delta: float) -> void:
 	recoil.tick(delta)
 	var shots: int = logic.tick(delta, _input)
 	for _shot: int in shots:
-		# The bullet leaves along the aim before this shot's kick moves it.
-		_launch_projectile(logic.data)
+		# The bullet leaves inside the current cone around the aim, before
+		# this shot's kick moves it.
+		var aim: Vector3 = -player.get_aim_basis().z
+		_launch_projectile(logic.data, recoil.deviate(aim, recoil.spread_degrees(logic.aim_progress)))
 		var kick: Vector2 = recoil.on_shot(logic.aim_progress)
 		player.add_recoil(deg_to_rad(kick.y), -deg_to_rad(kick.x))
 	player.recover_recoil(deg_to_rad(recoil.recovery_allowance(delta)))
@@ -223,7 +225,7 @@ func _announce_weapon() -> void:
 	ammo_changed.emit(logic.ammo, logic.data.magazine_size)
 
 
-func _launch_projectile(data: WeaponData) -> void:
+func _launch_projectile(data: WeaponData, direction: Vector3) -> void:
 	if projectile_system == null:
 		projectile_system = get_tree().get_first_node_in_group(ProjectileSystem.GROUP) as ProjectileSystem
 	if projectile_system == null:
@@ -231,7 +233,6 @@ func _launch_projectile(data: WeaponData) -> void:
 			_warned_no_system = true
 			push_warning("WeaponController: no ProjectileSystem in the scene; shots go nowhere.")
 		return
-	var direction: Vector3 = -player.get_aim_basis().z
 	projectile_system.fire(player.get_eye_position(), direction, data.projectile)
 
 

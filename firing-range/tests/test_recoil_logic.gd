@@ -111,3 +111,62 @@ func test_absorb_cancels_recoil_before_moving_the_base_angle() -> void:
 	assert_eq(RecoilLogic.absorb(3.0, 1.0), Vector2(3.0, 1.0), "moving with the kick leaves it alone")
 	assert_eq(RecoilLogic.absorb(-2.0, 0.5), Vector2(-1.5, 0.0), "works for either sign")
 	assert_eq(RecoilLogic.absorb(0.0, -1.0), Vector2(0.0, -1.0))
+
+
+# --- Spread ---
+
+
+func test_spread_blends_from_hip_to_aimed() -> void:
+	_data.hip_spread_degrees = 2.0
+	_data.aimed_spread_degrees = 0.0
+	var recoil := RecoilLogic.new(_data, _rng)
+	assert_eq(recoil.spread_degrees(0.0), 2.0)
+	assert_eq(recoil.spread_degrees(0.5), 1.0)
+	assert_eq(recoil.spread_degrees(1.0), 0.0, "first-shot accuracy when aimed and settled")
+
+
+func test_bloom_builds_per_shot_up_to_the_maximum() -> void:
+	_data.spread_per_shot_degrees = 0.3
+	_data.max_bloom_degrees = 1.0
+	var recoil := RecoilLogic.new(_data, _rng)
+	for _shot: int in 3:
+		recoil.on_shot(1.0)
+		_ticks(recoil, 5)
+	assert_almost_eq(recoil.bloom, 0.9, 0.0001, "no recovery between shots 5 ticks apart")
+	recoil.on_shot(1.0)
+	assert_almost_eq(recoil.bloom, 1.0, 0.0001, "capped")
+	assert_almost_eq(recoil.spread_degrees(1.0), 1.0, 0.0001)
+
+
+func test_bloom_recovers_after_the_delay() -> void:
+	_data.spread_per_shot_degrees = 0.6
+	_data.max_bloom_degrees = 1.0
+	_data.bloom_recovery_rate = 6.0
+	var recoil := RecoilLogic.new(_data, _rng)
+	recoil.on_shot(1.0)
+	_ticks(recoil, 5)
+	assert_almost_eq(recoil.bloom, 0.6, 0.0001, "held during the 0.1 s delay")
+	_ticks(recoil, 1)
+	assert_almost_eq(recoil.bloom, 0.5, 0.0001, "then 0.1 degrees per tick")
+	_ticks(recoil, 10)
+	assert_eq(recoil.bloom, 0.0, "back to first-shot accuracy")
+
+
+func test_deviate_with_no_spread_keeps_the_direction() -> void:
+	var recoil := RecoilLogic.new(_data, _rng)
+	var direction := Vector3(0.3, 0.2, -1.0)
+	assert_almost_eq(recoil.deviate(direction, 0.0), direction.normalized(), Vector3.ONE * 0.000001)
+
+
+func test_deviate_stays_in_the_cone_in_every_direction() -> void:
+	var recoil := RecoilLogic.new(_data, _rng)
+	var sum := Vector3.ZERO
+	for direction: Vector3 in [Vector3.FORWARD, Vector3.UP, Vector3(1.0, -1.0, 0.5)]:
+		var forward: Vector3 = direction.normalized()
+		for _sample: int in 200:
+			var shot: Vector3 = recoil.deviate(forward, 3.0)
+			assert_almost_eq(shot.length(), 1.0, 0.00001)
+			assert_true(rad_to_deg(shot.angle_to(forward)) <= 3.0001)
+			if direction == Vector3.FORWARD:
+				sum += shot - forward
+	assert_lt((sum / 200.0).length(), deg_to_rad(0.5), "centred on the aim")

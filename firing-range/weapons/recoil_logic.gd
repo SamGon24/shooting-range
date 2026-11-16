@@ -1,9 +1,10 @@
 class_name RecoilLogic
 extends RefCounted
-## Recoil for one weapon: which kick each shot in a burst gets, and how much
-## of the view kick may recover this tick. No nodes, so it is testable to
-## the tick. The kick itself is applied to the player's view by
-## `WeaponController`; this class only does the counting and the numbers.
+## Recoil and spread for one weapon: which kick each shot in a burst gets,
+## how much of the view kick may recover this tick, and the cone each shot
+## leaves in (hip or aimed spread plus bloom from recent shots). No nodes,
+## so it is testable to the tick. `WeaponController` applies the results to
+## the player's view and the projectile direction.
 ##
 ## Kicks are in degrees: x is yaw (positive to the right), y is pitch
 ## (positive up).
@@ -14,6 +15,8 @@ var data: WeaponData
 var shot_index: int = 0
 ## Seconds since the last shot. Starts large, as if the weapon had settled.
 var time_since_shot: float = 1000.0
+## Extra cone from recent shots, degrees.
+var bloom: float = 0.0
 
 var _rng: RandomNumberGenerator
 
@@ -28,6 +31,8 @@ func tick(delta: float) -> void:
 	time_since_shot += delta
 	if time_since_shot >= data.recoil_reset_time - WeaponLogic.TIME_EPSILON:
 		shot_index = 0
+	if time_since_shot >= data.recoil_recovery_delay - WeaponLogic.TIME_EPSILON:
+		bloom = maxf(bloom - data.bloom_recovery_rate * delta, 0.0)
 
 
 ## Registers a shot and returns its kick in degrees, scaled by how far the
@@ -39,7 +44,32 @@ func on_shot(aim_progress: float) -> Vector2:
 	kick *= lerpf(1.0, data.aimed_recoil_scale, clampf(aim_progress, 0.0, 1.0))
 	shot_index += 1
 	time_since_shot = 0.0
+	bloom = minf(bloom + data.spread_per_shot_degrees, data.max_bloom_degrees)
 	return kick
+
+
+## Cone half-angle for the next shot, degrees: hip or aimed spread blended
+## by `aim_progress`, plus bloom.
+func spread_degrees(aim_progress: float) -> float:
+	var base: float = lerpf(data.hip_spread_degrees, data.aimed_spread_degrees, clampf(aim_progress, 0.0, 1.0))
+	return base + bloom
+
+
+## A random direction inside a cone of `spread` degrees around `direction`,
+## spread evenly over the cone's cross-section. Returns `direction`
+## unchanged (normalised) when the cone is 0.
+func deviate(direction: Vector3, spread: float) -> Vector3:
+	var forward: Vector3 = direction.normalized()
+	if spread <= 0.0:
+		return forward
+	var angle: float = deg_to_rad(spread) * sqrt(_rng.randf())
+	var around: float = _rng.randf() * TAU
+	var side: Vector3 = forward.cross(Vector3.UP)
+	if side.length_squared() < 0.000001:
+		side = forward.cross(Vector3.RIGHT)
+	side = side.normalized()
+	var tilt_axis: Vector3 = side.rotated(forward, around)
+	return forward.rotated(tilt_axis, angle)
 
 
 ## The pattern's kick for shot `index` (0-based), without the random part.
