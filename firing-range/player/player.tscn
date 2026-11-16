@@ -1,8 +1,12 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://player/player_controller.gd" id="1_controller"]
 [ext_resource type="Resource" path="res://player/data/movement_default.tres" id="2_settings"]
 [ext_resource type="Script" path="res://player/camera_feel.gd" id="3_feel"]
+[ext_resource type="Script" path="res://weapons/weapon_controller.gd" id="4_weapons"]
+[ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data_type"]
+[ext_resource type="Resource" path="res://weapons/data/halberd_rifle.tres" id="5_rifle"]
+[ext_resource type="Resource" path="res://weapons/data/longwatch_sniper.tres" id="6_sniper"]
 
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 collision_layer = 2
@@ -26,3 +30,8 @@ current = true
 fov = 65.0
 near = 0.05
 far = 700.0
+
+[node name="Weapons" type="Node" parent="." node_paths=PackedStringArray("player")]
+script = ExtResource("4_weapons")
+loadout = Array[ExtResource("1_data_type")]([ExtResource("5_rifle"), ExtResource("6_sniper")])
+player = NodePath("..")
