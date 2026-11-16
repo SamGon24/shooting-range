@@ -7,7 +7,7 @@ Every third-party asset used in the game is listed here with its source and lice
 None from third parties.
 
 - **Geometry:** greybox, built in-engine (range, viewmodels).
-- **Sound effects:** placeholder gunshots, clicks and impact ticks are synthesised at startup from noise and sine tones by `weapons/effects/sfx_factory.gd`. They are original to this project; no recordings or samples are used.
+- **Sound effects:** placeholder gunshots, clicks, impact ticks, steel rings and hit / armor-break / kill confirmation chirps are synthesised at startup from noise and sine tones by `weapons/effects/sfx_factory.gd`. Confirmation chirps use swept sine tones with an inharmonic overtone; steel rings use decaying tones. They are original to this project; no recordings or samples are used.
 
 ## Tooling (not shipped in the game)
 

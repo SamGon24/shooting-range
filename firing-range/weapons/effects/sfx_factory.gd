@@ -89,6 +89,25 @@ static func steel_ring() -> AudioStreamWAV:
 	return _store(KEY, samples)
 
 
+## A short, decaying chirp with an inharmonic overtone. Results are shared
+## across HUD instances; all synthesis happens before the first hit.
+static func confirmation(start_hz: float, end_hz: float, duration: float) -> AudioStreamWAV:
+	var key: String = "confirmation:%.1f:%.1f:%.3f" % [start_hz, end_hz, duration]
+	if _cache.has(key):
+		return _cache[key]
+	var count: int = int(duration * float(MIX_RATE))
+	var samples := PackedFloat32Array()
+	samples.resize(count)
+	var phase: float = 0.0
+	for index: int in count:
+		var t: float = float(index) / float(MIX_RATE)
+		var progress: float = t / duration
+		phase += TAU * lerpf(start_hz, end_hz, progress) / float(MIX_RATE)
+		var envelope: float = minf(t / 0.003, 1.0) * exp(-progress * 4.0)
+		samples[index] = (sin(phase) * 0.7 + sin(phase * 1.5) * 0.3) * envelope
+	return _store(key, samples)
+
+
 static func _store(key: String, samples: PackedFloat32Array) -> AudioStreamWAV:
 	var data := PackedByteArray()
 	data.resize(samples.size() * 2)
