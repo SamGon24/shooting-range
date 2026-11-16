@@ -4,7 +4,7 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 ## Status
 
-**Built so far (Milestones 1 and 2). Milestone 2 is awaiting its play-test.**
+**Built so far (Milestones 1 to 3). Milestone 3 is awaiting its play-test.**
 
 Movement and range (Milestone 1):
 
@@ -15,13 +15,21 @@ Movement and range (Milestone 1):
 Shooting core (Milestone 2):
 
 - Two weapons: the Halberd R-5 assault rifle (full-auto, 700 rpm, 850 m/s) and the Longwatch B-9 bolt-action sniper (900 m/s, scoped).
-- Simulated projectiles, not hitscan: pooled, moved under gravity every physics tick, with a swept raycast so fast bullets can't pass through thin objects. There is no drag yet.
+- Simulated projectiles, not hitscan: pooled, moved under gravity every physics tick, with a swept raycast so fast bullets can't pass through thin objects.
 - Weapon handling: hip fire and aim down sights (FOV zoom, lower sensitivity, sniper scope overlay), tactical and empty reloads, bolt cycling, and weapon switching with raise and lower times. Sprinting blocks firing and aiming.
 - Greybox viewmodels with sway, bob, inertia and recoil kick, a muzzle flash, impact sparks and marks, and placeholder sounds generated in code.
 - Minimal HUD: crosshair, weapon name and ammo counter.
 - Debug overlay (FPS, frame time, speed, movement state), a command-line perf probe, and a hit logger.
 
-**Not built yet:** bullet drag, damage and recoil patterns (Milestone 3), targets (Milestone 4), and the full HUD (Milestone 5). Shots currently hit only the ground, walls and props. See the [Roadmap](#roadmap).
+Ballistics and recoil (Milestone 3):
+
+- Quadratic air drag from each bullet's mass, diameter and drag coefficient. The rifle round slows from 850 to about 600 m/s by 300 m and drops 78 cm there; the sniper round keeps about 720 m/s and drops 63 cm.
+- Damage falloff by distance: the rifle does 32, falling to 70% by 200 m; the sniper does 110, falling to 80% by 400 m. Every hit reports its damage, ready for targets.
+- Per-weapon recoil patterns plus random deviation, a little lighter while aimed. The kick moves the real aim. After a short pause the view recovers, and recoil you have already pulled down is not recovered a second time.
+- Spread: a hip-fire cone plus bloom that builds per shot and settles after a pause. Both weapons have zero aimed spread, so the first aimed shot from a settled weapon goes exactly where the sights point.
+- A debug view of bullet paths (F4): each bullet's simulated path, coloured from yellow to red as it slows, with a cross at the impact.
+
+**Not built yet:** targets (Milestone 4) and the full HUD (Milestone 5). Shots currently hit only the ground, walls and props. See the [Roadmap](#roadmap).
 
 ## Requirements
 
@@ -77,6 +85,7 @@ You can also open `project.godot` in the editor and press F5.
 | FOV down / up | `[` / `]` |
 | Mouse sensitivity down / up | `-` / `=` |
 | Toggle debug overlay | F3 or `\` |
+| Toggle bullet paths | F4 |
 | Release mouse | Esc (click the window to capture it again) |
 
 ## Development
@@ -113,12 +122,15 @@ These go after `--` on the command line and are mainly for Movie Maker captures 
 | `--hold=action[@seconds],...` | Presses input actions and keeps them down, each from the given time |
 | `--log-hits` | Prints every projectile hit: what it hit, where, flight time and speed |
 | `--hide-overlay` | Starts with the debug overlay hidden |
+| `--bullet-paths` | Starts with the bullet path view on |
 
 For example, switch to the sniper, aim at the 100 m line, fire, and log the hit:
 
 ```sh
 godot --quit-after 200 -- --pose=0,0,0,0,-0.96 --hold=weapon_2,aim@1.2,fire@1.8 --log-hits
 ```
+
+For Movie Maker captures, add `--always-on-top`. macOS throttles a Godot window that isn't in front, and Movie Maker then writes the same frame over and over.
 
 ### Tuning values
 
@@ -127,7 +139,10 @@ godot --quit-after 200 -- --pose=0,0,0,0,-0.96 --hold=weapon_2,aim@1.2,fire@1.8 
 | Movement: speeds, acceleration, friction, jump, slide, crouch, capsule size | `player/data/movement_default.tres` (fields documented in `player/movement_settings.gd`) |
 | Camera feel: head bob, landing dip, slide tilt, FOV kick | Exported properties on the `CameraFeel` node in `player/player.tscn` |
 | View settings: FOV, mouse sensitivity, invert Y, bob and FOV-kick scale | Defaults in `player/view_settings.gd`; the player's changes are saved to `user://settings.cfg` |
-| Weapon stats: fire rate, muzzle velocity, magazine, reload times, ADS time, FOV and sensitivity, bolt cycle, raise and lower times, viewmodel poses and kick | `weapons/data/halberd_rifle.tres` and `weapons/data/longwatch_sniper.tres` (fields documented in `weapons/weapon_data.gd`) |
+| Weapon stats: fire rate, magazine, reload times, recoil pattern and recovery, spread and bloom, ADS time, FOV and sensitivity, bolt cycle, raise and lower times, viewmodel poses and kick | `weapons/data/halberd_rifle.tres` and `weapons/data/longwatch_sniper.tres` (fields documented in `weapons/weapon_data.gd`) |
+| Bullet stats: muzzle velocity, damage and falloff, mass, diameter, drag coefficient | The `projectile` sub-resource inside each weapon `.tres` (fields documented in `ballistics/projectile_spec.gd`) |
+| Air density | Exported on the `Projectiles` node in `range/range.tscn` |
+| Bullet path view: paths kept, colours, impact cross size | Exported properties on the `BulletPaths` node in `range/range.tscn` |
 | Viewmodel motion: sway, bob, inertia, kick spring, sprint and reload poses, muzzle flash | Exported properties on the `WeaponView` node in `player/player.tscn` |
 | Impact effects: mark size and count, sparks, impact volume | Exported properties on the `ImpactEffects` node in `range/range.tscn` |
 | Weapon sound volumes | Exported properties on the `Weapons/Audio` node in `player/player.tscn` |
@@ -139,7 +154,7 @@ godot --quit-after 200 -- --pose=0,0,0,0,-0.96 --hold=weapon_2,aim@1.2,fire@1.8 
 firing-range/
 ├── addons/gut/       GUT test framework (vendored, third-party)
 ├── ballistics/       Projectile spec, integration math and the pooled projectile system
-├── debug/            Debug overlay, perf probe, pose and hold helper, hit logger
+├── debug/            Debug overlay, perf probe, pose and hold helper, hit logger, bullet paths
 ├── docs/             DECISIONS.md: design and tuning decisions with evidence
 ├── player/           FPS controller, movement math, camera feel, view settings
 │   └── data/         Movement tuning resource (.tres)
@@ -147,7 +162,7 @@ firing-range/
 ├── targets/          Dummies, steel plates, moving targets (Milestone 4, empty)
 ├── tests/            GUT tests
 ├── ui/               HUD, crosshair and scope overlay
-└── weapons/          Weapon stats, state machine, controller and viewmodel
+└── weapons/          Weapon stats, state machine, recoil and spread, controller and viewmodel
     ├── data/         One stat resource per weapon (.tres)
     ├── effects/      Impact effects, generated sounds, weapon audio
     └── viewmodels/   Greybox first-person weapon models
@@ -159,17 +174,17 @@ The main scene is `range/range.tscn`. Every scene and resource is text-based (`.
 
 - **Fixed 60 Hz physics.** All gameplay runs in `_physics_process` at 60 ticks per second and never depends on frame rate. Physics interpolation smooths rendering between ticks.
 - **Pure movement math.** `player/movement_math.gd` holds static, node-free functions for friction, acceleration, slide decay and jump velocity. They're deterministic and unit-tested headless, and `player_controller.gd` calls them.
-- **Simulated, pooled projectiles.** `ballistics/projectile_system.gd` keeps every bullet as a row in packed arrays, not a node. Each tick it integrates them and raycasts from the old position to the new one, then emits `projectile_hit`.
-- **Node-free weapon logic.** `weapons/weapon_logic.gd` is a state machine that takes a `WeaponInput` and a time step, so fire rate, reloads and aim timing are tested to the tick. `weapon_controller.gd` feeds it from the input map.
-- **Feel never feeds back into gameplay.** `CameraFeel` and `WeaponView` only read gameplay state. Bullets leave from `PlayerController.get_eye_position()` along `get_aim_basis()`, which ignore head bob, viewmodel kick and every other effect.
+- **Simulated, pooled projectiles.** `ballistics/projectile_system.gd` keeps every bullet as a row in packed arrays, not a node. Each tick it integrates gravity and drag (one RK4 step, in `ballistics/projectile_math.gd`), raycasts from the old position to the new one, then emits `projectile_hit` with the damage after falloff.
+- **Node-free weapon logic.** `weapons/weapon_logic.gd` is a state machine that takes a `WeaponInput` and a time step, so fire rate, reloads and aim timing are tested to the tick. `weapons/recoil_logic.gd` does the same for recoil pattern, recovery and spread. `weapon_controller.gd` feeds both from the input map and applies the kick to the player's recoil offset.
+- **Feel never feeds back into gameplay.** `CameraFeel` and `WeaponView` only read gameplay state. Bullets leave from `PlayerController.get_eye_position()` along `get_aim_basis()` (look angles plus recoil, then spread), which ignore head bob, viewmodel kick and every other effect.
 - **Data-driven tuning.** Numbers live in `Resource` files and exported properties, not in code. Each weapon is one `.tres` in `weapons/data/`.
 - **Signals over node paths.** The player, weapon controller and projectile system emit signals (`landed`, `shot_fired`, `projectile_hit` and so on), and effects, audio and the HUD listen to them.
 
 ## Roadmap
 
 - [x] **1. Movement:** FPS controller (walk, sprint, crouch, jump, slide), head bob, FOV and sensitivity settings, greybox range with distance markers.
-- [x] **2. Shooting core:** assault rifle and scoped bolt-action sniper, hip fire and ADS, reloads, weapon switching, viewmodel sway and bob, muzzle flash and impact effects. Built; play-test pending.
-- [ ] **3. Ballistics and recoil:** simulated projectiles with gravity and drag, damage falloff, recoil patterns and recovery, a debug view of bullet paths.
+- [x] **2. Shooting core:** assault rifle and scoped bolt-action sniper, hip fire and ADS, reloads, weapon switching, viewmodel sway and bob, muzzle flash and impact effects.
+- [x] **3. Ballistics and recoil:** simulated projectiles with gravity and drag, damage falloff, recoil patterns and recovery, a debug view of bullet paths. Built; play-test pending.
 - [ ] **4. Targets:** humanoid dummies with hit zones and armor plates, pop-down and reset, moving targets on rails, swinging steel plates.
 - [ ] **5. Feedback and HUD:** hitmarkers, damage numbers, dynamic crosshair, ammo counter, range stats panel, placeholder sounds.
 - [ ] **6. Polish:** physics props, ragdolls, pause and settings menu, performance pass.
