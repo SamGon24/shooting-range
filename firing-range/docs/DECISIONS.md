@@ -154,3 +154,59 @@ Caveats on these numbers:
 - Whenever the window gained or lost focus during a run, that run had one frame of about 70 ms. It happened in several probe runs because the probe is launched from a background shell and focus moved mid-run; those runs' 1% lows (down to 26 fps capped, 61 fps uncapped) are excluded above. It is an app-switch hitch, not a steady-state one: no run without a focus change had a frame over 26.4 ms. Focus tracking was added to the probe partway through, so for the first three uncapped runs steady focus is inferred from the absence of that hitch.
 - The steady as-played run happened to be unfocused throughout. A fully focused capped run was not captured, so confirm it by eye with the overlay (`ms worst`) during play-testing.
 - Uncapped averages vary by about 30% between runs on this machine, so treat the range as the result rather than any single figure. Mobile without shadows was about 300 fps; Compatibility with shadows and sky is roughly half that and still well over twice the budget.
+
+## Milestone 2: shooting core
+
+### Projectiles are rows in packed arrays
+
+`ProjectileSystem` is one node holding position, velocity, age and spec arrays for up to 128 projectiles. Firing takes a free slot and allocates nothing. Each tick integrates every live projectile and raycasts from the previous position to the new one, so a 900 m/s bullet (15 m per tick) cannot skip a thin wall. The system runs after weapons in the tick, so a shot moves on the tick it is fired. Integration is exact for constant acceleration; Milestone 3 adds drag by changing the acceleration and adds fields to `ProjectileSpec`.
+
+### Shots leave from the eye, not the muzzle
+
+Bullets start at `PlayerController.get_eye_position()` along `get_aim_basis()`. The viewmodel, its kick and the muzzle flash are cosmetic. A test fires a second of full-auto and checks every round lands on the same point.
+
+### Weapon timing
+
+- The shot interval remainder is carried from shot to shot, so 700 rpm (5.14 ticks) averages exactly. It is not carried across a pause, which had made the first interval of a burst one tick short.
+- Bullets spawn on tick boundaries; there is no sub-tick spawn offset.
+- Ammo changes only on a shot or a completed reload, so a reload cancelled by switching leaves the count untouched. A reload fills the magazine; there is no reserve ammo on the range.
+- Pulling the trigger on an empty magazine starts the empty reload. A reload pressed mid-cycle is queued until the weapon is ready.
+- Sprinting blocks firing and aiming, as specified; it does not block reloading. Reloading drops the aim. The sniper stays scoped while the bolt cycles.
+- Fire and reload presses are latched from input events, because polling an edge in the physics tick loses a click shorter than one tick.
+
+### Never toggle `visible` under the camera rig
+
+The camera rig has physics interpolation off. In Godot 4.7, after `visible` is toggled on a node in that subtree, the renderer stops receiving its later transform changes: the viewmodel froze on screen while its script kept moving it. `WeaponView` therefore adds and removes models from the tree and hides the muzzle flash by scaling it.
+
+### Effects
+
+- Impact marks are instances in one MultiMesh that reuses the oldest, because the Compatibility renderer has no Decal node. Marks only stick to static bodies.
+- Particles are `CPUParticles3D`. `GPUParticles3D` was not evaluated.
+- Sounds are synthesised at startup from seeded noise and sine tones, so the project has no audio files.
+
+### Capture quirks (Movie Maker only)
+
+Physics runs somewhat behind the frame count in Movie Maker mode on this machine, so `--hold` times are in physics seconds and captures need extra frames. Quitting a capture while sounds are playing logs a "5 ObjectDB instances leaked" warning from the audio playbacks; normal runs that quit mid-burst do not.
+
+### Tuning starting points
+
+| | Halberd R-5 | Longwatch B-9 |
+|---|---|---|
+| Muzzle velocity | 850 m/s | 900 m/s |
+| Rate | 700 rpm, full-auto | 1.1 s bolt cycle |
+| Magazine | 30 | 5 |
+| Reload, tactical / empty | 1.9 s / 2.4 s | 2.6 s / 3.3 s |
+| ADS time, FOV, sensitivity | 0.25 s, 45°, 0.7 | 0.4 s, 12°, 0.2 |
+| Raise / lower | 0.4 s / 0.3 s | 0.6 s / 0.45 s |
+
+### Performance (Milestone 2)
+
+Perf probe walking downrange and firing full-auto with reloads, 1280x720, window focused for the whole run.
+
+| Run | Average | 1% low | Worst frame |
+|---|---|---|---|
+| Firing, as played (60 cap) | 60.0 fps | 55.0 fps | 18.5 ms |
+| Firing, uncapped | 177.8 fps | 99.3 fps | 21.0 ms |
+| Sprinting, uncapped (Milestone 1 probe) | 184.3 fps | 110.0 fps | 9.7 ms |
+
+73 draw calls and about 2,050 primitives while firing. 167 tests pass.
