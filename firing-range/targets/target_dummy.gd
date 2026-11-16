@@ -10,6 +10,8 @@ signal restored
 ## -1 uses the Resource's count. Layout can select 0–3 without duplicating it.
 @export_range(-1, 3) var armor_plates: int = -1
 
+## Plates broken by the damage event currently being emitted.
+var last_plate_breaks: int = 0
 var state: TargetHealth
 var zones: Array[TargetHitZone] = []
 var _pivot: Node3D
@@ -45,7 +47,9 @@ func receive_hit(hit: ProjectileHit, zone: TargetSettings.Zone) -> void:
 	if state.dead:
 		return
 	var amount: float = hit.damage * settings.multiplier(zone, hit.spec)
+	var plates_before: int = state.remaining_plates()
 	state.apply_damage(amount)
+	last_plate_breaks = plates_before - state.remaining_plates()
 	damaged.emit(hit, zone, amount)
 	if state.dead:
 		_set_hittable(false)

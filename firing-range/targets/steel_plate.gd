@@ -11,6 +11,8 @@ signal rang
 @export var swing_limit_degrees: float = 65.0
 @export var ring_volume_db: float = -4.0
 @export var ring_unit_size: float = 60.0
+## Projectile responsible for the ring event currently being emitted.
+var last_hit: ProjectileHit
 var hinge: HingeJoint3D
 var _audio: AudioStreamPlayer3D
 
@@ -57,5 +59,6 @@ func _ready() -> void:
 func receive_hit(hit: ProjectileHit) -> void:
 	var momentum: Vector3 = hit.velocity * (hit.spec.mass_grams * 0.001) * impulse_scale
 	apply_impulse(momentum, hit.position - global_position)
+	last_hit = hit
 	_audio.play()
 	rang.emit()
