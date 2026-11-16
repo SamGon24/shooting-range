@@ -90,6 +90,20 @@ func test_600_rpm_fires_exactly_every_sixth_tick() -> void:
 	assert_eq(shot_ticks, [0, 6, 12, 18, 24, 30, 36, 42, 48, 54] as Array[int], "10 shots in one second")
 
 
+func test_rate_is_the_same_after_an_idle_pause() -> void:
+	var data: WeaponData = RIFLE.duplicate() as WeaponData
+	data.rounds_per_minute = 600.0
+	var logic: WeaponLogic = _ready_weapon(data)
+	_run(logic, 37)  # Sit idle for a while first.
+
+	_input.trigger_held = true
+	var shot_ticks: Array[int] = []
+	for tick: int in 20:
+		if logic.tick(TICK, _input) > 0:
+			shot_ticks.append(tick)
+	assert_eq(shot_ticks, [0, 6, 12, 18] as Array[int], "first interval is a full 6 ticks")
+
+
 func test_rifle_rate_of_fire_averages_700_rpm() -> void:
 	var data: WeaponData = RIFLE.duplicate() as WeaponData
 	data.magazine_size = 200

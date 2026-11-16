@@ -43,6 +43,7 @@ var _reload_time_left: float = 0.0
 var _reload_duration: float = 0.0
 var _reload_is_empty: bool = false
 var _reload_queued: bool = false
+var _carry_remainder: bool = false
 
 
 func _init(weapon_data: WeaponData) -> void:
@@ -56,6 +57,7 @@ func tick(delta: float, input: WeaponInput) -> int:
 	previous_raise_progress = raise_progress
 
 	var shots: int = 0
+	_carry_remainder = false
 	match state:
 		State.RAISING:
 			raise_progress = minf(raise_progress + delta / data.raise_time, 1.0)
@@ -78,9 +80,12 @@ func tick(delta: float, input: WeaponInput) -> int:
 			shots = _tick_ready(input)
 
 	_tick_aim(delta, input)
-	# Time passes after this tick's decisions. The floor keeps at most one
-	# tick of carried remainder, so a long pause cannot bank extra shots.
-	_time_to_next_shot = maxf(_time_to_next_shot - delta, -delta)
+	# Time passes after this tick's decisions. A negative remainder is only
+	# carried while the trigger keeps the weapon firing; otherwise it would
+	# make the first interval after a pause one tick short.
+	_time_to_next_shot -= delta
+	if not _carry_remainder:
+		_time_to_next_shot = maxf(_time_to_next_shot, 0.0)
 	return shots
 
 
@@ -167,9 +172,8 @@ func _tick_ready(input: WeaponInput) -> int:
 		return 0
 
 	if not wants_shot or input.sprinting:
-		# Not firing: drop any carried remainder so the next shot is not early.
-		_time_to_next_shot = maxf(_time_to_next_shot, 0.0)
 		return 0
+	_carry_remainder = true
 
 	# The remainder of the interval is carried from shot to shot, so the
 	# average rate is exact even when the interval is not a whole number of
