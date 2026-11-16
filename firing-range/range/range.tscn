@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://range/range_builder.gd" id="1_builder"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://debug/perf_probe.gd" id="4_probe"]
 [ext_resource type="Script" path="res://debug/debug_pose.gd" id="5_pose"]
 [ext_resource type="Script" path="res://ballistics/projectile_system.gd" id="6_projectiles"]
+[ext_resource type="Script" path="res://weapons/effects/impact_effects.gd" id="7_impacts"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_material"]
 sky_top_color = Color(0.32, 0.5, 0.74, 1)
@@ -42,6 +43,9 @@ directional_shadow_max_distance = 60.0
 
 [node name="Projectiles" type="Node3D" parent="."]
 script = ExtResource("6_projectiles")
+
+[node name="ImpactEffects" type="Node3D" parent="."]
+script = ExtResource("7_impacts")
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.5)

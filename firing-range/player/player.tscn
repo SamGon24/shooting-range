@@ -1,10 +1,11 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://player/player_controller.gd" id="1_controller"]
 [ext_resource type="Resource" path="res://player/data/movement_default.tres" id="2_settings"]
 [ext_resource type="Script" path="res://player/camera_feel.gd" id="3_feel"]
 [ext_resource type="Script" path="res://weapons/weapon_controller.gd" id="4_weapons"]
 [ext_resource type="Script" path="res://weapons/weapon_view.gd" id="7_view"]
+[ext_resource type="Script" path="res://weapons/effects/weapon_audio.gd" id="8_audio"]
 [ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data_type"]
 [ext_resource type="Resource" path="res://weapons/data/halberd_rifle.tres" id="5_rifle"]
 [ext_resource type="Resource" path="res://weapons/data/longwatch_sniper.tres" id="6_sniper"]
@@ -42,3 +43,7 @@ camera_feel = NodePath("../..")
 script = ExtResource("4_weapons")
 loadout = Array[ExtResource("1_data_type")]([ExtResource("5_rifle"), ExtResource("6_sniper")])
 player = NodePath("..")
+
+[node name="Audio" type="Node" parent="Weapons" node_paths=PackedStringArray("controller")]
+script = ExtResource("8_audio")
+controller = NodePath("..")
