@@ -53,6 +53,9 @@ const WORLD_LAYER: int = 1
 @export var walk_target_speed: float = 1.5
 @export var sprint_target_speed: float = 6.0
 
+@export_group("Physics props")
+@export_range(0, 8) var prop_count: int = 8
+
 var _geometry: Node3D
 var _grid_materials: Dictionary[Color, ShaderMaterial] = {}
 var _flat_materials: Dictionary[Color, StandardMaterial3D] = {}
@@ -69,6 +72,7 @@ func _ready() -> void:
 	_build_distance_markers()
 	_build_movement_test_area()
 	_build_targets()
+	_build_props()
 
 
 ## Total width of all lanes, metres.
@@ -410,3 +414,12 @@ func _flat_material(color: Color) -> StandardMaterial3D:
 	material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 	_flat_materials[color] = material
 	return material
+
+
+func _build_props() -> void:
+	var locations: Array[Vector2] = [Vector2(-18, 1), Vector2(18, 1), Vector2(-18, 4), Vector2(18, 4), Vector2(-6, 12), Vector2(6, 12), Vector2(-6, 17), Vector2(6, 17)]
+	for index: int in mini(prop_count, locations.size()):
+		var prop := PhysicsProp.new()
+		prop.kind = PhysicsProp.Kind.CRATE if index % 2 == 0 else PhysicsProp.Kind.BARREL
+		prop.position = Vector3(locations[index].x, prop.crate_size * 0.5 if prop.kind == PhysicsProp.Kind.CRATE else prop.barrel_height * 0.5, locations[index].y)
+		_geometry.add_child(prop)

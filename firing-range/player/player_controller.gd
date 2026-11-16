@@ -155,7 +155,13 @@ func _physics_process(delta: float) -> void:
 		floor_snap_length = settings.floor_snap_length
 
 	var fall_speed: float = maxf(-velocity.y, 0.0)
+	var push_velocity: Vector3 = velocity
 	move_and_slide()
+	for index: int in get_slide_collision_count():
+		var contact: KinematicCollision3D = get_slide_collision(index)
+		var prop := contact.get_collider() as PhysicsProp
+		if prop != null:
+			prop.push(-contact.get_normal(), push_velocity, contact.get_position(), delta)
 
 	var on_floor_after: bool = is_on_floor()
 	if not on_floor_after:
