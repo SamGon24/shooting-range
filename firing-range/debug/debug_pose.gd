@@ -23,17 +23,20 @@ var _pending_holds: Array[Array] = []
 
 
 func _ready() -> void:
-	set_process(false)
+	# Press actions at the very start of a physics tick, so gameplay code
+	# sees "just pressed" on that same tick.
+	process_physics_priority = -1000
+	set_physics_process(false)
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with(POSE_PREFIX):
 			_apply_pose.call_deferred(argument.trim_prefix(POSE_PREFIX))
 		elif argument.begins_with(HOLD_PREFIX):
 			_parse_holds(argument.trim_prefix(HOLD_PREFIX))
 	if not _pending_holds.is_empty():
-		set_process(true)
+		set_physics_process(true)
 
 
-func _process(delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	_elapsed += delta
 	for index: int in range(_pending_holds.size() - 1, -1, -1):
 		var action: StringName = _pending_holds[index][0]
@@ -42,7 +45,7 @@ func _process(delta: float) -> void:
 			Input.action_press(action)
 			_pending_holds.remove_at(index)
 	if _pending_holds.is_empty():
-		set_process(false)
+		set_physics_process(false)
 
 
 func _parse_holds(value: String) -> void:
