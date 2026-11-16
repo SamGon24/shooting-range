@@ -22,10 +22,16 @@ const GROUP: StringName = &"weapon_controller"
 @export var loadout: Array[WeaponData] = []
 @export var player: PlayerController
 
+## Seed for recoil randomness. 0 picks a random seed; tests and captures
+## set one to make bursts repeatable.
+@export var random_seed: int = 0
+
 ## Where shots go. Found through the `ProjectileSystem` group if left unset.
 var projectile_system: ProjectileSystem
 
 var _logics: Array[WeaponLogic] = []
+var _recoils: Array[RecoilLogic] = []
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _current: int = -1
 ## Slot the player asked to switch to, or -1.
 var _pending: int = -1
@@ -43,7 +49,12 @@ func _ready() -> void:
 		push_error("WeaponController: `player` must be assigned.")
 		set_physics_process(false)
 		return
+	if random_seed != 0:
+		_rng.seed = random_seed
+	else:
+		_rng.randomize()
 	for data: WeaponData in loadout:
+		_recoils.append(RecoilLogic.new(data, _rng))
 		var logic := WeaponLogic.new(data)
 		logic.fired.connect(_on_logic_fired.bind(logic))
 		logic.dry_fired.connect(_on_logic_dry_fired.bind(logic))
@@ -95,9 +106,15 @@ func _physics_process(delta: float) -> void:
 	_input.reload_pressed = controls_live and reload_pressed
 	_input.sprinting = player.is_sprinting
 
+	var recoil: RecoilLogic = _recoils[_current]
+	recoil.tick(delta)
 	var shots: int = logic.tick(delta, _input)
 	for _shot: int in shots:
+		# The bullet leaves along the aim before this shot's kick moves it.
 		_launch_projectile(logic.data)
+		var kick: Vector2 = recoil.on_shot(logic.aim_progress)
+		player.add_recoil(deg_to_rad(kick.y), -deg_to_rad(kick.x))
+	player.recover_recoil(deg_to_rad(recoil.recovery_allowance(delta)))
 
 	player.look_sensitivity_scale = lerpf(1.0, logic.data.ads_sensitivity_scale, logic.aim_progress)
 
@@ -137,6 +154,15 @@ func get_current_data() -> WeaponData:
 
 func get_current_logic() -> WeaponLogic:
 	return _logics[_current] if _current >= 0 else null
+
+
+## Restarts recoil randomness from `seed`, so a burst can be repeated exactly.
+func reseed(seed: int) -> void:
+	_rng.seed = seed
+
+
+func get_current_recoil() -> RecoilLogic:
+	return _recoils[_current] if _current >= 0 else null
 
 
 ## The logic for a loadout slot, e.g. to read a holstered weapon's ammo.

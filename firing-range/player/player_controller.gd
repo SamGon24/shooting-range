@@ -35,6 +35,11 @@ var mouse_look_enabled: bool = true:
 ## Look angles in radians. Yaw turns around +Y, pitch is positive looking up.
 var yaw: float = 0.0
 var pitch: float = 0.0
+## View kick from weapon recoil, radians, on top of `pitch` and `yaw` (same
+## signs). Weapons add to it and let it recover; mouse movement against it
+## cancels it first. Bullets and the camera both follow it.
+var recoil_pitch: float = 0.0
+var recoil_yaw: float = 0.0
 
 var stance: Stance = Stance.STAND
 var is_sprinting: bool = false
@@ -49,6 +54,9 @@ var _jump_consumed: bool = false
 var _slide_boost_cooldown: float = 0.0
 var _was_on_floor: bool = true
 var _just_landed: bool = false
+## Recoil offset at the start of the physics tick (x pitch, y yaw), so the
+## camera can blend a kick between ticks.
+var _previous_recoil: Vector2 = Vector2.ZERO
 
 @onready var _collider: CollisionShape3D = $Collider
 @onready var _head: Node3D = $Head
@@ -107,6 +115,7 @@ func _process(_delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	_previous_height = _height
+	_previous_recoil = Vector2(recoil_pitch, recoil_yaw)
 
 	var on_floor: bool = is_on_floor()
 	var move_input: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -195,9 +204,26 @@ func get_eye_position() -> Vector3:
 	return global_position + Vector3.UP * get_eye_height()
 
 
-## Gameplay aim orientation (-Z is forward), without camera effects.
+## Gameplay aim orientation (-Z is forward): the look angles plus recoil,
+## without any camera effect.
 func get_aim_basis() -> Basis:
-	return Basis.from_euler(Vector3(pitch, yaw, 0.0))
+	return Basis.from_euler(Vector3(_view_pitch(pitch + recoil_pitch), yaw + recoil_yaw, 0.0))
+
+
+## Kicks the view by recoil, radians (positive pitch is up, positive yaw is
+## to the left, as for `pitch` and `yaw`).
+func add_recoil(pitch_radians: float, yaw_radians: float) -> void:
+	recoil_pitch += pitch_radians
+	recoil_yaw += yaw_radians
+
+
+## Moves the recoil offset back towards zero by up to `radians`, along a
+## straight line so pitch and yaw finish together.
+func recover_recoil(radians: float) -> void:
+	var offset := Vector2(recoil_pitch, recoil_yaw)
+	offset = offset.move_toward(Vector2.ZERO, radians)
+	recoil_pitch = offset.x
+	recoil_yaw = offset.y
 
 
 func get_stance_name() -> String:
@@ -216,6 +242,9 @@ func teleport(new_position: Vector3, new_yaw: float = 0.0) -> void:
 	velocity = Vector3.ZERO
 	yaw = new_yaw
 	pitch = 0.0
+	recoil_pitch = 0.0
+	recoil_yaw = 0.0
+	_previous_recoil = Vector2.ZERO
 	_update_head(1.0)
 	reset_physics_interpolation()
 
@@ -233,8 +262,20 @@ func _apply_mouse_mode() -> void:
 func _apply_look(relative: Vector2) -> void:
 	var radians_per_count: float = deg_to_rad(ViewSettings.mouse_sensitivity) * look_sensitivity_scale
 	var pitch_sign: float = -1.0 if ViewSettings.invert_y else 1.0
-	yaw = wrapf(yaw - relative.x * radians_per_count, -PI, PI)
-	pitch = clampf(pitch - relative.y * radians_per_count * pitch_sign, -MAX_PITCH, MAX_PITCH)
+	# Movement against the recoil offset cancels it first (see
+	# RecoilLogic.absorb). The previous-tick offset shifts by the same amount
+	# so the camera blend between ticks does not jump.
+	var yaw_split: Vector2 = RecoilLogic.absorb(recoil_yaw, -relative.x * radians_per_count)
+	var pitch_split: Vector2 = RecoilLogic.absorb(recoil_pitch, -relative.y * radians_per_count * pitch_sign)
+	_previous_recoil += Vector2(pitch_split.x - recoil_pitch, yaw_split.x - recoil_yaw)
+	recoil_yaw = yaw_split.x
+	recoil_pitch = pitch_split.x
+	yaw = wrapf(yaw + yaw_split.y, -PI, PI)
+	pitch = clampf(pitch + pitch_split.y, -MAX_PITCH, MAX_PITCH)
+
+
+func _view_pitch(value: float) -> float:
+	return clampf(value, -MAX_PITCH, MAX_PITCH)
 
 
 func _tick_timers(delta: float, on_floor: bool) -> void:
@@ -355,6 +396,7 @@ func _can_stand() -> bool:
 func _update_head(fraction: float) -> void:
 	var eye: float = settings.eye_height_for(lerpf(_previous_height, _height, fraction))
 	var origin: Vector3 = get_global_transform_interpolated().origin
+	var recoil: Vector2 = _previous_recoil.lerp(Vector2(recoil_pitch, recoil_yaw), fraction)
 	_head.global_transform = Transform3D(
-		Basis.from_euler(Vector3(pitch, yaw, 0.0)), origin + Vector3.UP * eye
+		Basis.from_euler(Vector3(_view_pitch(pitch + recoil.x), yaw + recoil.y, 0.0)), origin + Vector3.UP * eye
 	)

@@ -23,6 +23,24 @@ extends Resource
 ## Reload time from an empty magazine (includes chambering a round).
 @export_range(0.1, 6.0, 0.01, "suffix:s") var reload_empty_time: float = 2.4
 
+@export_group("Recoil")
+## View kick per shot in degrees: x is yaw (positive right), y is pitch
+## (positive up). Shot 1 uses the first entry, shot 2 the second, and so on.
+@export var recoil_pattern: PackedVector2Array = PackedVector2Array([Vector2(0.0, 0.5)])
+## Past the end of the pattern, the last this-many entries repeat.
+@export_range(1, 100) var recoil_loop_length: int = 1
+## Random kick added to every shot, up to ± this many degrees (x yaw, y pitch).
+@export var recoil_random_degrees: Vector2 = Vector2.ZERO
+## Kick multiplier when fully aimed.
+@export_range(0.0, 2.0, 0.01) var aimed_recoil_scale: float = 1.0
+## Seconds without a shot before the view starts to recover.
+@export_range(0.0, 2.0, 0.01, "suffix:s") var recoil_recovery_delay: float = 0.12
+## How fast unrecovered view kick returns, degrees per second. Kick the
+## player has already pulled down does not recover again.
+@export_range(0.0, 90.0, 0.1, "suffix:°/s") var recoil_recovery_rate: float = 10.0
+## Seconds without a shot before the pattern starts again from shot 1.
+@export_range(0.0, 5.0, 0.01, "suffix:s") var recoil_reset_time: float = 0.3
+
 @export_group("Aim down sights")
 ## Time to go from hip to fully aimed, and back.
 @export_range(0.05, 1.5, 0.01, "suffix:s") var ads_time: float = 0.25

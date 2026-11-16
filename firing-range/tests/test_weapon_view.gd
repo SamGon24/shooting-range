@@ -108,22 +108,44 @@ func test_scoped_weapon_hides_its_model_when_fully_aimed() -> void:
 	assert_true(_view.is_model_shown())
 
 
-func test_viewmodel_kick_never_changes_where_shots_land() -> void:
-	var yaw_before: float = _player.yaw
-	var pitch_before: float = _player.pitch
-	var saw_kick: bool = false
-
+## Fires a one-second burst from a fixed pose and seed and returns where
+## each round landed.
+func _burst(seed: int) -> Array[Vector3]:
+	_hits.clear()
+	_player.teleport(Vector3.ZERO)
+	await wait_physics_frames(_seconds(0.5))
+	_weapons.reseed(seed)
+	var logic: WeaponLogic = _weapons.get_current_logic()
+	logic.ammo = logic.data.magazine_size
 	Input.action_press("fire")
-	for _tick: int in _seconds(1.0):
+	await wait_physics_frames(_seconds(1.0))
+	Input.action_release("fire")
+	await wait_physics_frames(6)
+	var points: Array[Vector3] = []
+	for hit: ProjectileHit in _hits:
+		points.append(hit.position)
+	return points
+
+
+func test_viewmodel_kick_never_changes_where_shots_land() -> void:
+	var saw_kick: bool = false
+	_hits.clear()
+	Input.action_press("fire")
+	for _tick: int in _seconds(0.5):
 		await wait_physics_frames(1)
 		if _view.get_kick() > 0.05:
 			saw_kick = true
 	Input.action_release("fire")
-	await wait_physics_frames(6)
-
 	assert_true(saw_kick, "the viewmodel visibly kicked")
-	assert_eq(_player.yaw, yaw_before, "aim untouched")
-	assert_eq(_player.pitch, pitch_before)
-	assert_gt(_hits.size(), 8)
-	for hit: ProjectileHit in _hits:
-		assert_almost_eq(hit.position, _hits[0].position, Vector3.ONE * 0.0001, "every round hits the same point")
+
+	# Recoil moves the aim, but only through gameplay state: the same burst
+	# lands in the same places with the weapon view removed entirely.
+	var with_view: Array[Vector3] = await _burst(1234)
+	_view.free()
+	var without_view: Array[Vector3] = await _burst(1234)
+
+	assert_gt(with_view.size(), 8)
+	assert_eq(without_view.size(), with_view.size())
+	if without_view.size() == with_view.size():
+		for i: int in with_view.size():
+			assert_almost_eq(without_view[i], with_view[i], Vector3.ONE * 0.0001, "round %d lands in the same place" % i)

@@ -316,3 +316,52 @@ func test_sniper_fires_one_round_per_pull_through_the_controller() -> void:
 	await wait_physics_frames(_seconds(_sniper.bolt_cycle_time * 2.0))
 	Input.action_release("fire")
 	assert_signal_emit_count(_weapons, "shot_fired", 1, "holding the trigger fires once")
+
+
+# --- Recoil ---
+
+
+func test_a_burst_kicks_the_aim_up_and_it_recovers() -> void:
+	var pitch_before: float = _player.pitch
+	Input.action_press("fire")
+	await wait_physics_frames(_seconds(0.5))
+	Input.action_release("fire")
+	await wait_physics_frames(1)
+	var kicked: float = rad_to_deg(_player.recoil_pitch)
+	# Six or seven shots of the pattern's 0.45-0.6 degrees, give or take.
+	assert_between(kicked, 2.5, 4.5, "the view climbed")
+	assert_eq(_player.pitch, pitch_before, "the base look angle is untouched")
+	var aim: Vector3 = -_player.get_aim_basis().z
+	assert_gt(aim.y, 0.0, "shots now leave above the original line")
+
+	# 9 °/s after a 0.12 s delay: about 0.5 s for this kick.
+	await wait_physics_frames(_seconds(_rifle.recoil_recovery_delay + kicked / _rifle.recoil_recovery_rate) + 3)
+	assert_almost_eq(_player.recoil_pitch, 0.0, 0.0001, "fully recovered")
+	assert_almost_eq(_player.recoil_yaw, 0.0, 0.0001)
+
+
+func test_later_shots_in_a_burst_land_higher() -> void:
+	_add_slab(Vector3(40.0, 40.0, 1.0), Vector3(0.0, 0.0, -30.5))
+	await wait_physics_frames(2)
+	Input.action_press("fire")
+	await wait_physics_frames(_seconds(0.6))
+	Input.action_release("fire")
+	await wait_physics_frames(4)
+	assert_gt(_hits.size(), 5)
+	if _hits.size() > 5:
+		assert_gt(_hits[5].position.y, _hits[0].position.y + 1.0, "six shots climb over a metre at 30 m")
+
+
+func test_pulling_down_against_recoil_cancels_it() -> void:
+	Input.action_press("fire")
+	await wait_physics_frames(_seconds(0.3))
+	Input.action_release("fire")
+	await wait_physics_frames(1)
+	var kicked: float = _player.recoil_pitch
+	var view_before: float = _player.pitch + _player.recoil_pitch
+	# Mouse down by half the kick: the view drops by that much, taken out of
+	# the recoil offset rather than the base angle.
+	var counts: float = kicked * 0.5 / (deg_to_rad(ViewSettings.mouse_sensitivity) * _player.look_sensitivity_scale)
+	_player._apply_look(Vector2(0.0, counts))
+	assert_almost_eq(_player.pitch + _player.recoil_pitch, view_before - kicked * 0.5, 0.00001)
+	assert_almost_eq(_player.recoil_pitch, kicked * 0.5, 0.00001, "half the kick left to recover")
