@@ -4,8 +4,9 @@ extends Node3D
 ##
 ## Projectiles are rows in packed arrays, not nodes: firing takes a free slot
 ## and never allocates. Each physics tick, every live projectile is integrated
-## (gravity only for now) and a ray is cast from its previous position to its
-## new one, so a fast bullet cannot skip through a thin object between ticks.
+## under gravity and air drag, and a ray is cast from its previous position to
+## its new one, so a fast bullet cannot skip through a thin object between
+## ticks.
 ##
 ## Weapons call `fire`. Effects, targets and debug tools listen to the signals.
 
@@ -21,6 +22,8 @@ const GROUP: StringName = &"projectile_system"
 ## Physics layers a projectile can hit.
 @export_flags_3d_physics var collision_mask: int = 1
 @export var collide_with_areas: bool = false
+## Air density for drag, kg/m³. Sea level at 15 °C by default.
+@export_range(0.0, 2.0, 0.001, "suffix:kg/m³") var air_density: float = ProjectileMath.SEA_LEVEL_AIR_DENSITY
 
 var _gravity: float = 9.81
 var _active: PackedByteArray = PackedByteArray()
@@ -28,6 +31,8 @@ var _positions: PackedVector3Array = PackedVector3Array()
 var _velocities: PackedVector3Array = PackedVector3Array()
 var _ages: PackedFloat32Array = PackedFloat32Array()
 var _distances: PackedFloat32Array = PackedFloat32Array()
+## Drag factor k (1/m) per slot, worked out once at launch.
+var _drags: PackedFloat32Array = PackedFloat32Array()
 var _specs: Array[ProjectileSpec] = []
 var _free_slots: PackedInt32Array = PackedInt32Array()
 var _active_count: int = 0
@@ -46,6 +51,7 @@ func _ready() -> void:
 	_velocities.resize(capacity)
 	_ages.resize(capacity)
 	_distances.resize(capacity)
+	_drags.resize(capacity)
 	_specs.resize(capacity)
 	_free_slots.resize(capacity)
 	for slot: int in capacity:
@@ -78,6 +84,7 @@ func fire(origin: Vector3, direction: Vector3, spec: ProjectileSpec) -> int:
 	_velocities[slot] = velocity
 	_ages[slot] = 0.0
 	_distances[slot] = 0.0
+	_drags[slot] = spec.drag_factor(air_density)
 	_specs[slot] = spec
 	_active_count += 1
 	projectile_fired.emit(slot, origin, velocity, spec)
@@ -95,11 +102,11 @@ func advance(delta: float) -> void:
 		if _active[slot] == 0:
 			continue
 		var spec: ProjectileSpec = _specs[slot]
-		var acceleration: Vector3 = Vector3.DOWN * (_gravity * spec.gravity_scale)
+		var gravity: Vector3 = Vector3.DOWN * (_gravity * spec.gravity_scale)
 		var from: Vector3 = _positions[slot]
-		var velocity: Vector3 = _velocities[slot]
-		var to: Vector3 = ProjectileMath.step_position(from, velocity, acceleration, delta)
-		var new_velocity: Vector3 = ProjectileMath.step_velocity(velocity, acceleration, delta)
+		var step: PackedVector3Array = ProjectileMath.step_drag(from, _velocities[slot], gravity, _drags[slot], delta)
+		var to: Vector3 = step[0]
+		var new_velocity: Vector3 = step[1]
 
 		_query.from = from
 		_query.to = to

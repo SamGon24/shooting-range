@@ -94,6 +94,29 @@ func test_gravity_drop_at_100_m_matches_the_analytic_value() -> void:
 		assert_lt(_hits[0].velocity.y, 0.0, "falling at impact")
 
 
+func test_drag_drop_at_100_200_300_m_matches_the_analytic_values() -> void:
+	# The Halberd R-5 bullet: 850 m/s, 4 g, 5.7 mm, Cd 0.30.
+	_spec.muzzle_velocity = 850.0
+	_spec.drag_coefficient = 0.30
+	_spec.mass_grams = 4.0
+	_spec.diameter_mm = 5.7
+	var drag: float = _spec.drag_factor(_system.air_density)
+	for distance: float in [100.0, 200.0, 300.0]:
+		_hits.clear()
+		var wall: StaticBody3D = _add_wall(distance, 1.0)
+		await wait_physics_frames(2)
+		_system.fire(EYE, DOWNRANGE, _spec)
+		_advance(40)
+		assert_eq(_hits.size(), 1, "hit the wall at %d m" % distance)
+		if _hits.size() == 1:
+			var hit: ProjectileHit = _hits[0]
+			var drop: float = ProjectileMath.drop_at_distance(distance, 850.0, 9.81, drag)
+			assert_almost_eq(EYE.y - hit.position.y, drop, 0.002, "drop at %d m" % distance)
+			var speed: float = ProjectileMath.speed_at_distance(distance, 850.0, drag)
+			assert_almost_eq(hit.velocity.length(), speed, speed * 0.02, "slowed by drag at %d m (within a tick)" % distance)
+		wall.free()
+
+
 func test_ignores_colliders_outside_the_collision_mask() -> void:
 	var wall: StaticBody3D = _add_wall(20.0, 0.5)
 	wall.collision_layer = 2

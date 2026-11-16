@@ -92,7 +92,8 @@ func test_fire_launches_a_projectile_from_the_eye_along_the_aim() -> void:
 		var hit: ProjectileHit = _hits[0]
 		assert_almost_eq(hit.position.z, -30.0, 0.001)
 		assert_almost_eq(hit.position.x, 0.0, 0.001, "straight down the aim line")
-		var drop: float = ProjectileMath.drop_at_distance(30.0, _rifle.projectile.muzzle_velocity, 9.81)
+		var drag: float = _rifle.projectile.drag_factor(_projectiles.air_density)
+		var drop: float = ProjectileMath.drop_at_distance(30.0, _rifle.projectile.muzzle_velocity, 9.81, drag)
 		assert_almost_eq(hit.position.y, _player.get_eye_position().y - drop, 0.003, "from eye height, minus gravity drop")
 		assert_eq(hit.spec, _rifle.projectile)
 

@@ -9,6 +9,9 @@ script = ExtResource("2_spec")
 muzzle_velocity = 900.0
 gravity_scale = 1.0
 max_lifetime = 3.0
+drag_coefficient = 0.27
+mass_grams = 10.9
+diameter_mm = 7.82
 
 [resource]
 script = ExtResource("1_data")
