@@ -16,3 +16,8 @@ var travel_time: float
 var travel_distance: float
 ## What was fired.
 var spec: ProjectileSpec
+## Damage after falloff over `travel_distance`. Targets apply their own
+## hit-zone multipliers and armor on top.
+var damage: float
+## Pool slot the projectile flew in, matching `projectile_fired`.
+var slot: int = -1

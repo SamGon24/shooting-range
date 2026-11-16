@@ -27,7 +27,7 @@ func _connect() -> void:
 func _on_hit(hit: ProjectileHit) -> void:
 	var collider_name: String = (hit.collider as Node).name if hit.collider is Node else "?"
 	print(
-		"HIT %-14s x %7.3f  y %7.3f  downrange %7.2f m  flight %.3f s  speed %.0f m/s"
+		"HIT %-14s x %7.3f  y %7.3f  downrange %7.2f m  flight %.3f s  speed %.0f m/s  damage %.1f"
 		% [
 			collider_name,
 			hit.position.x,
@@ -35,5 +35,6 @@ func _on_hit(hit: ProjectileHit) -> void:
 			-hit.position.z,
 			hit.travel_time,
 			hit.velocity.length(),
+			hit.damage,
 		]
 	)
