@@ -18,6 +18,8 @@ func can_attach(slot: WeaponTypes.Slot, attachment: AttachmentData) -> bool:
 	if attachment != null:
 		if attachment.slot != slot or not attachment.accepts(base.weapon_class):
 			return false
+		if attachment.optic_kind < -1 or attachment.optic_kind > 4 or not is_finite(attachment.optic_fov_degrees) or not is_finite(attachment.optic_sight_height_m):
+			return false
 		for modifier: StatModifier in attachment.modifiers:
 			if modifier == null or not LIMITS.bounds.has(modifier.stat) or not is_finite(modifier.value):
 				return false
@@ -65,7 +67,6 @@ func get_stats() -> WeaponData:
 		_computed.ads_fov_degrees = optic.optic_fov_degrees
 		_computed.sight_height_m = optic.optic_sight_height_m
 		_computed.scoped = optic.optic_kind >= 2
-		_computed.ads_position.y = -optic.optic_sight_height_m - 0.01
 	var values: Dictionary[StringName, float] = {}
 	for stat: StringName in LIMITS.bounds:
 		values[stat] = _read(stat)
@@ -84,6 +85,8 @@ func get_stats() -> WeaponData:
 		if stat == &"magazine_size":
 			value = roundf(value)
 		_write(stat, value)
+	if optic != null and optic.optic_kind >= 0:
+		_computed.ads_position.y = -_computed.sight_height_m - base.bore_height_m
 	_computed.projectile.falloff_end_distance = maxf(_computed.projectile.falloff_start_distance, _computed.projectile.falloff_end_distance)
 	_computed.recoil_pattern = base.recoil_pattern.duplicate()
 	for index: int in _computed.recoil_pattern.size():

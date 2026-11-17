@@ -179,6 +179,31 @@ ui_right={
 "events": [Object(InputEventKey,"physical_keycode":4194321), Object(InputEventJoypadButton,"button_index":14), Object(InputEventJoypadMotion,"axis":0,"axis_value":1.0)]
 }
 
+attachment_muzzle={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194336)]
+}
+attachment_barrel={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194337)]
+}
+attachment_optic={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194338)]
+}
+attachment_stock={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194339)]
+}
+attachment_magazine={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194340)]
+}
+attachment_clear={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":4194341)]
+}
+
 [physics]
 
 common/physics_ticks_per_second=60

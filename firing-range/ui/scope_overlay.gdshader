@@ -3,6 +3,7 @@
 shader_type canvas_item;
 
 // Viewport width divided by height; set from script.
+uniform int reticle_kind = 4;
 uniform float aspect = 1.7778;
 // Lens radius as a fraction of the screen height.
 uniform float radius : hint_range(0.1, 0.6) = 0.46;
@@ -30,5 +31,20 @@ void fragment() {
 		lines = 0.85;
 	}
 
-	COLOR = vec4(0.0, 0.0, 0.0, max(outside, max(lines, ring)));
+	if (reticle_kind == 1) {
+		float dot_alpha = 1.0 - smoothstep(centre_dot_radius, centre_dot_radius + 0.001, distance_from_centre);
+		COLOR = vec4(1.0, 0.12, 0.08, dot_alpha);
+	} else {
+		if (reticle_kind == 2) {
+			lines = (abs(p.x) < line_half_width || abs(p.y) < line_half_width) ? 0.85 : 0.0;
+		} else if (reticle_kind == 3) {
+			float tick_x = abs(mod(abs(p.x) + 0.025, 0.05) - 0.025);
+			float tick_y = abs(mod(abs(p.y) + 0.025, 0.05) - 0.025);
+			if ((tick_x < line_half_width && abs(p.y) < 0.008) || (tick_y < line_half_width && abs(p.x) < 0.008)) {
+				lines = 0.85;
+			}
+		}
+		// Kind 4 retains the original MVP sniper reticle exactly.
+		COLOR = vec4(0.0, 0.0, 0.0, max(outside, max(lines, ring)));
+	}
 }

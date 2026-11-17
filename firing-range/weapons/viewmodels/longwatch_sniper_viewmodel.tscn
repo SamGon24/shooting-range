@@ -119,3 +119,20 @@ mesh = SubResource("cyl_1")
 
 [node name="Muzzle" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.012, -0.84)
+
+[node name="Mounts" type="Node3D" parent="."]
+
+[node name="Muzzle" type="Marker3D" parent="Mounts"]
+position = Vector3(0, 0.012, -0.84)
+
+[node name="Barrel" type="Marker3D" parent="Mounts"]
+position = Vector3(0, 0.012, -0.25)
+
+[node name="Optic" type="Marker3D" parent="Mounts"]
+position = Vector3(0, 0.012, -0.01)
+
+[node name="Stock" type="Marker3D" parent="Mounts"]
+position = Vector3(0, -0.02, 0.32)
+
+[node name="Magazine" type="Marker3D" parent="Mounts"]
+position = Vector3(0, -0.03, -0.03)

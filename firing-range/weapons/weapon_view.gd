@@ -76,6 +76,8 @@ const FLASH_HIDDEN_SCALE: Vector3 = Vector3(0.0001, 0.0001, 0.0001)
 var _pivot: Node3D
 var _models: Dictionary[WeaponData, Node3D] = {}
 var _muzzles: Dictionary[WeaponData, Node3D] = {}
+var _attachment_parts: Dictionary[WeaponData, Array] = {}
+var _native_optics: Dictionary[WeaponData, Array] = {}
 var _current_data: WeaponData
 var _flash_mesh: MeshInstance3D
 var _flash_particles: CPUParticles3D
@@ -111,6 +113,11 @@ func _ready() -> void:
 		# Models wait outside the tree until they are the current weapon.
 		var model := data.viewmodel_scene.instantiate() as Node3D
 		_models[data] = model
+		_native_optics[data] = []
+		for part_name: String in ["RearSight", "FrontSightPost", "Scope", "ScopeBell", "ScopeMountFront", "ScopeMountRear"]:
+			var native: Node3D = model.get_node_or_null(part_name) as Node3D
+			if native != null:
+				_native_optics[data].append(native)
 		_muzzles[data] = model.get_node_or_null("Muzzle") as Node3D
 
 	_build_muzzle_flash()
@@ -193,6 +200,10 @@ func _notification(what: int) -> void:
 	# Models that are not the current weapon live outside the tree, so they
 	# are not freed with it.
 	if what == NOTIFICATION_PREDELETE:
+		for nodes: Array in _native_optics.values():
+			for native: Node3D in nodes:
+				if is_instance_valid(native) and native.get_parent() == null:
+					native.free()
 		for model: Node3D in _models.values():
 			if is_instance_valid(model) and not model.is_inside_tree():
 				model.free()
@@ -263,6 +274,7 @@ func _blend(rate: float, delta: float) -> float:
 
 
 func _on_weapon_changed(data: WeaponData) -> void:
+	_rebuild_attachments(data)
 	for other: WeaponData in _models:
 		_set_model_shown(other, other == data.definition())
 	_current_data = data
@@ -352,3 +364,40 @@ func _build_muzzle_flash() -> void:
 	_flash_particles.initial_velocity_max = 5.0
 	_flash_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_pivot.add_child(_flash_particles)
+
+
+func _rebuild_attachments(data: WeaponData) -> void:
+	var definition: WeaponData = data.definition()
+	var model: Node3D = _models.get(definition)
+	if model == null:
+		return
+	# Detach flash nodes before freeing a previous muzzle attachment.
+	if _flash_mesh.get_parent() != _pivot:
+		_flash_mesh.reparent(_pivot, false)
+		_flash_particles.reparent(_pivot, false)
+	for part: Node3D in _attachment_parts.get(definition, []):
+		part.free()
+	_attachment_parts[definition] = []
+	_muzzles[definition] = model.get_node_or_null("Muzzle") as Node3D
+	var build: WeaponBuild = controller.get_build(controller.get_current_slot())
+	if build == null:
+		return
+	var has_optic: bool = build.get_attachment(WeaponTypes.Slot.OPTIC) != null
+	for native: Node3D in _native_optics.get(definition, []):
+		if has_optic and native.get_parent() != null:
+			native.get_parent().remove_child(native)
+		elif not has_optic and native.get_parent() == null:
+			model.add_child(native)
+	for attachment: AttachmentData in build.get_attachments():
+		if attachment.part_scene == null:
+			continue
+		var mount := model.get_node_or_null("Mounts/" + WeaponTypes.SLOT_NAMES[attachment.slot]) as Node3D
+		if mount == null:
+			continue
+		var part := attachment.part_scene.instantiate() as Node3D
+		mount.add_child(part)
+		var point := part.get_node(attachment.part_mount) as Node3D
+		part.transform = point.transform.affine_inverse()
+		_attachment_parts[definition].append(part)
+		if attachment.slot == WeaponTypes.Slot.MUZZLE:
+			_muzzles[definition] = part.get_node_or_null("Exit") as Node3D

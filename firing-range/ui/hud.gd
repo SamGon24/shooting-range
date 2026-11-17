@@ -5,6 +5,7 @@ extends CanvasLayer
 
 ## The crosshair is hidden once the weapon is aimed further than this.
 @export_range(0.0, 1.0, 0.05) var crosshair_hide_aim_blend: float = 0.5
+@export_range(0.0, 1.0, 0.05) var red_dot_show_aim_blend: float = 0.85
 
 @export var fps_update_seconds: float = 0.25
 ## Stats are recorded immediately; throttle expensive text shaping.
@@ -68,7 +69,8 @@ func _process(delta: float) -> void:
 		return
 	var scoped: bool = _view != null and _view.is_scope_view_active()
 	var aim: float = _controller.get_aim_blend(Engine.get_physics_interpolation_fraction())
-	_scope.visible = scoped
+	var data: WeaponData = _controller.get_current_data()
+	_scope.visible = scoped or (data != null and data.optic_kind == 1 and aim >= red_dot_show_aim_blend)
 	_crosshair.visible = not scoped and aim < crosshair_hide_aim_blend
 	var camera: Camera3D = get_viewport().get_camera_3d()
 	var recoil: RecoilLogic = _controller.get_current_recoil()
@@ -118,6 +120,7 @@ func _bind_from_tree() -> void:
 
 
 func _on_weapon_changed(data: WeaponData) -> void:
+	(_scope.material as ShaderMaterial).set_shader_parameter(&"reticle_kind", data.optic_kind)
 	_weapon_name.text = data.display_name
 
 

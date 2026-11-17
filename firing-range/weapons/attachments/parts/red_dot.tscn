@@ -1,0 +1,45 @@
+[gd_scene load_steps=6 format=3]
+
+[sub_resource type="StandardMaterial3D" id="material"]
+albedo_color = Color(0.20, 0.24, 0.28, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="Stem"]
+material = SubResource("material")
+size = Vector3(0.018, 0.039999999999999994, 0.035)
+
+[sub_resource type="BoxMesh" id="Left"]
+material = SubResource("material")
+size = Vector3(0.006, 0.04, 0.04)
+
+[sub_resource type="BoxMesh" id="Right"]
+material = SubResource("material")
+size = Vector3(0.006, 0.04, 0.04)
+
+[sub_resource type="BoxMesh" id="Top"]
+material = SubResource("material")
+size = Vector3(0.048, 0.006, 0.04)
+
+[node name="red_dot" type="Node3D"]
+
+[node name="Mount" type="Marker3D" parent="."]
+
+[node name="Stem" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.019999999999999997, 0)
+cast_shadow = 0
+mesh = SubResource("Stem")
+
+[node name="Left" type="MeshInstance3D" parent="."]
+position = Vector3(-0.021, 0.06, 0)
+cast_shadow = 0
+mesh = SubResource("Left")
+
+[node name="Right" type="MeshInstance3D" parent="."]
+position = Vector3(0.021, 0.06, 0)
+cast_shadow = 0
+mesh = SubResource("Right")
+
+[node name="Top" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.08, 0)
+cast_shadow = 0
+mesh = SubResource("Top")

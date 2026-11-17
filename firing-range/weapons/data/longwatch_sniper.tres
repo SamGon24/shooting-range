@@ -29,6 +29,7 @@ fire_mode = ExtResource("4_fire")
 delivery = ExtResource("5_delivery")
 reload_policy = ExtResource("6_reload")
 optic_kind = 4
+bore_height_m = 0.012
 display_name = "Longwatch B-9"
 automatic = false
 rounds_per_minute = 60.0

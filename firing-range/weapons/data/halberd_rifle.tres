@@ -24,6 +24,7 @@ diameter_mm = 5.7
 [resource]
 script = ExtResource("1_data")
 weapon_class = 1
+bore_height_m = 0.01
 fire_mode = ExtResource("4_fire")
 delivery = ExtResource("5_delivery")
 reload_policy = ExtResource("6_reload")

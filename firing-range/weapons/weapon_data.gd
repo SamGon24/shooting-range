@@ -10,6 +10,7 @@ extends Resource
 @export var reload_policy: ReloadData
 ## Computed snapshots point to the original definition, never the reverse.
 var base_definition: WeaponData
+@export var bore_height_m: float = 0.01
 @export var recoil_scale: float = 1.0
 @export_enum("Iron:0", "Red dot:1", "2x:2", "4x:3", "8x:4") var optic_kind: int = 0
 var _legacy_automatic: bool = true

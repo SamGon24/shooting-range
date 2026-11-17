@@ -19,6 +19,7 @@ var _frame_time_worst: float = 0.0
 
 
 func _ready() -> void:
+	add_to_group(&"debug_overlay")
 	if OS.get_cmdline_user_args().has(HIDE_ARGUMENT):
 		visible = false
 
