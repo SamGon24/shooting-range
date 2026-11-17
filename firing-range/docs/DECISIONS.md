@@ -886,3 +886,207 @@ Final verification: **340/340 headless GUT tests, 6,606 assertions, 176.911 s**,
 Human judgment of recoil, sight readability, sound balance, blast / melee feel and shield coverage remains pending; README's numbered secondary checklist describes each check. This range still has no player damage / enemy simulation, so the shield test is an incoming training round rather than an AI opponent. Shield sides remain exposed and its collider does not model destructible glass or penetration. Corpses retain the existing bullet-excluded layer and pin joints; blasts can still push them.
 
 Milestone 10 should animate the existing handling / reload policy timelines and the already working knife / bash signals without changing their contact timing. Milestone 11 can consume the existing role-filtered catalogs and cached builds for Armory / persistence. No additional gameplay milestone is needed between them. Browser export and full controller gameplay remain unvalidated future work; this milestone adds only GDScript, built-in physics / audio and InputMap actions, with no new runtime filesystem access or native dependency.
+
+## Milestone 10: handling animations
+
+### The weapon logic is the only clock
+
+Handling animation has no timer of its own. Every frame, `HandlingTimeline.collect` reads the current weapon's `WeaponLogic` and lists the running events with a 0–1 progress:
+
+- **Reloads** use `get_reload_progress()`. `reload_phase` picks shell start / insert / finish; otherwise `is_reload_empty()` picks empty or tactical.
+- **Cycle** is `1 - time_to_next_shot / shot_interval`. It covers bolt and pump actions, the pistol slide and melee cooldowns.
+- **Lowered** is `1 - raise blend`. Equip therefore follows `raise_time` and holster follows `lower_time`, and a switch reversed halfway continues from the same pose.
+- **Empty hold** applies while an ammo-using weapon holds no rounds, is not reloading and is not cycling.
+
+Durations therefore come from the computed build stats. A quick magazine (reload ×0.85) shortens its reload animation by exactly the same factor. Pause freezes it because the logic stops ticking. Cancelling by switching, or interrupting a shell insert by firing, needs no animation-side state: the next frame samples whatever the logic now says. Tests count the ticks each event is reported for all relevant weapons. Reloads and shell phases report for exactly their Resource length in ticks. Cycles and raises report one tick fewer, because the first sample is taken a tick after the shot or switch began.
+
+### Profiles, tracks and composition
+
+A `HandlingProfile` Resource (`weapons/animation/data/*.tres`) holds `HandlingTrack`s. Each track is a pulse on one event and one named part (empty name = the whole model): it eases (smoothstep) from rest to its offset / rotation between `out_start` and `out_end`, holds, and eases back between `back_start` and `back_end`. `back_start = 1` never returns within the event. Simultaneous tracks sum their offsets and Euler XYZ rotations. Offsets are in the model's space; rotations are about the part's own origin.
+
+- Every frame, every animated part is rewritten from its recorded rest transform. Nothing accumulates, so leaving an event always returns the part to rest.
+- An attachment mount named like the part (`Mounts/Magazine`) follows it rigidly (`part_new × part_rest⁻¹ × mount_rest`), so fitted magazines move with the native one.
+- Parts are hidden by scaling to 0.0001, never with `visible` (the Milestone 2 camera-rig fault).
+- `staged_parts` are hidden unless a SHOW window is open (the loading shell). `empty_hidden_parts` are hidden while the weapon is empty (the rocket in the tube, the LMG belt). A HIDE window always wins over SHOW.
+- A HIDE window with `releases_copy` drops a physics copy on the frame its window opens, once per event instance.
+
+The previous generic reload dip / roll in `WeaponView` (0.11 m, 28°) is removed; the profiles replace it. The generic lowered offset / pitch remain underneath the per-weapon lowered tracks. Tests require every profile to be valid, every named part to exist in its viewmodel, every reload / finish / cycle event to end at rest, every event to start at rest except where it continues the previous pose (an empty reload begins at the empty-hold pose; shell start → insert → finish are continuous), racks only on empty magazine reloads, and exactly one release per magazine reload.
+
+### Parts must be posed before the pivot moves
+
+The first rendered reload showed no motion at all, although the node transforms were correct: the trace showed the expected magazine and model transforms every frame, all with interpolation off. Under the camera rig (interpolation off), Godot 4.7 only drew model-part transforms written *before* the pivot's own transform was set that frame. `WeaponView._process` now calls the animator first and writes the pivot afterwards. This is the second rig-specific renderer fault after the `visible` one; any future per-part viewmodel motion must follow the same order. Headless tests cannot catch this, so the Movie Maker captures below were the check.
+
+### Edges and accepted pops
+
+- **Shell interrupt during the 0.20 s opening:** the tilt jumps from its partial START pose to the full FINISH pose. A fire press during an insert is continuous.
+- **Cancel by switching:** the reload pose snaps to rest on the first lowering frame while the model starts its holster roll. Ammo is unchanged; no extra magazine drops.
+- **Pistol last round:** the slide cycles forward over 0.15 s, then snaps back into the empty hold.
+- **Cairn** has no tactical-reload tracks. Its capacity is one and it accepts no attachments, so only an empty reload can occur; this also keeps the hidden-start rocket from counting as a visible jump.
+- **Melee contact still happens on the press** (Milestone 9 timing is unchanged). The knife reaches its strike pose after 0.12 × 0.5 s = 0.06 s and the shield after 0.10 × 0.9 s = 0.09 s; the rest of each cooldown is follow-through. If a play-test finds the strike late, a real wind-up needs a contact delay, which is a gameplay change and needs sign-off.
+
+### Pooled physics magazines
+
+`MagazineDropPool` is created by `WeaponView` beside the player (outside the camera rig, so its bodies are ordinary interpolated physics bodies), with **6** `RigidBody3D`s built once. Each release reuses the oldest body. It:
+
+1. copies up to **4** meshes: the native magazine plus mesh instances under its mount, so an extended or drum magazine drops with its part;
+2. fits a box collider around them;
+3. starts at the part's world transform with the player's velocity, minus **1.2 m/s** along the part's down axis and **4 rad/s** about its X axis;
+4. is frozen, hidden and removed from collision after **4 s** of gameplay time.
+
+Mass 0.35 kg, friction 0.9, bounce 0.15. The velocity is set after unfreezing; a frozen body discarded it. Bodies use layer **16** and mask **1**. Projectiles (mask 1 | 8), melee casts (1 | 8) and blast queries (1 | 4 | 8) never include 16; the player and ragdolls do not scan it. A copy can rest against layer-1 props or target zones, but at 0.35 kg against 8–12 kg props and kinematic targets it cannot move them meaningfully, and it can never produce a hit or stat. Tests fire a real projectile through an active drop and check it strikes the wall behind it.
+
+Releases were first placed when the magazine was fully out (0.26 m below the well). The copy then spawned off screen and, when looking down, behind the eye, because "down" in the tilted gun frame points back toward the body. Release points now sit 0.04 of the event after the pull starts, so the copy leaves from the well in view and falls under gravity. When looking steeply down it falls toward the feet, below the visible part of the frame.
+
+### Complete handling tuning reference
+
+One table per profile. Out / back / window are fractions of the event; Lowered progress is how far the weapon is put away.
+
+`magazine.tres` (Halberd, Rill):
+
+| Event | Part | Offset, m | Rotation, ° | Out | Back | Window |
+|---|---|---|---|---|---|---|
+| Tactical | model | (-0.05,-0.01,0.02) | (10,8,-28) | 0–0.16 | 0.82–1 | — |
+| Tactical | Magazine | (0,-0.26,0.03) | (-12,0,0) | 0.1–0.3 | 0.48–0.74 | hide 0.14–0.48, drops copy |
+| Empty | model | (-0.05,-0.01,0.02) | (10,8,-28) | 0–0.14 | 0.9–1 | — |
+| Empty | Magazine | (0,-0.26,0.03) | (-12,0,0) | 0.06–0.22 | 0.4–0.64 | hide 0.1–0.4, drops copy |
+| Empty | ChargingHandle | (0,0,0.07) | (0,0,0) | 0.74–0.8 | 0.82–0.88 | — |
+| Lowered | model | (0,0,0) | (0,0,-15) | 0–1 | — | — |
+
+`pistol.tres` (Wayline):
+
+| Event | Part | Offset, m | Rotation, ° | Out | Back | Window |
+|---|---|---|---|---|---|---|
+| Tactical | model | (-0.04,-0.01,0.01) | (8,6,-26) | 0–0.18 | 0.8–1 | — |
+| Tactical | Magazine | (0,-0.2,0.02) | (-8,0,0) | 0.1–0.28 | 0.46–0.74 | hide 0.14–0.46, drops copy |
+| Empty | model | (-0.04,-0.01,0.01) | (8,6,-26) | 0–0.16 | 0.86–1 | — |
+| Empty | Magazine | (0,-0.2,0.02) | (-8,0,0) | 0.08–0.24 | 0.42–0.68 | hide 0.12–0.42, drops copy |
+| Empty | Slide | (0,0,0.03) | (0,0,0) | 0 | 0.74–0.8 | — |
+| Cycle | Slide | (0,0,0.03) | (0,0,0) | 0–0.3 | 0.35–1 | — |
+| Empty hold | Slide | (0,0,0.03) | (0,0,0) | 0 | — | — |
+| Lowered | model | (0,0,0) | (0,0,-25) | 0–1 | — | — |
+
+`bolt.tres` (Longwatch):
+
+| Event | Part | Offset, m | Rotation, ° | Out | Back | Window |
+|---|---|---|---|---|---|---|
+| Cycle | BoltHandle | (0,0,0) | (0,0,65) | 0.12–0.24 | 0.72–0.84 | — |
+| Cycle | BoltHandle | (0,0,0.08) | (0,0,0) | 0.28–0.42 | 0.5–0.66 | — |
+| Cycle | model | (0,-0.01,0) | (0,0,6) | 0.08–0.22 | 0.74–0.92 | — |
+| Tactical | model | (-0.05,-0.01,0.02) | (10,8,-26) | 0–0.14 | 0.84–1 | — |
+| Tactical | Magazine | (0,-0.22,0.03) | (-10,0,0) | 0.1–0.26 | 0.44–0.7 | hide 0.14–0.44, drops copy |
+| Empty | model | (-0.05,-0.01,0.02) | (10,8,-26) | 0–0.12 | 0.9–1 | — |
+| Empty | Magazine | (0,-0.22,0.03) | (-10,0,0) | 0.08–0.22 | 0.38–0.6 | hide 0.12–0.38, drops copy |
+| Empty | BoltHandle | (0,0,0) | (0,0,65) | 0.64–0.68 | 0.82–0.86 | — |
+| Empty | BoltHandle | (0,0,0.08) | (0,0,0) | 0.7–0.74 | 0.76–0.8 | — |
+| Lowered | model | (0,0,0) | (0,0,-12) | 0–1 | — | — |
+
+`lmg.tres` (Foundry); hidden while empty: Belt:
+
+| Event | Part | Offset, m | Rotation, ° | Out | Back | Window |
+|---|---|---|---|---|---|---|
+| Tactical | model | (-0.05,-0.01,0.02) | (8,14,-24) | 0–0.08 | 0.9–1 | — |
+| Tactical | Lid | (0,0,0) | (-75,0,0) | 0.06–0.14 | 0.8–0.88 | — |
+| Tactical | Magazine | (0.02,-0.3,0.03) | (0,0,-10) | 0.16–0.32 | 0.46–0.62 | hide 0.2–0.46, drops copy |
+| Tactical | Belt | (0,-0.03,0) | (0,0,0) | 0.64 | 0.66–0.76 | hide 0.16–0.64 |
+| Empty | model | (-0.05,-0.01,0.02) | (8,14,-24) | 0–0.07 | 0.92–1 | — |
+| Empty | Lid | (0,0,0) | (-75,0,0) | 0.05–0.12 | 0.74–0.81 | — |
+| Empty | Magazine | (0.02,-0.3,0.03) | (0,0,-10) | 0.14–0.28 | 0.4–0.55 | hide 0.18–0.4, drops copy |
+| Empty | Belt | (0,-0.03,0) | (0,0,0) | 0.57 | 0.59–0.7 | show 0.57–1 |
+| Empty | ChargingHandle | (0,0,0.08) | (0,0,0) | 0.84–0.88 | 0.9–0.95 | — |
+| Lowered | model | (0,0,0) | (0,0,-10) | 0–1 | — | — |
+
+`shotgun.tres` (Breakwater); staged: LoadingShell:
+
+| Event | Part | Offset, m | Rotation, ° | Out | Back | Window |
+|---|---|---|---|---|---|---|
+| Shell start | model | (-0.07,0.04,0) | (8,10,-32) | 0–1 | — | — |
+| Shell insert | model | (-0.07,0.04,0) | (8,10,-32) | 0 | — | — |
+| Shell insert | LoadingShell | (-0.02,-0.07,0.05) | (0,0,0) | 0 | 0.3–0.75 | show 0–0.8 |
+| Shell finish | model | (-0.07,0.04,0) | (8,10,-32) | 0 | 0–1 | — |
+| Cycle | Handguard | (0,0,0.08) | (0,0,0) | 0.1–0.35 | 0.45–0.75 | — |
+| Lowered | model | (0,0,0) | (0,0,-15) | 0–1 | — | — |
+
+`rocket.tres` (Cairn); hidden while empty: LoadedRocket:
+
+| Event | Part | Offset, m | Rotation, ° | Out | Back | Window |
+|---|---|---|---|---|---|---|
+| Empty | model | (-0.06,-0.06,0.05) | (6,8,-12) | 0–0.15 | 0.82–1 | — |
+| Empty | LoadedRocket | (-0.14,-0.16,0.32) | (0,20,0) | 0 | 0.25–0.7 | show 0.2–1 |
+| Lowered | model | (0,0,0) | (0,0,-10) | 0–1 | — | — |
+
+`knife.tres` (Latch):
+
+| Event | Part | Offset, m | Rotation, ° | Out | Back | Window |
+|---|---|---|---|---|---|---|
+| Cycle | model | (-0.18,0.04,-0.12) | (-10,55,-35) | 0–0.12 | 0.3–0.9 | — |
+| Lowered | model | (0,0,0) | (0,0,-30) | 0–1 | — | — |
+
+`shield.tres` (Palisade):
+
+| Event | Part | Offset, m | Rotation, ° | Out | Back | Window |
+|---|---|---|---|---|---|---|
+| Cycle | model | (0,0.02,-0.22) | (-6,0,0) | 0–0.1 | 0.3–0.85 | — |
+| Lowered | model | (0,0,0) | (0,25,0) | 0–1 | — | — |
+
+Times are fractions of the event: for example the Halberd empty reload (2.4 s) releases its magazine at 0.24 s and racks the charging handle at 1.78–2.11 s; the Breakwater shell moves in over 0.17–0.41 s of a 0.55 s insert. Rotations use the model's axes: +X pitches the muzzle up, +Y yaws it left, −Z rolls the underside toward the screen centre. Reload rolls were first authored positive (+24°), which turned the magazine well away from the camera; captures showed the magazine never on screen, so they were flipped.
+
+### New greybox geometry
+
+Materials reuse each viewmodel's metal / polymer, plus three new ones. None of the parts cast shadows.
+
+| Scene | Node | Size, m | Position, m | Material |
+|---|---|---|---|---|
+| `halberd_rifle_viewmodel.tscn` | ChargingHandle | (0.02, 0.012, 0.025) | (0.035, 0.02, 0.06) | metal |
+| `rill_smg_viewmodel.tscn` | ChargingHandle | (0.02, 0.012, 0.022) | (0.032, 0.018, 0.03) | metal |
+| `foundry_lmg_viewmodel.tscn` | ChargingHandle | (0.02, 0.014, 0.028) | (0.05, 0.02, 0.1) | metal |
+| `foundry_lmg_viewmodel.tscn` | Lid (hinge `Node3D`) / Cover | Cover (0.07, 0.015, 0.16) | Lid (0, 0.0525, −0.2); Cover local (0, 0, 0.08) | metal |
+| `foundry_lmg_viewmodel.tscn` | Belt | (0.015, 0.06, 0.05) | (−0.045, −0.005, −0.04) | brass RGB (0.62, 0.48, 0.20), roughness 0.5 |
+| `breakwater_shotgun_viewmodel.tscn` | LoadingShell | (0.02, 0.02, 0.065) | (0, −0.045, −0.06) | shell RGB (0.55, 0.12, 0.10), roughness 0.7 |
+| `cairn_launcher_viewmodel.tscn` | LoadedRocket | (0.085, 0.085, 0.30) | (0, 0, −0.66) | warhead RGB (0.33, 0.36, 0.25), roughness 0.8 |
+
+The Lid hinges at the cover's front edge, so the −75° X rotation lifts its rear. The loaded rocket protrudes 0.13 m from the front rim. No sight geometry moved, so authored sight heights and zeros are unchanged.
+
+### Debug tooling
+
+- **`--hold=action@start-release`** now releases at an optional time. A held action is also pressed again if the engine releases it. Movie Maker windows lose focus, and the engine then drops every pressed action: a held fire stopped after six shots. One-off edge keys (attachment cycling) should be given a release time so a focus loss cannot cycle them again; the README perf commands now do.
+- **`--perf-reload`** (with `--perf-fire`) presses reload whenever the gun has fired at least one round. Reports add reloads started, magazines released and peak active drops.
+- Movie Maker captures occasionally stalled on one repeated frame: three of about twenty back-to-back captures this milestone, one of them with `--always-on-top`, with nothing in the log. Rerunning the same command produced a normal capture. Treat a capture whose HUD never changes as stalled, not as evidence.
+
+### Milestone 10 performance and validation
+
+Measured on the target Intel i5 / Iris 655, Compatibility, **1280×720**, 60 Hz physics, full HUD and diagnostics, with `--perf-fire --perf-stress` (54 / 54 awake ragdoll parts, eight awake props, three driven steel hinges throughout every run), 2 s warmup / 10 s measurement, window in front. All rows below were focused for 100% of measured frames.
+
+| Capped run | Average | 1% low | Worst frame | Frames >25 ms | Draw calls / primitives | Actions since start |
+|---|---|---|---|---|---|---|
+| Halberd `--perf-reload` | 58.9 fps | 16.4 fps | 225.34 ms | 1 | 186 / 3,792 | 6 reloads, 6 drops, 2 peak active |
+| Rill `--perf-reload` | 60.0 fps | 51.3 fps | 21.66 ms | 0 | 188 / 3,858 | 8 reloads, 8 drops, 3 peak active |
+| Foundry `--perf-reload` | 60.0 fps | 48.9 fps | 22.80 ms | 0 | 186 / 3,752 | 3 reloads, 3 drops, 1 peak active |
+| Wayline `--perf-reload` | 60.0 fps | 51.8 fps | 21.29 ms | 0 | 184 / 3,730 | 8 reloads, 8 drops, 3 peak active |
+| Breakwater (pump + shell loading) | 60.0 fps | 51.6 fps | 22.60 ms | 0 | 186 / 3,990 | 9 shells, 4 shell reloads |
+| Longwatch (bolt cycling) | 60.0 fps | 42.1 fps | 38.49 ms | 1 | 188 / 3,920 | 7 shots, 1 reload |
+| Cairn | 60.0 fps | 52.5 fps | 19.96 ms | 0 | 185 / 3,676 | 3 rockets, 3 armed blasts |
+| Latch | 60.0 fps | 49.8 fps | 22.18 ms | 0 | 181 / 3,620 | 23 swings |
+| Palisade | 60.0 fps | 50.2 fps | 21.28 ms | 0 | 175 / 3,724 | 13 bashes, 45 blocks |
+| Fitted Foundry regression | 60.0 fps | 49.0 fps | 23.23 ms | 0 | 166 / 3,524 | 100 shots, 1 reload / drop |
+
+Against Milestone 9, the knife (42.1 → 49.8 fps 1% low) and fitted Foundry (39.8 → 49.0) rows are better and the rocket row is identical; nothing was optimised between them, so this is run-to-run variance rather than a gain. The animator rewrites at most six part transforms per frame (Foundry: model, cover, box, its mount, belt, charging handle) and the pool never exceeded three active bodies.
+
+The Halberd reload-stress row has one **~225 ms** frame, and it pulls the average to 58.9 fps and the 1% low to 16.4 fps. All three Halberd runs had it (worst 225.3 / 224.6 / 232.4 ms; the last two were only partly focused and are not tabled). A traced run placed it at **2.17 s**: the start of the second reload, just after the first counted shot. Repeating the run with the animator and magazine release disabled by a temporary switch gave the same frame at the same time (**220.2 / 223.0 ms** in two runs), so it is a pre-existing first-use cost that this probe's ordering moves into the measured window, not a Milestone 10 cost. The other probes switch weapon first, which probably places the equivalent moment in the warmup; its cause has not been isolated. It is recorded for the Milestone 12 performance pass rather than hidden by a longer warmup. Excluding that frame, the Halberd run had no other frame over 25 ms.
+
+Movie Maker frames were inspected for:
+
+- the Halberd empty reload (roll, magazine pull, falling copy, new magazine, rack)
+- the Wayline shot and tactical reload
+- the Longwatch bolt cycle
+- the Foundry tactical reload (cover, box, belt)
+- the Breakwater pump and shell inserts
+- the Cairn fire and reload
+- the Latch slash and Palisade bash
+
+The view from steeply above shows the copy falling past the gun toward the feet.
+
+Final verification: **373/373 headless GUT tests, 7,009 assertions, 221.7 s**, clean exit with no engine errors or orphan warnings. Headless startup (10 frames) exits with zero errors / warnings. New tests are in `test_handling_timeline.gd`, `test_weapon_animator.gd` and `test_magazine_drop_pool.gd`; every earlier test is unchanged and passing.
+
+### Remaining Phase 2 scope
+
+Human judgment is still needed for reload readability, roll direction and amount, pump / bolt / slide feel, the knife strike timing and the magazine drop. README's numbered handling checklist describes each check. Animations are greybox part motions without hands or arms. A dropped magazine falls from the well and leaves the frame quickly; it is visible on the ground only when looking around. Milestone 11 can show these profiles unchanged in the Armory preview by calling `WeaponAnimator.apply` with a logic in any state.

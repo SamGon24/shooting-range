@@ -6,7 +6,7 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 **MVP complete (Milestones 1 to 6). Final manual play-test pending.**
 
-**Phase 2: Milestones 7–9 built — weapon framework, attachments and all nine weapons. Manual play-test pending.** The rifle and sniper keep their exact Milestone 6 stats and behavior with no attachments fitted; a frozen fixture verifies every original exported stat.
+**Phase 2: Milestones 7–10 built — weapon framework, attachments, all nine weapons and procedural handling animations. Manual play-test pending.** The rifle and sniper keep their exact Milestone 6 stats and behavior with no attachments fitted; a frozen fixture verifies every original exported stat.
 
 Movement and range (Milestone 1):
 
@@ -78,6 +78,14 @@ Secondaries (Milestone 9):
 - Cairn R-1 launcher: one 120 m/s rocket, light gravity and numerical 50 m zero. Contact before 10 m is a dud; armed contact produces a 6 m blast with torso damage, armor-first absorption, cover occlusion and radial impulses on props, steel and ragdolls. Flight bodies, flashes and boom voices are pooled.
 - Latch K-1 knife: one camera sphere cast per click, 1.8 m reach and 0.5 s swing interval. Palisade S-1 shield: 1.5 m bash, 0.9 s interval, frontal projectile-blocking collider and 0.8× movement speed while held. Both have unlimited attacks, no reload and no ADS.
 - O exchanges the secondary. B sends a harmless, non-scoring incoming test round while the shield is ready. Damage feedback and logical-shot stats use the existing shared pipeline; one swing counts as one shot and one rocket can score at most one hit.
+
+Handling animations (Milestone 10):
+
+- Procedural motion on the greybox viewmodels for all nine weapons, purely cosmetic. Timings are fractions of each weapon's own Resource times and are read from the weapon logic every frame, so attachments that change reload or handling times change the animation by the same factor, and pause, cancel and interrupt need no extra handling.
+- Rifle, SMG, pistol and sniper: the gun rolls to show the magazine well, the magazine pulls out and drops as a pooled physics copy, and a new one goes in. Empty reloads add a rack: charging handle (rifle, SMG, LMG), bolt (sniper) or slide release (pistol). The pistol slide cycles per shot and locks back when empty.
+- LMG: cover up, box out, box in, belt laid, cover down; the belt is hidden while the gun is empty. Shotgun: one visible shell goes into the port per insert, and the forend pumps after every shot. Rocket: the fired round disappears and a new one slides into the muzzle. Sniper: the bolt lifts, pulls, pushes and locks after each shot.
+- Equip and holster roll each model in and out over its raise / lower time. The knife slashes across the view and the shield pushes forward over their melee cooldowns.
+- Dropped magazines come from a fixed pool of six bodies, inherit the player's velocity, settle on the ground and disappear after 4 s. They are on a debris layer that projectiles, melee, blasts, the player and ragdolls ignore.
 
 Later Phase 2 work is listed under [Roadmap](#roadmap) and [Future phases and known limitations](#future-phases-and-known-limitations).
 
@@ -192,7 +200,7 @@ Shotgun pellets spread in an intrinsic 3° half-angle cone around the weapon's a
 
 Wayline reloads in 1.25 s tactically / 1.65 s empty; Cairn loads its single round in 2.8 s after firing. Both are zeroed at 50 m. Knife and shield attacks require a fresh click after the cooldown; holding does not repeat them. Their reach includes the cast sphere's radius, with walls and nearer bodies blocking a strike. Head / torso / limb multipliers still apply. A knife head hit does 112.5 damage to an unarmored target.
 
-Rocket splash applies once per dummy to its torso, including armor carry-over. The maximum 180 damage / 45 N·s impulse hold through 1 m, then decrease linearly to zero at 6 m. Cover blocks damage and impulse. There is no separate contact damage, pre-arm explosion or expiry airburst. A direct armed hit kills an unarmored dummy; three armor plates plus health can survive it. The shield blocks direct projectiles from its front; exposed sides remain vulnerable. B is a test aid in this enemy-free range, not a scored player shot. Full swing, bash and reload animations arrive in Milestone 10.
+Rocket splash applies once per dummy to its torso, including armor carry-over. The maximum 180 damage / 45 N·s impulse hold through 1 m, then decrease linearly to zero at 6 m. Cover blocks damage and impulse. There is no separate contact damage, pre-arm explosion or expiry airburst. A direct armed hit kills an unarmored dummy; three armor plates plus health can survive it. The shield blocks direct projectiles from its front; exposed sides remain vulnerable. B is a test aid in this enemy-free range, not a scored player shot. Swing, bash and reload animations are described under Milestone 10 above.
 
 ## Development
 
@@ -220,18 +228,20 @@ godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-popdown
 # Uncapped worst-case headroom:
 godot --always-on-top --disable-vsync --max-fps 0 -- --perf-probe --perf-fire --perf-stress
 # Worst case with all five attachment slots fitted (one cycle per slot):
-godot --always-on-top -- --perf-probe --perf-fire --perf-stress --hold=attachment_muzzle@0.1,attachment_barrel@0.1,attachment_optic@0.1,attachment_stock@0.1,attachment_magazine@0.1
+godot --always-on-top -- --perf-probe --perf-fire --perf-stress --hold=attachment_muzzle@0.1-0.2,attachment_barrel@0.1-0.2,attachment_optic@0.1-0.2,attachment_stock@0.1-0.2,attachment_magazine@0.1-0.2
 # Select any primary: rifle, smg, lmg, shotgun or sniper:
 godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-weapon=shotgun
 # Fully fitted new primary; wait until its normal equip has completed:
-godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-weapon=lmg --hold=attachment_muzzle@1.5,attachment_barrel@1.5,attachment_optic@1.5,attachment_stock@1.5,attachment_magazine@1.5
+godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-weapon=lmg --hold=attachment_muzzle@1.5-1.6,attachment_barrel@1.5-1.6,attachment_optic@1.5-1.6,attachment_stock@1.5-1.6,attachment_magazine@1.5-1.6
 # Select any secondary: pistol, rocket, knife or shield:
 godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-weapon=rocket
+# Reload stress: tactical reload after every shot, with magazine drops:
+godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-reload --perf-weapon=smg
 ```
 
 The stress fixture is opt-in: it repeatedly kills all dummies through their normal damage entry point on reset, keeps all ragdoll parts and props awake and drives steel hinges. Those fixture kills do not count as launched shots. The report verifies 54 awake parts throughout the measurement. Do not open the pause menu while benchmarking.
 
-The report also names the selected gun and lists peak live projectiles / dropped projectiles, armed blasts and non-scoring shield blocks. Shield stress sends a real incoming round from 2 m every 0.25 s while bashing, so it exercises blocking while walking and turning. Its printed collision-hit count includes scenery and individual pellets; HUD accuracy counts logical target hits once per shot. Semi-auto, bolt, pump and melee probes generate repeated clicks; the shotgun probe interrupts shell loading after a shell is ready.
+The report also names the selected gun and lists peak live projectiles / dropped projectiles, armed blasts, non-scoring shield blocks, reloads started, magazines released and the peak number of active dropped magazines. Shield stress sends a real incoming round from 2 m every 0.25 s while bashing, so it exercises blocking while walking and turning. Its printed collision-hit count includes scenery and individual pellets; HUD accuracy counts logical target hits once per shot. Semi-auto, bolt, pump and melee probes generate repeated clicks; the shotgun probe interrupts shell loading after a shell is ready.
 
 The cap comes from `application/run/max_fps=60` in `project.godot`, because OpenGL on macOS doesn't enforce vsync.
 
@@ -242,7 +252,7 @@ These go after `--` on the command line and are mainly for Movie Maker captures 
 | Argument | Effect |
 |---|---|
 | `--pose=x,y,z,yaw,pitch` | Places the player (metres and degrees; yaw 0 looks downrange) |
-| `--hold=action[@seconds],...` | Presses input actions and keeps them down, each from the given time |
+| `--hold=action[@seconds[-release]],...` | Presses input actions from the given time and keeps them down until the optional release time. A held action is pressed again if the engine releases it (an unfocused window loses its held keys), so give one-off keys such as attachment cycling a release time |
 | `--log-hits` | Prints every projectile hit: what it hit, where, flight time and speed |
 | `--hide-overlay` | Starts with the debug overlay hidden |
 | `--bullet-paths` | Starts with the bullet path view on |
@@ -272,6 +282,8 @@ For Movie Maker captures, add `--always-on-top`. macOS throttles a Godot window 
 | Secondary offerings / order; shield test round | `weapons/data/secondary_catalog.tres`; O / B in `project.godot`; `debug/guard_probe.gd`, `debug/data/guard_probe_round.tres` |
 | Rocket body, pooled blast flashes and spatial boom | Exports in `weapons/effects/explosion_effects.gd`; original sound synthesis in `weapons/effects/sfx_factory.gd` |
 | Primary offerings / order | `weapons/data/primary_catalog.tres`; `primary_next` (P) in `project.godot` |
+| Handling animation tracks (reload, cycle, equip / holster, melee, staged parts) | `weapons/animation/data/*.tres`, picked by each weapon's `handling`; schema `weapons/animation/handling_track.gd` / `handling_profile.gd`; complete tables in DECISIONS |
+| Dropped magazine pool: capacity, lifetime, mass, release speed / spin, layers | Exports in `weapons/effects/magazine_drop_pool.gd` |
 | Bullet stats: muzzle velocity, damage and falloff, mass, diameter, drag coefficient | The `projectile` sub-resource inside each weapon `.tres` (fields documented in `ballistics/projectile_spec.gd`) |
 | Attachment modifiers, compatible classes, optic FOV and sight height | `weapons/attachments/data/*.tres`; catalog and exact values below |
 | Modifier limits | `weapons/attachments/data/stat_limits.tres`; complete bounds in `docs/DECISIONS.md` |
@@ -349,7 +361,7 @@ The main scene is `range/range.tscn`. Every scene and resource is text-based (`.
 - [x] **7. Weapon framework and attachments:** composed policies and loadout slots, cached modifiers, damage source, mounted parts, five optic types and debug cycling. Manual play-test pending.
 - [x] **8. New primaries:** SMG, LMG, pump shotgun with attachments, pellet delivery, summed damage numbers and interruptible shell reloads. Manual play-test pending.
 - [x] **9. Secondaries:** pistol with attachments, armed rockets, knife, shield, strict carried slots and pooled feedback. Manual play-test pending.
-- [ ] **10. Handling animations:** procedural reload, equip, holster and melee visuals.
+- [x] **10. Handling animations:** procedural reload, cycle, equip, holster and melee motion for all nine weapons, pooled physics magazine drops. Manual play-test pending.
 - [ ] **11. Main menu and Armory:** primary / secondary selection, attachment comparison and saved loadouts.
 - [ ] **12. Polish:** improved ragdoll joints, hittable corpses, adjustable zero, smoke / casings and final arsenal performance.
 
@@ -421,6 +433,19 @@ Time to kill is measured in physics time from the first damaging hit on each dum
 7. Equip Palisade. Check reduced walk / crouch / sprint / slide movement and normal speed after switching away. Press B facing open range: sparks should hit the front shield, no floating mark should remain when moving, and player shots / hits must stay unchanged. Check the visor, side exposure and 1.5 m / 0.9 s bash.
 8. Pause during rocket flight, melee cooldown and target reset. Wait, resume and confirm simulation / effects / TTK clocks excluded menu time. Reset T with a rocket in flight; its old splash may still damage but must not count in the fresh session.
 9. Run the secondary stress probes above with the window focused. Check about 60 fps, 54 awake ragdoll parts, eight props and zero dropped projectiles. Full reload / swing animations and saved Armory choices are later milestones.
+
+## Handling animations play-test
+
+1. Start the game. With Halberd, fire a few rounds and press R. The gun should roll to show the magazine well, the magazine should drop out and fall past the gun, and a new one should go in before the gun settles. Empty the magazine and reload: the charging handle racks near the end. Look down while reloading to see the dropped magazine land; it disappears after about 4 s.
+2. Press P for Rill and Foundry and repeat. Foundry opens its cover, swaps the box, lays the brass belt and closes the cover; empty it to see the belt disappear and return.
+3. Press P for Breakwater. Fire twice: the forend pumps after each shot. Reload and watch one red shell go in per insert. Press fire mid-insert: the shell vanishes, the gun closes and fires. Judge the tilt and pump feel.
+4. Press P for Longwatch. Fire from the hip: the bolt lifts, pulls back, pushes and locks over the 1.1 s cycle. Scoped shots hide the model as before. Empty and reload: the bolt racks near the end.
+5. Press 2 for Wayline. Tap fire: the slide cycles. Empty it: the slide stays back, and the empty reload releases it at the end.
+6. Press O for Cairn. Fire: the round in the muzzle disappears. Reload: a new round appears in hand and slides into the muzzle.
+7. Press O for Latch and Palisade. Click: the knife slashes across the view and the shield pushes forward, both settling by the end of the cooldown. Contact still happens on the click, so judge whether the strike looks late.
+8. Switch weapons, including mid-reload: each model rolls away and in. Switching back mid-reload must show the gun at rest, with no extra drop and no ammo gained. Pause mid-reload: the animation and falling magazines freeze.
+9. Fit an extended magazine or drum (F9) and reload: the larger part drops with the magazine. Fit a quick magazine: the animation runs faster with the shorter reload time.
+10. Run the reload stress probe above with the window focused. Check about 60 fps, all 54 ragdoll parts and eight props, and no more than six dropped magazines.
 
 ## Feedback and HUD play-test
 
