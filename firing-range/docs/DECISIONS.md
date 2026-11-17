@@ -488,3 +488,113 @@ Capped runs are paced by the limiter rather than enforced OpenGL vsync. The earl
 **254/254 headless GUT tests pass**, 4,632 assertions, clean shutdown. Windowed startup and the final stress probe have zero errors. Movie Maker frames were inspected for the focused pause menu, props at the movement area and articulated ragdolls. The pause-menu capture retains the existing Movie Maker active-audio shutdown warning; ordinary startup and probes are clean. Final manual judgment is pending; README contains the numbered MVP checklist.
 
 Web work still needs an actual browser export, physics/template validation, pointer-lock / audio activation gestures, persistence and browser performance tests. Menu controls have InputMap bindings and synthetic keyboard/controller event tests, but physical-device checks and full controller gameplay (right-stick look, mappings, dead zones, rebinding, prompts) remain post-MVP. No web-incompatible runtime service, native library or OS operation was added. The MVP uses simplified greybox ragdolls and capped recycling props rather than an unrestricted physics sandbox.
+
+## Milestone 7 — weapon composition and attachments
+
+### Preserve the Milestone 6 definitions
+
+The existing guns remain independent `WeaponData` Resources, with no per-gun subclasses. Before refactoring, every original exported weapon stat and nested projectile stat was frozen in `tests/fixtures/milestone_6_weapon_stats.json`. `test_weapon_build.gd` compares both zero-attachment computed builds against that fixture, including packed recoil arrays, poses, sight geometry, sound settings and scene paths. New metadata does not replace or regenerate the fixture. All original tests remain in the suite, covering fire timing, recoil, reloads, zeroing, hits, damage, feedback and rendering state.
+
+`WeaponData` composes three Resources:
+
+- `FireModeData`: full-auto uses a held trigger; semi-auto / bolt / pump use a fresh press. Interval remains `max(60 / rpm, cycle_time)`. `weapons/framework/auto.tres` and `bolt.tres` select the existing rifle / sniper behavior.
+- `DeliveryData`: `weapons/framework/ballistic.tres` delegates to the original `ProjectileSystem.fire`. Pellet, explosive and melee tags are declared, but their runtime implementations deliberately wait for Milestones 8–9; unsupported launches fail explicitly. There is no additional hit-detection path.
+- `ReloadData`: `weapons/framework/magazine.tres` retains the existing tactical / empty timing and full-magazine refill. Single-round refill adds one, bounded by capacity; none disallows reloading. Interruptible shell reload is explicitly unsupported until Milestone 8.
+
+`WeaponLoadout` names primary and secondary slots and validates roles / classes. Both existing guns are primaries, while the user requires both to stay playable now. Therefore only `weapons/data/range_loadout.tres` enables `comparison_mode = true`; the Resource default is false and ordinary loadouts reject primary / primary pairs. This preserves 1 / 2 and wheel behavior without misclassifying the sniper as a secondary. Remove the range exception when a real default secondary ships in Milestone 9.
+
+### Deterministic cached builds and safe application
+
+`WeaponBuild` holds immutable authored inputs and caches a separate computed `WeaponData`, independent projectile spec and copied recoil pattern. Base Resource identity keys viewmodels and sounds; snapshot identity never creates another gun model or another synthesized sound. One slot accepts one `AttachmentData`, which declares class compatibility, typed `StatModifier` entries, a part scene, mount path and optional optic settings. Class rules independently reject pistol barrel / stock and all rocket / knife / shield attachments, even if an attachment's compatibility array mistakenly includes them.
+
+Build order is fixed: copy base stats; select optic overrides; apply every **ADD**, then every **MULTIPLY**. Within either pass use muzzle → barrel → optic → stock → magazine, then the modifier array's authored order. Keep intermediate values as floats; clamp once after stacking, then round magazine size once. Enforce falloff end ≥ start. For example `(850 + 50) × 1.1 = 990 m/s` regardless of installation order; `(30 + 0.4) × 1.5` rounds once to 46 rounds. Recoil scale multiplies both pattern entries and random deviation; it does not change the camera's cosmetic kick.
+
+Only allowlisted scalar paths can be modified. Unknown fields, non-finite values and negative multipliers are rejected. `set_attachment` invalidates only a real selection change; `get_stats` returns the existing snapshot when unchanged. Authored Resources are treated as immutable: change selections through the build API, not by editing a fitted Resource in place at runtime. A computation counter makes this boundary testable.
+
+The controller queues requests per weapon until ready / firing with the previous cooldown finished. Reloading, lowering, raising and bolt-cycle timing remain intact. Applying a batch computes once, preserves recoil state, clamps current bloom and loaded rounds only if necessary, and never grants rounds when capacity grows. It updates logic, view and audio through the existing weapon signal, and numerically recalibrates the zero using current air density. Already-flying rounds retain their original spec. Clearing all five slots is one batch; clearing an empty build is a no-op.
+
+`DamageSource.Kind` adds BALLISTIC / PELLET / SPLASH / MELEE metadata. `ProjectileSpec.source` defaults to BALLISTIC; `ProjectileSystem` copies it to `ProjectileHit.source` on the existing swept-ray hit. Existing target damage and scoring semantics are unchanged. A real projectile-to-target integration test verifies metadata survives this path.
+
+### Mounted parts and optics
+
+The seventeen catalog Resources live in `weapons/attachments/data/`; [README's attachment table](../README.md#attachment-tuning-and-play-test) lists **every modifier, FOV, sight height and individual Resource filename**. There are three choices per physical slot and five optics, exceeding the suggested optic count to cover all five requested types. Every entry has both a benefit and a cost. Catalog order determines debug cycling, including None after the last compatible choice. Both existing weapons accept all five slots; optics / muzzle / magazines also declare future pistol compatibility.
+
+Each viewmodel has `Mounts/{Muzzle,Barrel,Optic,Stock,Magazine}`. An attachment's local `Mount` marker is aligned with the corresponding weapon marker using an inverse transform. Cosmetic parts never determine projectile origins. Fitted optics detach the native sight nodes and None reattaches those exact nodes. This also preserves the MVP workaround for inherited visibility / physics-interpolation faults. Muzzle parts have an `Exit` marker for the existing flash; flash nodes are detached before an old part is freed, so repeated swaps retain effects without leaks. Node creation happens on selection / equip events, never per shot.
+
+Optic FOV is authored as `degrees(2 × atan(tan(65° / 2) / magnification))`, with no small-angle approximation. The reference stays 65° even when a player changes hip FOV. Explicitly fitting an 8× scope therefore gives 9.106142756°, while **None retains the original sniper's 12°**; None also retains rifle 45° and both original sight heights / ADS poses. Fitted iron / red-dot FOV is 65°. Iron has physical sights, red dot uses a transparent red overlay, 2× a full crosshair, 4× ticks and 8× the original scope reticle. Only scopes hide the model. Head bob, recoil cosmetics and mount transforms remain separate from the calibrated bore direction.
+
+Optic sight height is authored above the bore; the camera-relative ADS Y offset becomes `-sight_height_m - bore_height_m`. Bore heights are 0.010 m rifle / 0.012 m sniper, matching the unchanged model geometry. These values are explicit in the respective weapon Resources. Fixed authored geometry, rather than reading animated meshes, keeps zeroing deterministic.
+
+### Complete new limits and presentation tuning
+
+All clamp bounds below are in `weapons/attachments/data/stat_limits.tres` (`StatLimits`). `Vector2` stores the bounds as engine floats; tests use tolerance for decimal bounds such as 0.05. The operation order, integer rounding and min/max relation above are policies rather than hidden tuning.
+
+| Stat | Minimum–maximum |
+|---|---|
+| `ads_time` | 0.05–1.5 s |
+| `rounds_per_minute` | 30–1500 rpm |
+| `bolt_cycle_time` | 0–3 s |
+| `magazine_size` | 1–200 rounds |
+| `reload_tactical_time`, `reload_empty_time` | 0.1–6 s each |
+| `recoil_scale` | 0.25–2 |
+| `hip_spread_degrees`, `aimed_spread_degrees`, `max_bloom_degrees` | 0–15° each |
+| `spread_per_shot_degrees` | 0–5° |
+| `recoil_recovery_rate` | 0–90°/s |
+| `raise_time`, `lower_time` | 0.05–2 s each |
+| `ads_fov_degrees` | 2–90° |
+| `ads_sensitivity_scale` | 0.05–1 |
+| `sight_height_m` | 0–0.5 m |
+| `projectile.muzzle_velocity` | 50–1500 m/s |
+| `projectile.damage` | 0–500 |
+| `projectile.falloff_start_distance`, `projectile.falloff_end_distance` | 0–1000 m each |
+| `projectile.min_damage_fraction` | 0–1 |
+
+| File | New values / defaults |
+|---|---|
+| `weapons/weapon_data.gd` and `weapons/data/*.tres` | New default metadata: rifle class / primary role, recoil scale 1, iron optic kind 0, bore height 0.010 m. Sniper overrides class to sniper, optic kind to 4 and bore height to 0.012 m. Existing firearm stats are unchanged. |
+| `weapons/attachments/attachment_data.gd` | Default part mount `Mount`; optic kind -1 inherits base, default fallback FOV 45° / sight height 0.050 m. Each catalog optic overrides all three values. `StatModifier` default operation MULTIPLY, value 1. |
+| `weapons/framework/*.gd`, `*.tres` | Default full-auto / ballistic / magazine kinds. Auto fires while held; other modes require a press. Default comparison mode false; shipped range Resource explicitly true. Enum order is a stable data contract, not a tuning slider. |
+| `weapons/viewmodels/halberd_rifle_viewmodel.tscn` | Muzzle `(0,0.010,-0.50)`; barrel `(0,0.010,-0.25)`; optic `(0,0.010,-0.01)`; stock `(0,-0.012,0.25)`; magazine `(0,-0.030,-0.04)`, metres. |
+| `weapons/viewmodels/longwatch_sniper_viewmodel.tscn` | Muzzle `(0,0.012,-0.84)`; barrel `(0,0.012,-0.25)`; optic `(0,0.012,-0.01)`; stock `(0,-0.020,0.32)`; magazine `(0,-0.030,-0.03)`, metres. |
+| `weapons/attachments/parts/{baffle,ported,compact_cap}.tscn` | Box cross-section 0.045×0.045 m, lengths 0.080 / 0.100 / 0.035 m; extend along -Z from mount, Exit at the end. |
+| `weapons/attachments/parts/{long_barrel,short_barrel,heavy_barrel}.tscn` | Cross-section 0.035×0.035 m; lengths 0.350 / 0.180 / 0.300 m, extend along -Z. |
+| `weapons/attachments/parts/{brace,light_stock,balanced_stock}.tscn` | Cross-section 0.060×0.100 m; lengths 0.220 / 0.160 / 0.200 m, extend along +Z. |
+| `weapons/attachments/parts/{extended_mag,quick_mag,drum}.tscn` | Width 0.040 m, depth 0.065 m; heights 0.170 / 0.090 / 0.220 m, extend along -Y. |
+| `weapons/attachments/parts/{iron,red_dot,scope_2x,scope_4x,scope_8x}.tscn` | Stem width / depth 0.018 / 0.035 m, height `optic sight height - 0.020 m`, centre at half stem height. Iron post 0.006×0.020×0.006 m, top at sight height. Red-dot sides 0.006×0.040×0.040 m at X ±0.021 m, centred at sight height; top 0.048×0.006×0.040 m at sight height +0.020 m. Scope radii 0.020 / 0.026 / 0.032 m, lengths 0.140 / 0.190 / 0.240 m, 12 radial segments / one ring, rotated X 90°, axis at sight height. |
+| All part `.tscn` files above | Identity Mount transforms; roughness 0.8; shadows off. RGB by slot: muzzle `(0.24,0.27,0.30)`, barrel `(0.32,0.35,0.38)`, optic `(0.20,0.24,0.28)`, stock `(0.34,0.37,0.30)`, magazine `(0.35,0.32,0.24)`, alpha 1. Boxes centred at half their extension length. |
+| `ui/hud.gd` | `red_dot_show_aim_blend = 0.85`; existing crosshair hide remains 0.5. Scope model hiding retains the existing WeaponView threshold 0.85. |
+| `ui/scope_overlay.gdshader` | New `reticle_kind` default 4 preserves native sniper. Red RGB `(1,0.12,0.08)`; dot radius retains 0.0022 screen heights, alpha fade width 0.001. 2× line alpha 0.85 / existing half-width 0.0011; 4× tick spacing 0.05, phase offset 0.025, half-length 0.008, alpha 0.85. Native circle radius / gap / ring values unchanged. |
+| `debug/attachment_debug.gd` | Canvas layer 11; physics priority -10 to collect requests before weapons; selection label offsets left 24 / top -155 / right 600 / bottom -24 px, top / bottom anchored to 1; font 14, outline 3. Label follows F3 visibility, refreshes only on selection / weapon changes. |
+| `project.godot` | `attachment_muzzle/barrel/optic/stock/magazine`: F5–F9, physical codes 4194336–4194340; `attachment_clear`: F10, 4194341. Dead zone 0.2. All are InputMap actions and pause with gameplay. |
+
+Debug choices are per weapon and session-only. Nothing writes a loadout file yet; `user://loadout.cfg` belongs to the Armory milestone. No new filesystem dependency, thread or native plugin was introduced into gameplay.
+
+### Verification and performance
+
+New coverage checks frozen zero-attachment stats, arithmetic order / clamps / integer rounding, compatibility, cache reuse, policy composition and source propagation, safe live changes, zero recalibration without mutating launched specs, all catalog trade-offs, every optic's zoom / sight height / model state, red-dot HUD behavior, and F5–F10 fitting / clearing with surviving muzzle effects. The original Milestone 6 tests remain unchanged in intent.
+
+Final full headless GUT run: **269/269 tests, 4,997 assertions, 119.698 s**, clean shutdown with no engine errors. The frozen-fixture comparison proves both computed bare builds retain every original Milestone 6 stat; existing integration tests continue proving their behavior.
+
+Windowed normal startup and the final performance run shut down with zero errors. Movie Maker frames were inspected for the fitted hip model, aligned red-dot ADS and 4× scope / tick reticle. Choices in those captures were baffle / long barrel / red dot (or 4×) / braced stock / extended magazine. Captures and test drivers are temporary files outside the repo.
+
+All figures below use the target Intel Mac, Compatibility, 1280×720, firing with the HUD / diagnostics, eight continuously moving props, three driven steel plates and all **54 min / 54 max** ragdoll parts awake. Each probe measures ten seconds after two seconds of warmup. No tests, captures or commits ran concurrently. Final probes used a temporary SceneTree driver to fit all five parts and restore foreground focus when lost; shipped game focus handling is unchanged.
+
+| Configuration | Focus | Average | 1% low | Worst | Frames >25 ms |
+|---|---|---|---|---|---|
+| Milestone 6 final capped, historical reference | 100% | 60.0 fps | 49.0 fps | 21.92 ms | 0 / 601 |
+| Milestone 6 uncapped, historical reference | 100% | 115.4 fps | 70.6 fps | 15.09 ms | 0 / 1,156 |
+| Milestone 7 capped, five parts / fitted irons via debug actions | 100% | 60.0 fps | 42.7 fps | 31.90 ms | 2 / 601 |
+| Milestone 7 uncapped, five parts / red dot, foreground driver | 100% | 91.3 fps | 55.4 fps | 19.61 ms | 0 / 914 |
+| Milestone 7 final capped, five parts / red dot, foreground driver | 100% | 60.0 fps | 42.6 fps | 30.46 ms | 2 / 600 |
+
+Two preliminary uncapped attempts lost focus (0% and 18%) and are excluded from acceptance comparisons. The valid uncapped run measured 12 / 914 frames above 16.67 ms, median 10.66 ms, with 189 draw calls / 3,906 primitives at the final sample. The final capped run had 190 draw calls / 4,014 primitives and 75 shots. Render counts vary with the ragdoll / prop poses and particles at the sample time. All five fitted parts and the diagnostic selection label add work relative to the MVP; builds themselves never recompute per frame.
+
+The range still averages the requested 60 fps capped, with substantial average uncapped headroom. **This is not a claim that every frame meets 16.67 ms:** uncapped tail frames and two capped pacing spikes remain. The historical MVP table is a reference, not a controlled thermal comparison. Preserve this limitation for the final-arsenal performance pass rather than hiding it behind the average or claiming a nonexistent optimization.
+
+### Recommendations for the remaining Phase 2 plan
+
+1. At the start of Milestone 8, add a logical `shot_id` shared by all pellets / impacts from one trigger event. Route existing hit metadata through that ID so stats count one hit per shot and damage numbers combine per target / shot before pellet delivery ships. `source` alone cannot provide grouping.
+2. Keep pump timing and interruptible shell reload state separate from the animation milestone. Build their deterministic gameplay timelines first; Milestone 10 should consume them without driving ammo or damage.
+3. When Milestone 9 supplies secondaries, choose a real default secondary and disable the range's explicit comparison exception. Do not reclassify the sniper to satisfy the slot rule.
+4. Milestone 11 should edit selections through the existing build boundary and preview independent snapshots. Add stable attachment-ID persistence / validation there; keep authored Resource inputs immutable. Use the same fixed FOV reference in Armory magnification labels.
+5. Keep a full-slot assembly in Milestone 12's arsenal stress matrix, including high-zoom ADS, pellet bursts and splash. Budget total draw calls and contacts together; the current tail measurements justify retaining that explicit check.

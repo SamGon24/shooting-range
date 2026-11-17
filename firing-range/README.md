@@ -6,6 +6,8 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 **MVP complete (Milestones 1 to 6). Final manual play-test pending.**
 
+**Phase 2: Milestone 7 built — weapon framework and attachments. Manual play-test pending.** The rifle and sniper keep their exact Milestone 6 stats and behavior with no attachments fitted; a frozen fixture verifies every original exported stat.
+
 Movement and range (Milestone 1):
 
 - FPS controller: walk, sprint, crouch, jump and slide, with acceleration and friction rather than instant velocity changes, plus coyote time and a jump buffer.
@@ -54,7 +56,14 @@ Polish (Milestone 6):
 - Six-part pooled ragdolls on all nine dummies, using killing-shot momentum and rail velocity. Their original hit zones return after 3 seconds of gameplay time.
 - Worst-case stress probe: all 54 ragdoll parts awake, eight moving props, three moving steel plates, firing and HUD. Verified at 60.0 fps on the target machine; details and before/after numbers are in `docs/DECISIONS.md`.
 
-Post-MVP work is listed under [Future phases and known limitations](#future-phases-and-known-limitations).
+Weapon framework and attachments (Milestone 7):
+
+- Composed fire-mode, delivery and reload Resources, named loadout slots, independent cached stat builds and explicit damage-source metadata. Ballistic delivery still uses the original projectile system and target interface.
+- Seventeen trade-off attachments: three each for muzzle, barrel, stock and magazine, plus all five optic types. Parts mount on the existing greybox viewmodels; optics change zoom, reticle and authored sight height, and recalibrate the numerical zero.
+- F5–F9 cycle attachments on the equipped weapon; F10 restores its native setup. F3 shows the current choices. Changes wait for reload / handling / cooldown boundaries, preserve ammo and recoil, and never modify already-flying rounds.
+- The default range keeps both original primaries available through an explicit comparison-mode loadout. Ordinary loadouts require a primary and a secondary; switch off comparison mode when the secondary arsenal arrives. Choices are session-only until the Milestone 11 Armory.
+
+Later Phase 2 work is listed under [Roadmap](#roadmap) and [Future phases and known limitations](#future-phases-and-known-limitations).
 
 ## Requirements
 
@@ -111,6 +120,8 @@ You can also open `project.godot` in the editor and press F5.
 | Mouse sensitivity down / up | `-` / `=` |
 | Toggle debug overlay | F3 or `\` |
 | Toggle bullet paths | F4 |
+| Cycle muzzle / barrel / optic / stock / magazine | F5 / F6 / F7 / F8 / F9 |
+| Clear all attachments on the equipped weapon | F10 |
 | Reset range stats, hitmarkers and damage numbers | T |
 | Pause / resume; release / restore mouse | Esc or controller Start |
 | Navigate menu | Up/Down, Tab/Shift+Tab; controller D-pad or left stick |
@@ -119,6 +130,8 @@ You can also open `project.godot` in the editor and press F5.
 | Close menu / resume | Esc, controller Start or B, or Resume |
 
 ## Settings and pause
+
+On Mac keyboards, use **Fn + F5–F10** if macOS consumes the function keys. In the Godot editor, F5 also runs the project: attachment keys act inside the focused game window. Toggle F3 to see the selection list; each cycle includes **None (native)**.
 
 Open the menu with **Esc**. Resume receives focus immediately. Use arrows or Tab to select controls, Left/Right to change a slider, and Enter/Space to activate a control. Controller Start opens the menu, D-pad / left stick navigates and adjusts, A activates and B resumes. Menu navigation needs no mouse. Full controller gameplay is a later phase.
 
@@ -159,6 +172,8 @@ godot --always-on-top -- --perf-probe --perf-fire --perf-stress
 godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-popdown
 # Uncapped worst-case headroom:
 godot --always-on-top --disable-vsync --max-fps 0 -- --perf-probe --perf-fire --perf-stress
+# Worst case with all five attachment slots fitted (one cycle per slot):
+godot --always-on-top -- --perf-probe --perf-fire --perf-stress --hold=attachment_muzzle@0.1,attachment_barrel@0.1,attachment_optic@0.1,attachment_stock@0.1,attachment_magazine@0.1
 ```
 
 The stress fixture is opt-in: it repeatedly kills all dummies through their normal damage entry point on reset, keeps all ragdoll parts and props awake and drives steel hinges. Those fixture kills do not count as launched shots. The report verifies 54 awake parts throughout the measurement. Do not open the pause menu while benchmarking.
@@ -194,6 +209,11 @@ For Movie Maker captures, add `--always-on-top`. macOS throttles a Godot window 
 | Settings: FOV, sensitivity, ADS multiplier, invert Y, bob / FOV-kick scales, volume and FPS | Defaults in `player/view_settings.gd`; the player's changes are saved to `user://settings.cfg` |
 | Weapon stats: sight zero distance and height, fire rate, magazine, reload times, recoil pattern and recovery, spread and bloom, ADS time, FOV and sensitivity, bolt cycle, raise and lower times, viewmodel poses and kick | `weapons/data/halberd_rifle.tres` and `weapons/data/longwatch_sniper.tres` (fields documented in `weapons/weapon_data.gd`) |
 | Bullet stats: muzzle velocity, damage and falloff, mass, diameter, drag coefficient | The `projectile` sub-resource inside each weapon `.tres` (fields documented in `ballistics/projectile_spec.gd`) |
+| Attachment modifiers, compatible classes, optic FOV and sight height | `weapons/attachments/data/*.tres`; catalog and exact values below |
+| Modifier limits | `weapons/attachments/data/stat_limits.tres`; complete bounds in `docs/DECISIONS.md` |
+| Fire / delivery / reload policies and loadout slots | `weapons/framework/*.tres` and `weapons/data/range_loadout.tres` |
+| Attachment geometry / materials and weapon mount transforms | `weapons/attachments/parts/*.tscn` and `weapons/viewmodels/*.tscn`; fixed bore heights in each weapon Resource |
+| Attachment key bindings, selection label and optic reticles | `project.godot`, `debug/attachment_debug.gd` and `ui/scope_overlay.gdshader` |
 | Dummy health, plate strength, default armor, zone multipliers, pop-down and reset times | `targets/data/dummy_default.tres` (`targets/target_settings.gd`) |
 | Physics props: cap and placement | `prop_count` and `_build_props()` in `range/range_builder.gd` |
 | Prop mass, dimensions, player push force, recycling distance and damping | `props/physics_prop.gd` |
@@ -235,6 +255,8 @@ firing-range/
 └── weapons/          Weapon stats, state machine, recoil and spread, controller and viewmodel
     ├── data/         One stat resource per weapon (.tres)
     ├── effects/      Impact effects, generated sounds, weapon audio
+    ├── framework/    Composed policies, loadout rules and cached stat builds
+    ├── attachments/  Modifier schemas, catalog, tuning Resources and mounted parts
     └── viewmodels/   Greybox first-person weapon models
 ```
 
@@ -248,6 +270,7 @@ The main scene is `range/range.tscn`. Every scene and resource is text-based (`.
 - **Node-free weapon logic.** `weapons/weapon_logic.gd` is a state machine that takes a `WeaponInput` and a time step, so fire rate, reloads and aim timing are tested to the tick. `weapons/recoil_logic.gd` does the same for recoil pattern, recovery and spread. `weapon_controller.gd` feeds both from the input map and applies the kick to the player's recoil offset.
 - **Feel never feeds back into gameplay.** `CameraFeel` and `WeaponView` only read gameplay state. Bullets leave a fixed sight height below `PlayerController.get_eye_position()`, along `get_aim_basis()` plus the equipped weapon’s numerical zero angle and spread, which ignore head bob, viewmodel kick and every other effect.
 - **Data-driven tuning.** Numbers live in `Resource` files and exported properties, not in code. Each weapon is one `.tres` in `weapons/data/`.
+- **Composed weapon builds.** `WeaponData` references `FireModeData`, `DeliveryData` and `ReloadData`. `WeaponBuild` copies base stats and the projectile spec; attachments add first, then multiply, in muzzle → barrel → optic → stock → magazine order. Results clamp once, magazine size rounds once and falloff end cannot precede start. Unchanged builds return the same cached snapshot. Full-auto / press-trigger policies and magazine / single-round / no-reload semantics exist; pellet / explosive / melee delivery and interruptible shell reload runtime implementations arrive in Milestones 8–9.
 - **Signals over node paths.** The player, weapon controller and projectile system emit signals (`landed`, `shot_fired`, `projectile_hit` and so on), and effects, audio and the HUD listen to them.
 
 ## Roadmap
@@ -258,6 +281,48 @@ The main scene is `range/range.tscn`. Every scene and resource is text-based (`.
 - [x] **4. Targets:** humanoid dummies with hit zones and armor plates, pop-down and reset, moving targets on rails, swinging steel plates. Built; play-test pending.
 - [x] **5. Feedback and HUD:** hitmarkers, damage numbers, dynamic crosshair, ammo counter and FPS, resettable range stats, placeholder sounds. Built; play-test pending.
 - [x] **6. Polish:** capped physics props, pooled ragdolls, navigable pause/settings menu, persisted preferences and worst-case performance pass. MVP complete; manual play-test pending.
+- [x] **7. Weapon framework and attachments:** composed policies and loadout slots, cached modifiers, damage source, mounted parts, five optic types and debug cycling. Manual play-test pending.
+- [ ] **8. New primaries:** SMG, LMG, pump shotgun; pellet delivery and interruptible shell reloads.
+- [ ] **9. Secondaries:** pistol, rockets, knife and shield; explosive and melee delivery.
+- [ ] **10. Handling animations:** procedural reload, equip, holster and melee visuals.
+- [ ] **11. Main menu and Armory:** primary / secondary selection, attachment comparison and saved loadouts.
+- [ ] **12. Polish:** improved ragdoll joints, hittable corpses, adjustable zero, smoke / casings and final arsenal performance.
+
+## Attachment tuning and play-test
+
+Files in the following table are under `weapons/attachments/data/`. Values apply to either existing weapon. Recoil multipliers affect both the pattern and random kick. Spread values are cone half-angles in degrees; reload multipliers affect both tactical and empty times. Magazine size rounds only after all modifiers.
+
+| Resource | Benefit | Cost |
+|---|---|---|
+| `baffle.tres` | Recoil ×0.85 | ADS +0.035 s |
+| `ported.tres` | Recoil ×0.78 | Hip spread +0.35° |
+| `compact_cap.tres` | ADS ×0.90 | Recoil ×1.12 |
+| `long_barrel.tres` | Velocity ×1.10; falloff start / end +20 / +40 m | ADS +0.06 s |
+| `short_barrel.tres` | ADS ×0.85 | Velocity ×0.90; hip spread +0.25° |
+| `heavy_barrel.tres` | Recoil ×0.85 | ADS +0.07 s; raise +0.04 s |
+| `iron.tres` | ADS ×0.85; iron sights, 65° FOV, 0.050 m sight height | Aimed spread +0.02° |
+| `red_dot.tres` | ADS ×0.95; red dot, 65° FOV, 0.060 m sight height | Recoil ×1.03 |
+| `scope_2x.tres` | 2× zoom / plain crosshair; 35.337009252° FOV, 0.065 m height | ADS +0.035 s |
+| `scope_4x.tres` | 4× zoom / ticked crosshair; 18.098708656° FOV, 0.070 m height | ADS +0.07 s |
+| `scope_8x.tres` | 8× zoom / original scope reticle; 9.106142756° FOV, 0.075 m height | ADS +0.12 s |
+| `brace.tres` | Recoil ×0.80 | ADS +0.05 s |
+| `light_stock.tres` | ADS ×0.85 | Recoil ×1.15 |
+| `balanced_stock.tres` | Hip spread ×0.80 | Raise +0.06 s |
+| `extended_mag.tres` | Magazine +10 rounds | Reload ×1.15; ADS +0.03 s |
+| `quick_mag.tres` | Reload ×0.85 | Magazine ×0.80 |
+| `drum.tres` | Magazine ×1.60 | Reload ×1.30; raise +0.10 s |
+
+Fitted optic magnifications use a fixed 65° reference FOV, independently of the player's hip FOV setting. **None** preserves the native rifle 45° / sniper 12° ADS FOV and original sight geometry. Fitted irons are a deliberate trade-off, so they add aimed spread; clear attachments for the original exact first aimed shot. All primaries accept the five slots; pistol accepts muzzle / optic / magazine; rocket / knife / shield accept none. See DECISIONS for clamps, mount transforms, part dimensions, reticle values and measured performance.
+
+1. Start with `godot`. Toggle F3 and verify all slots read None. Test the rifle's fire, ADS, reload and recoil, then switch to the sniper with 2 and check its bolt cycle and native scope. Existing MVP behavior should remain familiar.
+2. On each weapon, cycle F5–F9 through every choice and back to None. Check the label and mounted parts agree. Use Fn if needed. F3 hides only diagnostics and the selection list.
+3. Cycle F7 through irons, red dot, 2×, 4×, 8× and None. ADS at a distance sign: verify zoom / reticle changes, red-dot alignment, model hiding only for scopes, and native sights / FOV returning on None.
+4. Compare long and short barrels with F4 bullet paths at 100 / 300 m. Velocity and drop should change while the numerical 100 m zero is retained. Repeat using a fitted optic with a different sight height.
+5. Compare braced / light stocks and muzzle brakes during bursts. Judge recoil, ADS and spread trade-offs. Check hip crosshair bloom and the existing hit feedback.
+6. Fire a few rounds; fit an extended magazine or drum. Capacity should increase without granting ammo. Reload to fill it. Fit a smaller magazine: loaded rounds clamp to capacity, and reload times change.
+7. Queue changes while reloading, switching or cycling the bolt. Verify they apply safely afterwards, without refilling or resetting the action. Switch back and verify each gun retains its own choices.
+8. Press F10. All five slots should clear together, native sights should return, and fire / flash / ammo / zero should still work. Pause and resume while attachments are fitted; gameplay and timers must still freeze.
+9. Run the all-slots worst-case probe above with the window focused. Check about 60 fps with all 54 ragdoll parts and eight props active. Restart the game: attachment choices intentionally return to None until the Armory milestone.
 
 ## Range stats definitions
 
