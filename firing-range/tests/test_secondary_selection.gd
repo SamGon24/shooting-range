@@ -137,6 +137,49 @@ func test_knife_controller_hits_a_real_dummy_through_the_shared_damage_pipeline(
 	assert_eq(_system.get_active_count(), 0)
 
 
+func test_pistol_controller_delivers_a_fallen_off_torso_round_and_scores_once() -> void:
+	await _select(PISTOL)
+	var dummy := _scene.get_node("Targets/Dummy25m") as TargetDummy
+	var sources: Array[DamageSource.Kind] = []
+	dummy.damaged.connect(func(hit: ProjectileHit, _zone: TargetSettings.Zone, _amount: float) -> void: sources.append(hit.source))
+	_player.teleport(Vector3(dummy.global_position.x, 0, 0))
+	_player.pitch = -atan((_player.get_eye_position().y - dummy.zones[1].global_position.y) / 25.0)
+	Input.action_press("aim")
+	await wait_physics_frames(20)
+	Input.action_press("fire")
+	await wait_physics_frames(1)
+	Input.action_release("fire")
+	await wait_physics_frames(12)
+	assert_almost_eq(dummy.state.health, 73.5, 0.2, "25 m torso damage includes pistol falloff")
+	assert_eq(sources, [DamageSource.Kind.BALLISTIC] as Array[DamageSource.Kind])
+	assert_false(dummy.state.dead)
+	assert_eq(_weapons.get_current_logic().ammo, 14)
+	assert_eq(_hud.feedback.stats.shots, 1)
+	assert_eq(_hud.feedback.stats.hits, 1)
+	assert_eq(_hud.feedback.stats.headshots, 0)
+	assert_eq(_system.get_active_count(), 0)
+
+
+func test_shield_controller_bashes_a_real_torso_without_hitting_its_own_guard() -> void:
+	await _select(SHIELD)
+	var dummy := _scene.get_node("Targets/Dummy25m") as TargetDummy
+	var sources: Array[DamageSource.Kind] = []
+	dummy.damaged.connect(func(hit: ProjectileHit, _zone: TargetSettings.Zone, _amount: float) -> void: sources.append(hit.source))
+	_player.teleport(dummy.global_position + Vector3(0, 0, 1.2))
+	_player.pitch = -atan((_player.get_eye_position().y - dummy.zones[1].global_position.y) / 1.2)
+	await wait_physics_frames(3)
+	Input.action_press("fire")
+	await wait_physics_frames(1)
+	Input.action_release("fire")
+	assert_eq(dummy.state.health, 60.0)
+	assert_eq(sources, [DamageSource.Kind.MELEE] as Array[DamageSource.Kind])
+	assert_false(dummy.state.dead)
+	assert_eq(_hud.feedback.stats.shots, 1)
+	assert_eq(_hud.feedback.stats.hits, 1)
+	assert_eq(_hud.feedback.stats.headshots, 0)
+	assert_eq(_system.get_active_count(), 0)
+
+
 func test_rocket_controller_uses_one_round_and_scores_one_torso_splash_hit() -> void:
 	await _select(ROCKET)
 	var dummy := _scene.get_node("Targets/Dummy25m") as TargetDummy
