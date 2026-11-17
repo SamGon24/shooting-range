@@ -58,7 +58,7 @@ func _ready() -> void:
 
 
 func receive_hit(hit: ProjectileHit) -> void:
-	var momentum: Vector3 = hit.velocity * (hit.spec.mass_grams * 0.001) * impulse_scale
+	var momentum: Vector3 = hit.momentum() * impulse_scale
 	apply_impulse(momentum, hit.position - global_position)
 	last_hit = hit
 	_audio.play()

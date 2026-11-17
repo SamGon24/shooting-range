@@ -5,6 +5,8 @@ extends Resource
 
 @export var source: DamageSource.Kind = DamageSource.Kind.BALLISTIC
 @export var explosion: ExplosionData
+## Enemy / training rounds may use the same physics without scoring shots.
+@export var stats_eligible: bool = true
 
 enum WeaponClass { DEFAULT, SNIPER }
 

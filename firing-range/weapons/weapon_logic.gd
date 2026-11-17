@@ -52,7 +52,7 @@ var _sprint_recovery_left: float = 0.0
 
 func _init(weapon_data: WeaponData) -> void:
 	data = weapon_data
-	ammo = data.magazine_size
+	ammo = data.magazine_size if data.uses_ammo else 0
 
 
 ## Advances the weapon by one tick. Returns how many shots were fired.
@@ -156,7 +156,7 @@ func get_aim_state() -> AimState:
 
 
 func can_reload() -> bool:
-	return (data.reload_policy.can_reload(ammo, data.magazine_size) if data.reload_policy != null else ammo < data.magazine_size) and (state == State.READY or state == State.FIRING)
+	return data.uses_ammo and (data.reload_policy.can_reload(ammo, data.magazine_size) if data.reload_policy != null else ammo < data.magazine_size) and (state == State.READY or state == State.FIRING)
 
 
 func _tick_ready(input: WeaponInput) -> int:
@@ -173,7 +173,7 @@ func _tick_ready(input: WeaponInput) -> int:
 		return 0
 
 	var wants_shot: bool = data.wants_shot(input.trigger_held, input.trigger_pressed)
-	if ammo <= 0:
+	if data.uses_ammo and ammo <= 0:
 		# An empty magazine reloads itself when the trigger is pulled.
 		if input.trigger_pressed:
 			dry_fired.emit()
@@ -189,8 +189,9 @@ func _tick_ready(input: WeaponInput) -> int:
 	# average rate is exact even when the interval is not a whole number of
 	# ticks (700 rpm is 5.14 ticks).
 	var shots: int = 0
-	while _time_to_next_shot <= TIME_EPSILON and ammo > 0:
-		ammo -= 1
+	while _time_to_next_shot <= TIME_EPSILON and (not data.uses_ammo or ammo > 0):
+		if data.uses_ammo:
+			ammo -= 1
 		shots += 1
 		_time_to_next_shot += data.shot_interval()
 		fired.emit()
@@ -202,7 +203,7 @@ func _tick_ready(input: WeaponInput) -> int:
 
 
 func _tick_aim(delta: float, input: WeaponInput) -> void:
-	var can_aim: bool = state == State.READY or state == State.FIRING
+	var can_aim: bool = data.can_aim and (state == State.READY or state == State.FIRING)
 	_aim_target = 1.0 if (input.aim_held and can_aim and not input.sprinting) else 0.0
 	aim_progress = move_toward(aim_progress, _aim_target, delta / data.ads_time)
 	# Snap away accumulated float error so "fully aimed" is exactly 1.

@@ -297,7 +297,7 @@ func _on_shot_fired(data: WeaponData) -> void:
 	_kick = 1.0
 	_kick_velocity = 0.0
 
-	if is_scope_view_active():
+	if is_scope_view_active() or (data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE):
 		return
 	_flash_mesh.rotation.z = randf() * TAU
 	_flash_mesh.scale = Vector3.ONE

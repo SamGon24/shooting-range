@@ -22,7 +22,7 @@ const GROUP: StringName = &"projectile_system"
 ## is dropped and counted in `get_dropped_count`.
 @export_range(8, 1024) var capacity: int = 128
 ## Physics layers a projectile can hit.
-@export_flags_3d_physics var collision_mask: int = 1
+@export_flags_3d_physics var collision_mask: int = 1 | 8
 @export var collide_with_areas: bool = false
 ## Air density for drag, kg/m³. Sea level at 15 °C by default.
 @export_range(0.0, 2.0, 0.001, "suffix:kg/m³") var air_density: float = ProjectileMath.SEA_LEVEL_AIR_DENSITY
@@ -38,6 +38,7 @@ var _drags: PackedFloat32Array = PackedFloat32Array()
 var _specs: Array[ProjectileSpec] = []
 var _shot_ids: PackedInt64Array = PackedInt64Array()
 var _remaining: Dictionary[int, int] = {}
+var _unscored: Dictionary[int, bool] = {}
 var _next_shot_id: int = 0
 var _free_slots: PackedInt32Array = PackedInt32Array()
 var _active_count: int = 0
@@ -81,7 +82,7 @@ func fire(origin: Vector3, direction: Vector3, spec: ProjectileSpec) -> int:
 	if _free_slots.is_empty():
 		_dropped_count += 1
 		return -1
-	return _launch(origin, direction, spec, _begin_shot(1))
+	return _launch(origin, direction, spec, _begin_shot(1, spec.stats_eligible))
 
 
 ## Atomic volley: either every pellet launches, or none does. Uses exactly
@@ -95,7 +96,7 @@ func fire_volley(origin: Vector3, directions: PackedVector3Array, spec: Projecti
 	if _free_slots.size() < directions.size():
 		_dropped_count += directions.size()
 		return -1
-	var shot_id: int = _begin_shot(directions.size())
+	var shot_id: int = _begin_shot(directions.size(), spec.stats_eligible)
 	var first_slot: int = -1
 	for direction: Vector3 in directions:
 		var slot: int = _launch(origin, direction, spec, shot_id)
@@ -104,11 +105,30 @@ func fire_volley(origin: Vector3, directions: PackedVector3Array, spec: Projecti
 	return first_slot
 
 
-func _begin_shot(count: int) -> int:
+func _begin_shot(count: int, scoring: bool = true) -> int:
 	_next_shot_id += 1
 	_remaining[_next_shot_id] = count
+	if not scoring:
+		_unscored[_next_shot_id] = true
 	shot_started.emit(_next_shot_id)
 	return _next_shot_id
+
+
+## Non-projectile deliveries share the same stats lifecycle and hit signal.
+func begin_damage_event(scoring: bool = true) -> int:
+	return _begin_shot(1, scoring)
+
+
+func report_contact(hit: ProjectileHit) -> void:
+	projectile_hit.emit(hit)
+
+
+func end_damage_event(shot_id: int) -> void:
+	_finish_projectile(shot_id)
+
+
+func is_scoring_shot(shot_id: int) -> bool:
+	return _remaining.has(shot_id) and not _unscored.has(shot_id)
 
 
 func _launch(origin: Vector3, direction: Vector3, spec: ProjectileSpec, shot_id: int) -> int:
@@ -200,6 +220,7 @@ func _finish_projectile(shot_id: int) -> void:
 	_remaining[shot_id] -= 1
 	if _remaining[shot_id] == 0:
 		_remaining.erase(shot_id)
+		_unscored.erase(shot_id)
 		shot_finished.emit(shot_id)
 
 

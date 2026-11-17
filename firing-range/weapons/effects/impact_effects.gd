@@ -51,6 +51,9 @@ func _ready() -> void:
 ## Shows the effects for one hit. Connected to the projectile system; also
 ## callable directly.
 func show_impact(hit: ProjectileHit) -> void:
+	if hit.source == DamageSource.Kind.MELEE:
+		_play_sound(hit.position)
+		return
 	_play_sparks(hit.position, hit.normal)
 	_play_sound(hit.position)
 	# Marks only stick to the static world; a mark on something that moves

@@ -38,9 +38,11 @@ func reset_stats() -> void:
 
 func _bind_from_tree() -> void:
 	var system := get_tree().get_first_node_in_group(ProjectileSystem.GROUP) as ProjectileSystem
-	if system != null and not system.shot_started.is_connected(_on_shot_started):
-		system.shot_started.connect(_on_shot_started)
-		system.shot_finished.connect(_on_shot_finished)
+	if system != null:
+		var callback: Callable = _on_shot_started.bind(system)
+		if not system.shot_started.is_connected(callback):
+			system.shot_started.connect(callback)
+			system.shot_finished.connect(_on_shot_finished)
 	for group: StringName in [&"target_dummy", &"steel_plate"]:
 		for node: Node in get_tree().get_nodes_in_group(group):
 			_bind_target(node)
@@ -67,7 +69,9 @@ func _bind_target(node: Node) -> void:
 			plate.rang.connect(callback)
 
 
-func _on_shot_started(shot_id: int) -> void:
+func _on_shot_started(shot_id: int, system: ProjectileSystem) -> void:
+	if not system.is_scoring_shot(shot_id):
+		return
 	_eligible_shots[shot_id] = 0
 	stats.record_shot()
 	stats_changed.emit()

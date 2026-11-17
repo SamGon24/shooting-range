@@ -49,6 +49,8 @@ var _warned_no_system: bool = false
 ## Fire and reload presses seen since the last physics tick.
 var _fire_latched: bool = false
 var _reload_latched: bool = false
+var _melee: MeleeSystem
+var _guard: WeaponGuard
 
 
 func _ready() -> void:
@@ -61,6 +63,10 @@ func _ready() -> void:
 		_rng.seed = random_seed
 	else:
 		_rng.randomize()
+	_melee = MeleeSystem.new()
+	add_child(_melee)
+	_guard = WeaponGuard.new()
+	add_child(_guard)
 	var definitions: Array[WeaponData] = get_definitions()
 	for definition: WeaponData in get_available_definitions():
 		var runtime := WeaponRuntime.new(definition, _rng)
@@ -138,6 +144,7 @@ func _physics_process(delta: float) -> void:
 	player.recover_recoil(deg_to_rad(recoil.recovery_allowance(delta)))
 
 	player.look_sensitivity_scale = lerpf(1.0, logic.data.ads_sensitivity_scale * ViewSettings.ads_sensitivity_multiplier, logic.aim_progress)
+	_update_held_effects()
 
 	if logic.ammo != _last_ammo:
 		_last_ammo = logic.ammo
@@ -261,6 +268,8 @@ func _update_switch() -> void:
 func _announce_weapon() -> void:
 	_calibrate_zero()
 	var logic: WeaponLogic = _logics[_current]
+	_guard.configure(logic.data.guard)
+	_update_held_effects()
 	_last_ammo = logic.ammo
 	weapon_changed.emit(logic.data)
 	ammo_changed.emit(logic.ammo, logic.data.magazine_size)
@@ -271,6 +280,9 @@ func _calibrate_zero() -> void:
 		projectile_system = get_tree().get_first_node_in_group(ProjectileSystem.GROUP) as ProjectileSystem
 	var density: float = projectile_system.air_density if projectile_system != null else ProjectileMath.SEA_LEVEL_AIR_DENSITY
 	var data: WeaponData = get_current_data()
+	if data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE:
+		_zero_angle = 0.0
+		return
 	var gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 	_zero_angle = SightZeroing.solve(data.projectile, data.zero_distance_m, data.sight_height_m, gravity, density, 1.0 / float(Engine.physics_ticks_per_second))
 	if is_nan(_zero_angle):
@@ -287,7 +299,19 @@ func _launch_projectile(data: WeaponData, direction: Vector3) -> void:
 			push_warning("WeaponController: no ProjectileSystem in the scene; shots go nowhere.")
 		return
 	var origin: Vector3 = player.get_eye_position() - player.get_aim_basis().y * data.sight_height_m
-	data.delivery.launch(projectile_system, origin, direction, data.projectile, _rng) if data.delivery != null else projectile_system.fire(origin, direction, data.projectile)
+	if data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE:
+		data.delivery.launch(projectile_system, origin, direction, data.projectile, _rng, _melee, [_guard.get_rid()])
+	elif data.delivery != null:
+		data.delivery.launch(projectile_system, origin, direction, data.projectile, _rng)
+	else:
+		projectile_system.fire(origin, direction, data.projectile)
+
+
+func _update_held_effects() -> void:
+	var logic: WeaponLogic = get_current_logic()
+	player.weapon_speed_scale = logic.data.movement_speed_scale if logic.state != WeaponLogic.State.HOLSTERED else 1.0
+	if logic.data.guard != null:
+		_guard.update_pose(player.get_eye_position(), player.get_aim_basis(), logic.state in [WeaponLogic.State.READY, WeaponLogic.State.FIRING])
 
 
 func _on_logic_fired(logic: WeaponLogic) -> void:

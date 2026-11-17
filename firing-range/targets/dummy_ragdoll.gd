@@ -64,7 +64,7 @@ func activate(transforms: Array[Transform3D], owner_transform: Transform3D, hit:
 	visible = true
 	active = true
 	var part: RigidBody3D = parts[clampi(part_index, 0, parts.size() - 1)]
-	part.apply_impulse(hit.velocity * (hit.spec.mass_grams * 0.001) * impulse_scale, hit.position - part.global_position)
+	part.apply_impulse(hit.momentum() * impulse_scale, hit.position - part.global_position)
 
 
 func deactivate() -> void:

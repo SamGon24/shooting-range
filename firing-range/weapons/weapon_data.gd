@@ -8,6 +8,10 @@ extends Resource
 @export var fire_mode: FireModeData
 @export var delivery: DeliveryData
 @export var reload_policy: ReloadData
+@export var uses_ammo: bool = true
+@export var can_aim: bool = true
+@export_range(0.1, 1.0, 0.05) var movement_speed_scale: float = 1.0
+@export var guard: GuardData
 ## Computed snapshots point to the original definition, never the reverse.
 var base_definition: WeaponData
 @export var bore_height_m: float = 0.01
