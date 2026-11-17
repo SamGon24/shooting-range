@@ -21,6 +21,8 @@ func test_trigger_policy_is_independent_of_delivery_and_reload() -> void:
 	delivery.kind = DeliveryData.Kind.PELLET
 	assert_true(delivery.is_supported())
 	delivery.kind = DeliveryData.Kind.EXPLOSIVE
+	assert_true(delivery.is_supported())
+	delivery.kind = DeliveryData.Kind.MELEE
 	assert_false(delivery.is_supported(), "reserved delivery is explicit, not silently ballistic")
 
 

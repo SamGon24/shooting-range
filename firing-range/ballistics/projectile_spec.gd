@@ -4,6 +4,7 @@ extends Resource
 ## (grams and millimetres read more naturally for bullets).
 
 @export var source: DamageSource.Kind = DamageSource.Kind.BALLISTIC
+@export var explosion: ExplosionData
 
 enum WeaponClass { DEFAULT, SNIPER }
 

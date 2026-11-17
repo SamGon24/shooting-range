@@ -9,12 +9,15 @@ enum Kind { BALLISTIC, PELLET, EXPLOSIVE, MELEE }
 
 
 func is_supported() -> bool:
-	return kind in [Kind.BALLISTIC, Kind.PELLET]
+	return kind in [Kind.BALLISTIC, Kind.PELLET, Kind.EXPLOSIVE]
 
 
 func launch(system: ProjectileSystem, origin: Vector3, direction: Vector3, spec: ProjectileSpec, rng: RandomNumberGenerator = null) -> int:
 	assert(is_supported(), "Delivery is reserved for a later weapon milestone")
 	if kind == Kind.BALLISTIC:
+		return system.fire(origin, direction, spec)
+	if kind == Kind.EXPLOSIVE:
+		assert(spec.explosion != null, "Explosive delivery needs explosion tuning")
 		return system.fire(origin, direction, spec)
 	assert(rng != null, "Pellet delivery requires the weapon's seeded RNG")
 	var directions := PackedVector3Array()
