@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://player/player_controller.gd" id="1_controller"]
 [ext_resource type="Resource" path="res://player/data/movement_default.tres" id="2_settings"]
@@ -11,6 +11,7 @@
 [ext_resource type="Resource" path="res://weapons/data/longwatch_sniper.tres" id="6_sniper"]
 
 [ext_resource type="Resource" path="res://weapons/data/range_loadout.tres" id="9_loadout"]
+[ext_resource type="Resource" path="res://weapons/data/primary_catalog.tres" id="10_catalog"]
 
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 collision_layer = 2
@@ -44,6 +45,7 @@ camera_feel = NodePath("../..")
 [node name="Weapons" type="Node" parent="." node_paths=PackedStringArray("player")]
 script = ExtResource("4_weapons")
 loadout_definition = ExtResource("9_loadout")
+primary_catalog = ExtResource("10_catalog")
 player = NodePath("..")
 
 [node name="Audio" type="Node" parent="Weapons" node_paths=PackedStringArray("controller")]

@@ -107,7 +107,7 @@ func _ready() -> void:
 	_pivot.name = "Pivot"
 	add_child(_pivot)
 
-	for data: WeaponData in controller.get_definitions():
+	for data: WeaponData in controller.get_available_definitions():
 		if data.viewmodel_scene == null:
 			continue
 		# Models wait outside the tree until they are the current weapon.

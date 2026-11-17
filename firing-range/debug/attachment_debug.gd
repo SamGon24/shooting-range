@@ -8,6 +8,7 @@ var _overlay: CanvasLayer
 var _label: Label
 var _requests: Array[int] = []
 var _clear_requested: bool = false
+var _primary_requested: bool = false
 
 
 func _ready() -> void:
@@ -17,7 +18,7 @@ func _ready() -> void:
 	_label.anchor_top = 1.0
 	_label.anchor_bottom = 1.0
 	_label.offset_left = 24
-	_label.offset_top = -155
+	_label.offset_top = -180
 	_label.offset_right = 600
 	_label.offset_bottom = -24
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -43,11 +44,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			_requests.append(slot)
 	if event.is_action_pressed("attachment_clear"):
 		_clear_requested = true
+	if event.is_action_pressed("primary_next"):
+		_primary_requested = true
 
 
 func _physics_process(_delta: float) -> void:
 	if _controller == null or _controller.get_current_data() == null:
 		return
+	if _primary_requested or Input.is_action_just_pressed("primary_next"):
+		_primary_requested = false
+		var choices: Array[WeaponData] = _controller.get_primary_choices()
+		if not choices.is_empty():
+			var index: int = choices.find(_controller.get_primary_selection())
+			_controller.request_primary(choices[(index + 1) % choices.size()])
+			_refresh()
 	for slot: int in ACTIONS.size():
 		if Input.is_action_just_pressed(ACTIONS[slot]) and not _requests.has(slot):
 			_requests.append(slot)
@@ -79,6 +89,8 @@ func _on_weapon_changed(_data: WeaponData) -> void:
 
 func _refresh() -> void:
 	var lines := PackedStringArray()
+	var primary: WeaponData = _controller.get_primary_selection()
+	lines.append("F11 Primary: " + primary.display_name if primary != null else "")
 	for slot: int in ACTIONS.size():
 		var attachment: AttachmentData = _controller.get_requested_attachment(slot as WeaponTypes.Slot)
 		lines.append("F%d %s: %s" % [5 + slot, WeaponTypes.SLOT_NAMES[slot], attachment.display_name if attachment != null else "None (native)"])

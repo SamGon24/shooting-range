@@ -1,0 +1,69 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2_spec"]
+[ext_resource type="PackedScene" path="res://weapons/viewmodels/rill_smg_viewmodel.tscn" id="3_viewmodel"]
+[ext_resource type="Resource" path="res://weapons/framework/auto.tres" id="4_fire"]
+[ext_resource type="Resource" path="res://weapons/framework/ballistic.tres" id="5_delivery"]
+[ext_resource type="Resource" path="res://weapons/framework/magazine.tres" id="6_reload"]
+
+[sub_resource type="Resource" id="projectile"]
+script = ExtResource("2_spec")
+source = 0
+muzzle_velocity = 400
+gravity_scale = 1
+max_lifetime = 3
+damage = 24
+falloff_start_distance = 25
+falloff_end_distance = 75
+min_damage_fraction = 0.35
+drag_coefficient = 0.32
+mass_grams = 8
+diameter_mm = 9
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Rill S-4"
+fire_mode = ExtResource("4_fire")
+delivery = ExtResource("5_delivery")
+reload_policy = ExtResource("6_reload")
+automatic = true
+projectile = SubResource("projectile")
+weapon_class = 0
+role = 0
+bore_height_m = 0.01
+recoil_scale = 1
+optic_kind = 0
+rounds_per_minute = 900
+bolt_cycle_time = 0
+zero_distance_m = 100
+sight_height_m = 0.05
+magazine_size = 32
+reload_tactical_time = 1.5
+reload_empty_time = 2
+sprint_to_fire_time = 0.1
+recoil_loop_length = 6
+aimed_recoil_scale = 0.85
+recoil_recovery_delay = 0.1
+recoil_recovery_rate = 11
+recoil_reset_time = 0.22
+hip_spread_degrees = 2.5
+aimed_spread_degrees = 0.1
+spread_per_shot_degrees = 0.12
+max_bloom_degrees = 1.4
+bloom_recovery_rate = 5
+ads_time = 0.18
+ads_fov_degrees = 50
+ads_sensitivity_scale = 0.8
+raise_time = 0.28
+lower_time = 0.22
+kick_back = 0.025
+kick_pitch_degrees = 1.2
+shot_sound_pitch_hz = 160
+shot_sound_duration = 0.15
+recoil_pattern = PackedVector2Array(0, 0.32, 0.08, 0.38, 0.12, 0.42, -0.06, 0.38, -0.14, 0.35, 0.05, 0.32)
+recoil_random_degrees = Vector2(0.16, 0.1)
+scoped = false
+hip_position = Vector3(0.17, -0.17, -0.42)
+ads_position = Vector3(0, -0.06, -0.38)
+viewmodel_scene = ExtResource("3_viewmodel")

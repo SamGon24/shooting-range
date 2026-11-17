@@ -22,8 +22,11 @@ const GROUP: StringName = &"weapon_controller"
 ## Weapons carried, in slot order (slot 1, slot 2, ...).
 @export var loadout: Array[WeaponData] = []
 @export var loadout_definition: WeaponLoadout
+@export var primary_catalog: WeaponCatalog
+var _inventory: Dictionary[WeaponData, WeaponRuntime] = {}
+var _primary_pending: WeaponData
 var _builds: Array[WeaponBuild] = []
-var _pending_attachments: Dictionary[int, Dictionary] = {}
+var _pending_attachments: Dictionary[WeaponData, Dictionary] = {}
 @export var player: PlayerController
 
 ## Seed for recoil randomness. 0 picks a random seed; tests and captures
@@ -59,21 +62,23 @@ func _ready() -> void:
 	else:
 		_rng.randomize()
 	var definitions: Array[WeaponData] = get_definitions()
-	loadout.clear()
-	for definition: WeaponData in definitions:
-		var build := WeaponBuild.new(definition)
-		_builds.append(build)
-		var data: WeaponData = build.get_stats()
-		loadout.append(data)
-		_recoils.append(RecoilLogic.new(data, _rng))
-		var logic := WeaponLogic.new(data)
+	for definition: WeaponData in get_available_definitions():
+		var runtime := WeaponRuntime.new(definition, _rng)
+		_inventory[definition] = runtime
+		var logic: WeaponLogic = runtime.logic
 		logic.fired.connect(_on_logic_fired.bind(logic))
 		logic.dry_fired.connect(_on_logic_dry_fired.bind(logic))
 		logic.reload_started.connect(_on_logic_reload_started.bind(logic))
 		logic.reload_finished.connect(_on_logic_reload_finished.bind(logic))
 		logic.reload_cancelled.connect(_on_logic_reload_cancelled.bind(logic))
 		logic.shell_inserted.connect(_on_logic_shell_inserted)
-		_logics.append(logic)
+	loadout.clear()
+	for definition: WeaponData in definitions:
+		var runtime: WeaponRuntime = _inventory[definition]
+		_builds.append(runtime.build)
+		_logics.append(runtime.logic)
+		_recoils.append(runtime.recoil)
+		loadout.append(runtime.logic.data)
 	if not _logics.is_empty():
 		_current = 0
 		_logics[0].equip_instantly()
@@ -147,7 +152,8 @@ func _physics_process(delta: float) -> void:
 func request_switch(slot: int) -> void:
 	if slot < 0 or slot >= _logics.size():
 		return
-	if slot == _current and _pending == -1:
+	_primary_pending = null
+	if slot == _current and _pending == -1 and _logics[_current].state != WeaponLogic.State.LOWERING:
 		return
 	_pending = slot
 
@@ -220,6 +226,21 @@ func _controls_live() -> bool:
 
 
 func _update_switch() -> void:
+	if _primary_pending != null:
+		var old: WeaponLogic = _logics[_current]
+		if old.state != WeaponLogic.State.HOLSTERED:
+			old.start_lower()
+			return
+		var runtime: WeaponRuntime = _inventory[_primary_pending]
+		_builds[0] = runtime.build
+		_logics[0] = runtime.logic
+		_recoils[0] = runtime.recoil
+		loadout[0] = runtime.logic.data
+		_current = 0
+		_primary_pending = null
+		runtime.logic.start_raise()
+		_announce_weapon()
+		return
 	if _pending == -1:
 		return
 	var logic: WeaponLogic = _logics[_current]
@@ -300,12 +321,52 @@ func clear_input_latches() -> void:
 
 
 func get_definitions() -> Array[WeaponData]:
+	if not _logics.is_empty():
+		var active: Array[WeaponData] = []
+		for data: WeaponData in loadout:
+			active.append(data.definition())
+		return active
 	if loadout_definition != null:
 		return loadout_definition.weapons()
 	var definitions: Array[WeaponData] = []
 	for data: WeaponData in loadout:
 		definitions.append(data.definition())
 	return definitions
+
+
+## Presentation caches every offered gun once, without carrying more slots.
+func get_available_definitions() -> Array[WeaponData]:
+	var definitions: Array[WeaponData] = get_definitions()
+	if primary_catalog != null:
+		for definition: WeaponData in primary_catalog.primaries:
+			if definition != null and not definitions.has(definition):
+				definitions.append(definition)
+	return definitions
+
+
+func get_primary_choices() -> Array[WeaponData]:
+	var choices: Array[WeaponData] = []
+	var other: WeaponData = loadout[1].definition() if loadout.size() > 1 else null
+	var offered: Array[WeaponData] = primary_catalog.primaries if primary_catalog != null else get_available_definitions()
+	for definition: WeaponData in offered:
+		if definition != null and definition.role == WeaponTypes.Role.PRIMARY and definition.weapon_class <= WeaponTypes.Class.SHOTGUN and definition != other and not choices.has(definition):
+			choices.append(definition)
+	return choices
+
+
+func get_primary_selection() -> WeaponData:
+	return _primary_pending if _primary_pending != null else (loadout[0].definition() if not loadout.is_empty() else null)
+
+
+func request_primary(definition: WeaponData) -> bool:
+	if not _inventory.has(definition) or not get_primary_choices().has(definition):
+		return false
+	if definition == loadout[0].definition():
+		request_switch(0)
+		return true
+	_primary_pending = definition
+	_pending = -1
+	return true
 
 
 func get_build(slot: int) -> WeaponBuild:
@@ -315,8 +376,9 @@ func get_build(slot: int) -> WeaponBuild:
 func get_requested_attachment(slot: WeaponTypes.Slot) -> AttachmentData:
 	if _current < 0:
 		return null
-	if _pending_attachments.has(_current) and _pending_attachments[_current].has(slot):
-		return _pending_attachments[_current][slot]
+	var definition: WeaponData = get_current_data().definition()
+	if _pending_attachments.has(definition) and _pending_attachments[definition].has(slot):
+		return _pending_attachments[definition][slot]
 	return _builds[_current].get_attachment(slot)
 
 
@@ -325,22 +387,24 @@ func request_attachment(slot: WeaponTypes.Slot, attachment: AttachmentData) -> b
 		return false
 	if get_requested_attachment(slot) == attachment:
 		return true
-	if not _pending_attachments.has(_current):
-		_pending_attachments[_current] = {}
-	_pending_attachments[_current][slot] = attachment
+	var definition: WeaponData = get_current_data().definition()
+	if not _pending_attachments.has(definition):
+		_pending_attachments[definition] = {}
+	_pending_attachments[definition][slot] = attachment
 	return true
 
 
 func _apply_pending_attachments() -> void:
-	if not _pending_attachments.has(_current):
+	var definition: WeaponData = get_current_data().definition()
+	if not _pending_attachments.has(definition):
 		return
 	var logic: WeaponLogic = _logics[_current]
 	if logic.state not in [WeaponLogic.State.READY, WeaponLogic.State.FIRING] or logic.get_time_to_next_shot() > WeaponLogic.TIME_EPSILON:
 		return
 	var build: WeaponBuild = _builds[_current]
-	for slot: int in _pending_attachments[_current]:
-		build.set_attachment(slot as WeaponTypes.Slot, _pending_attachments[_current][slot])
-	_pending_attachments.erase(_current)
+	for slot: int in _pending_attachments[definition]:
+		build.set_attachment(slot as WeaponTypes.Slot, _pending_attachments[definition][slot])
+	_pending_attachments.erase(definition)
 	var computed: WeaponData = build.get_stats()
 	if computed == logic.data:
 		return

@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="DeliveryData" load_steps=2 format=3]
+[ext_resource type="Script" path="res://weapons/framework/delivery_data.gd" id="1"]
+[resource]
+script = ExtResource("1")
+kind = 1
+pellet_count = 8
+pellet_spread_degrees = 3.0

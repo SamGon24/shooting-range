@@ -1,0 +1,69 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2_spec"]
+[ext_resource type="PackedScene" path="res://weapons/viewmodels/foundry_lmg_viewmodel.tscn" id="3_viewmodel"]
+[ext_resource type="Resource" path="res://weapons/framework/auto.tres" id="4_fire"]
+[ext_resource type="Resource" path="res://weapons/framework/ballistic.tres" id="5_delivery"]
+[ext_resource type="Resource" path="res://weapons/framework/magazine.tres" id="6_reload"]
+
+[sub_resource type="Resource" id="projectile"]
+script = ExtResource("2_spec")
+source = 0
+muzzle_velocity = 850
+gravity_scale = 1
+max_lifetime = 3
+damage = 30
+falloff_start_distance = 60
+falloff_end_distance = 250
+min_damage_fraction = 0.75
+drag_coefficient = 0.3
+mass_grams = 8
+diameter_mm = 7.2
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Foundry L-8"
+fire_mode = ExtResource("4_fire")
+delivery = ExtResource("5_delivery")
+reload_policy = ExtResource("6_reload")
+automatic = true
+projectile = SubResource("projectile")
+weapon_class = 3
+role = 0
+bore_height_m = 0.01
+recoil_scale = 1
+optic_kind = 0
+rounds_per_minute = 700
+bolt_cycle_time = 0
+zero_distance_m = 100
+sight_height_m = 0.05
+magazine_size = 100
+reload_tactical_time = 4.2
+reload_empty_time = 5
+sprint_to_fire_time = 0.35
+recoil_loop_length = 8
+aimed_recoil_scale = 0.45
+recoil_recovery_delay = 0.15
+recoil_recovery_rate = 8
+recoil_reset_time = 0.35
+hip_spread_degrees = 3.5
+aimed_spread_degrees = 0.15
+spread_per_shot_degrees = 0.1
+max_bloom_degrees = 1.6
+bloom_recovery_rate = 3
+ads_time = 0.48
+ads_fov_degrees = 45
+ads_sensitivity_scale = 0.6
+raise_time = 0.8
+lower_time = 0.55
+kick_back = 0.05
+kick_pitch_degrees = 2
+shot_sound_pitch_hz = 90
+shot_sound_duration = 0.28
+recoil_pattern = PackedVector2Array(0, 0.7, 0.1, 0.75, 0.18, 0.8, 0.12, 0.75, -0.08, 0.7, -0.15, 0.65, -0.1, 0.6, 0.05, 0.6)
+recoil_random_degrees = Vector2(0.2, 0.12)
+scoped = false
+hip_position = Vector3(0.17, -0.17, -0.42)
+ads_position = Vector3(0, -0.06, -0.38)
+viewmodel_scene = ExtResource("3_viewmodel")
