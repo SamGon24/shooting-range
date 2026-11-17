@@ -5,7 +5,9 @@ extends Node3D
 ## Shows the current weapon's greybox model in front of the camera and moves
 ## it: hip and aimed poses, sway that trails the mouse, bob while walking,
 ## inertia from jumping and strafing, a recoil kick per shot, and raise,
-## lower, reload and sprint poses. It also tells `CameraFeel` how far to zoom.
+## lower and sprint poses. Reload, action-cycle, equip and melee motions of
+## individual parts come from each weapon's `HandlingProfile` through
+## `WeaponAnimator`. It also tells `CameraFeel` how far to zoom.
 ##
 ## Everything here reads from the player and the weapon controller. Bullets
 ## leave from the player's gameplay eye, so nothing in this file can change
@@ -61,10 +63,6 @@ const FLASH_HIDDEN_SCALE: Vector3 = Vector3(0.0001, 0.0001, 0.0001)
 @export var sprint_offset: Vector3 = Vector3(-0.05, -0.05, 0.05)
 @export var sprint_rotation_degrees: Vector3 = Vector3(-12.0, 32.0, 8.0)
 @export_range(1.0, 30.0, 0.5, "suffix:1/s") var sprint_blend_rate: float = 9.0
-## How far the weapon dips and rolls at the middle of a reload.
-@export_range(0.0, 0.4, 0.01, "suffix:m") var reload_dip: float = 0.11
-@export_range(0.0, 90.0, 1.0, "suffix:°") var reload_roll_degrees: float = 28.0
-@export_range(1.0, 30.0, 0.5, "suffix:1/s") var reload_blend_rate: float = 10.0
 ## A scoped weapon's model is hidden above this aim blend (the HUD draws the
 ## scope instead).
 @export_range(0.5, 1.0, 0.01) var scope_hide_threshold: float = 0.85
@@ -93,7 +91,7 @@ var _inertia_roll: float = 0.0
 var _kick: float = 0.0
 var _kick_velocity: float = 0.0
 var _sprint_blend: float = 0.0
-var _reload_blend: float = 0.0
+var _animator: WeaponAnimator = WeaponAnimator.new()
 
 
 func _ready() -> void:
@@ -119,6 +117,7 @@ func _ready() -> void:
 			if native != null:
 				_native_optics[data].append(native)
 		_muzzles[data] = model.get_node_or_null("Muzzle") as Node3D
+		_animator.bind(data, model)
 
 	_build_muzzle_flash()
 	_last_yaw = player.yaw
@@ -146,10 +145,6 @@ func _process(delta: float) -> void:
 	_step_kick_spring(delta)
 	_sprint_blend = lerpf(_sprint_blend, 1.0 if player.is_sprinting else 0.0, _blend(sprint_blend_rate, delta))
 
-	var logic: WeaponLogic = controller.get_current_logic()
-	var reload_target: float = sin(logic.get_reload_progress() * PI) if logic.is_reloading() else 0.0
-	_reload_blend = lerpf(_reload_blend, reload_target, _blend(reload_blend_rate, delta))
-
 	var bob_scale: float = ViewSettings.head_bob_scale * motion_scale
 	var offset: Vector3 = _current_data.hip_position.lerp(_current_data.ads_position, aim)
 	offset.x += sin(_bob_phase) * bob_horizontal_amplitude * _bob_weight * bob_scale
@@ -158,7 +153,6 @@ func _process(delta: float) -> void:
 	offset.z += _kick * _current_data.kick_back
 	offset += lowered_offset * (1.0 - raise)
 	offset += sprint_offset * _sprint_blend
-	offset.y -= reload_dip * _reload_blend
 
 	var angles := Vector3.ZERO
 	angles.x = _sway.y * motion_scale + deg_to_rad(_current_data.kick_pitch_degrees) * _kick
@@ -166,8 +160,11 @@ func _process(delta: float) -> void:
 	angles.z = deg_to_rad(_inertia_roll) * motion_scale
 	angles.x -= deg_to_rad(lowered_pitch_degrees) * (1.0 - raise)
 	angles += sprint_rotation_degrees * (PI / 180.0) * _sprint_blend
-	angles.z += deg_to_rad(reload_roll_degrees) * _reload_blend
 
+	# Parts must be posed before the pivot is written. Under the camera rig
+	# (interpolation off), the renderer only picked up model-part transforms
+	# that changed before the pivot's transform propagated down to them.
+	_animator.apply(_current_data.definition(), controller.get_current_logic(), controller.get_raise_blend(fraction))
 	_pivot.position = offset
 	_pivot.rotation = angles
 
@@ -207,6 +204,10 @@ func _notification(what: int) -> void:
 		for model: Node3D in _models.values():
 			if is_instance_valid(model) and not model.is_inside_tree():
 				model.free()
+
+
+func get_animator() -> WeaponAnimator:
+	return _animator
 
 
 ## Current visual recoil, 0 at rest. For tests and debugging.
@@ -274,6 +275,8 @@ func _blend(rate: float, delta: float) -> float:
 
 
 func _on_weapon_changed(data: WeaponData) -> void:
+	if _current_data != null:
+		_animator.reset(_current_data.definition())
 	_rebuild_attachments(data)
 	for other: WeaponData in _models:
 		_set_model_shown(other, other == data.definition())

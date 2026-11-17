@@ -1,0 +1,93 @@
+[gd_resource type="Resource" script_class="HandlingProfile" load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://weapons/animation/handling_profile.gd" id="1"]
+[ext_resource type="Script" path="res://weapons/animation/handling_track.gd" id="2"]
+
+[sub_resource type="Resource" id="track_0"]
+script = ExtResource("2")
+event = 0
+part = &""
+offset = Vector3(-0.04, -0.01, 0.01)
+rotation_degrees = Vector3(8.0, 6.0, -26.0)
+out_start = 0.0
+out_end = 0.18
+back_start = 0.8
+back_end = 1.0
+
+[sub_resource type="Resource" id="track_1"]
+script = ExtResource("2")
+event = 0
+part = &"Magazine"
+offset = Vector3(0.0, -0.2, 0.02)
+rotation_degrees = Vector3(-8.0, 0.0, 0.0)
+out_start = 0.1
+out_end = 0.28
+back_start = 0.46
+back_end = 0.74
+visibility = 2
+window_start = 0.28
+window_end = 0.46
+releases_copy = true
+
+[sub_resource type="Resource" id="track_2"]
+script = ExtResource("2")
+event = 1
+part = &""
+offset = Vector3(-0.04, -0.01, 0.01)
+rotation_degrees = Vector3(8.0, 6.0, -26.0)
+out_start = 0.0
+out_end = 0.16
+back_start = 0.86
+back_end = 1.0
+
+[sub_resource type="Resource" id="track_3"]
+script = ExtResource("2")
+event = 1
+part = &"Magazine"
+offset = Vector3(0.0, -0.2, 0.02)
+rotation_degrees = Vector3(-8.0, 0.0, 0.0)
+out_start = 0.08
+out_end = 0.24
+back_start = 0.42
+back_end = 0.68
+visibility = 2
+window_start = 0.24
+window_end = 0.42
+releases_copy = true
+
+[sub_resource type="Resource" id="track_4"]
+script = ExtResource("2")
+event = 1
+part = &"Slide"
+offset = Vector3(0.0, 0.0, 0.03)
+rotation_degrees = Vector3(0.0, 0.0, 0.0)
+out_start = 0.0
+out_end = 0.0
+back_start = 0.74
+back_end = 0.8
+
+[sub_resource type="Resource" id="track_5"]
+script = ExtResource("2")
+event = 5
+part = &"Slide"
+offset = Vector3(0.0, 0.0, 0.03)
+rotation_degrees = Vector3(0.0, 0.0, 0.0)
+out_start = 0.0
+out_end = 0.3
+back_start = 0.35
+back_end = 1.0
+
+[sub_resource type="Resource" id="track_6"]
+script = ExtResource("2")
+event = 7
+part = &"Slide"
+offset = Vector3(0.0, 0.0, 0.03)
+rotation_degrees = Vector3(0.0, 0.0, 0.0)
+out_start = 0.0
+out_end = 0.0
+back_start = 1.0
+back_end = 1.0
+
+[resource]
+script = ExtResource("1")
+tracks = Array[ExtResource("2")]([SubResource("track_0"), SubResource("track_1"), SubResource("track_2"), SubResource("track_3"), SubResource("track_4"), SubResource("track_5"), SubResource("track_6")])

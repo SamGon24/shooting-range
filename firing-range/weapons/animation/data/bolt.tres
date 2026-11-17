@@ -1,0 +1,115 @@
+[gd_resource type="Resource" script_class="HandlingProfile" load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://weapons/animation/handling_profile.gd" id="1"]
+[ext_resource type="Script" path="res://weapons/animation/handling_track.gd" id="2"]
+
+[sub_resource type="Resource" id="track_0"]
+script = ExtResource("2")
+event = 5
+part = &"BoltHandle"
+offset = Vector3(0.0, 0.0, 0.0)
+rotation_degrees = Vector3(0.0, 0.0, 65.0)
+out_start = 0.12
+out_end = 0.24
+back_start = 0.72
+back_end = 0.84
+
+[sub_resource type="Resource" id="track_1"]
+script = ExtResource("2")
+event = 5
+part = &"BoltHandle"
+offset = Vector3(0.0, 0.0, 0.08)
+rotation_degrees = Vector3(0.0, 0.0, 0.0)
+out_start = 0.28
+out_end = 0.42
+back_start = 0.5
+back_end = 0.66
+
+[sub_resource type="Resource" id="track_2"]
+script = ExtResource("2")
+event = 5
+part = &""
+offset = Vector3(0.0, -0.01, 0.0)
+rotation_degrees = Vector3(0.0, 0.0, 6.0)
+out_start = 0.08
+out_end = 0.22
+back_start = 0.74
+back_end = 0.92
+
+[sub_resource type="Resource" id="track_3"]
+script = ExtResource("2")
+event = 0
+part = &""
+offset = Vector3(-0.05, -0.01, 0.02)
+rotation_degrees = Vector3(10.0, 8.0, -26.0)
+out_start = 0.0
+out_end = 0.14
+back_start = 0.84
+back_end = 1.0
+
+[sub_resource type="Resource" id="track_4"]
+script = ExtResource("2")
+event = 0
+part = &"Magazine"
+offset = Vector3(0.0, -0.22, 0.03)
+rotation_degrees = Vector3(-10.0, 0.0, 0.0)
+out_start = 0.1
+out_end = 0.26
+back_start = 0.44
+back_end = 0.7
+visibility = 2
+window_start = 0.26
+window_end = 0.44
+releases_copy = true
+
+[sub_resource type="Resource" id="track_5"]
+script = ExtResource("2")
+event = 1
+part = &""
+offset = Vector3(-0.05, -0.01, 0.02)
+rotation_degrees = Vector3(10.0, 8.0, -26.0)
+out_start = 0.0
+out_end = 0.12
+back_start = 0.9
+back_end = 1.0
+
+[sub_resource type="Resource" id="track_6"]
+script = ExtResource("2")
+event = 1
+part = &"Magazine"
+offset = Vector3(0.0, -0.22, 0.03)
+rotation_degrees = Vector3(-10.0, 0.0, 0.0)
+out_start = 0.08
+out_end = 0.22
+back_start = 0.38
+back_end = 0.6
+visibility = 2
+window_start = 0.22
+window_end = 0.38
+releases_copy = true
+
+[sub_resource type="Resource" id="track_7"]
+script = ExtResource("2")
+event = 1
+part = &"BoltHandle"
+offset = Vector3(0.0, 0.0, 0.0)
+rotation_degrees = Vector3(0.0, 0.0, 65.0)
+out_start = 0.64
+out_end = 0.68
+back_start = 0.82
+back_end = 0.86
+
+[sub_resource type="Resource" id="track_8"]
+script = ExtResource("2")
+event = 1
+part = &"BoltHandle"
+offset = Vector3(0.0, 0.0, 0.08)
+rotation_degrees = Vector3(0.0, 0.0, 0.0)
+out_start = 0.7
+out_end = 0.74
+back_start = 0.76
+back_end = 0.8
+
+[resource]
+script = ExtResource("1")
+tracks = Array[ExtResource("2")]([SubResource("track_0"), SubResource("track_1"), SubResource("track_2"), SubResource("track_3"), SubResource("track_4"), SubResource("track_5"), SubResource("track_6"), SubResource("track_7"), SubResource("track_8")])

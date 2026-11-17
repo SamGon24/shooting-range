@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=8 format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1"]
 [ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2"]
@@ -6,6 +6,7 @@
 [ext_resource type="Resource" path="res://weapons/framework/semi.tres" id="4"]
 [ext_resource type="Resource" path="res://weapons/framework/ballistic.tres" id="5"]
 [ext_resource type="Resource" path="res://weapons/framework/magazine.tres" id="6"]
+[ext_resource type="Resource" path="res://weapons/animation/data/pistol.tres" id="handling"]
 
 [sub_resource type="Resource" id="projectile"]
 script = ExtResource("2")
@@ -32,6 +33,7 @@ reload_policy = ExtResource("6")
 automatic = false
 projectile = SubResource("projectile")
 viewmodel_scene = ExtResource("3")
+handling = ExtResource("handling")
 uses_ammo = true
 can_aim = true
 movement_speed_scale = 1.0
