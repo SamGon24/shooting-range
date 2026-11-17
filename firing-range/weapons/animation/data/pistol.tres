@@ -25,7 +25,7 @@ out_end = 0.28
 back_start = 0.46
 back_end = 0.74
 visibility = 2
-window_start = 0.28
+window_start = 0.14
 window_end = 0.46
 releases_copy = true
 
@@ -51,7 +51,7 @@ out_end = 0.24
 back_start = 0.42
 back_end = 0.68
 visibility = 2
-window_start = 0.24
+window_start = 0.12
 window_end = 0.42
 releases_copy = true
 

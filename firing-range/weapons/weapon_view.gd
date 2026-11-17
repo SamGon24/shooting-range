@@ -92,6 +92,9 @@ var _kick: float = 0.0
 var _kick_velocity: float = 0.0
 var _sprint_blend: float = 0.0
 var _animator: WeaponAnimator = WeaponAnimator.new()
+## Lives beside the player in the world, outside the camera rig, so the
+## dropped copies are ordinary interpolated physics bodies.
+var _drop_pool: MagazineDropPool
 
 
 func _ready() -> void:
@@ -120,6 +123,11 @@ func _ready() -> void:
 		_animator.bind(data, model)
 
 	_build_muzzle_flash()
+	if player.get_parent() != null:
+		_drop_pool = MagazineDropPool.new()
+		_drop_pool.name = "MagazineDrops"
+		player.add_sibling.call_deferred(_drop_pool)
+		_animator.copy_released.connect(_on_copy_released)
 	_last_yaw = player.yaw
 	_last_pitch = player.pitch
 	controller.weapon_changed.connect(_on_weapon_changed)
@@ -197,6 +205,9 @@ func _notification(what: int) -> void:
 	# Models that are not the current weapon live outside the tree, so they
 	# are not freed with it.
 	if what == NOTIFICATION_PREDELETE:
+		# A view freed before its deferred add leaves the pool orphaned.
+		if is_instance_valid(_drop_pool) and _drop_pool.get_parent() == null:
+			_drop_pool.free()
 		for nodes: Array in _native_optics.values():
 			for native: Node3D in nodes:
 				if is_instance_valid(native) and native.get_parent() == null:
@@ -208,6 +219,10 @@ func _notification(what: int) -> void:
 
 func get_animator() -> WeaponAnimator:
 	return _animator
+
+
+func get_drop_pool() -> MagazineDropPool:
+	return _drop_pool
 
 
 ## Current visual recoil, 0 at rest. For tests and debugging.
@@ -291,6 +306,11 @@ func _on_weapon_changed(data: WeaponData) -> void:
 	if muzzle != null and _flash_mesh.get_parent() != muzzle:
 		_flash_mesh.reparent(muzzle, false)
 		_flash_particles.reparent(muzzle, false)
+
+
+func _on_copy_released(part: Node3D, follower: Node3D) -> void:
+	if _drop_pool != null and _drop_pool.is_inside_tree():
+		_drop_pool.release(part, follower, player.velocity)
 
 
 func _on_shot_fired(data: WeaponData) -> void:
