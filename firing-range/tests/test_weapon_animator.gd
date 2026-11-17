@@ -95,7 +95,7 @@ func _press(action: StringName) -> void:
 
 
 func test_every_profile_is_valid_and_names_real_viewmodel_parts() -> void:
-	assert_gt(_profiled().size(), 3)
+	assert_eq(_profiled().size(), WEAPONS.size(), "all nine weapons animate")
 	for data: WeaponData in _profiled():
 		assert_true(data.handling.is_valid(), data.display_name)
 		var model := data.viewmodel_scene.instantiate() as Node3D
@@ -357,3 +357,57 @@ func test_lmg_belt_empties_and_is_laid_after_a_new_box() -> void:
 	assert_almost_eq(lid.rotation.length(), 0.0, 0.0001)
 	assert_true(_is_shown(belt))
 	assert_eq(_releases.size(), 1)
+
+
+func test_every_weapon_has_equip_and_holster_motion() -> void:
+	var pose := HandlingPose.new()
+	for data: WeaponData in _profiled():
+		assert_true(data.handling.has_event(HandlingTrack.Event.LOWERED), data.display_name)
+		HandlingTimeline.evaluate(data.handling, {HandlingTrack.Event.LOWERED: 1.0}, false, pose)
+		assert_gt(pose.rotation(&"").length(), 0.0, "%s is turned away when put down" % data.display_name)
+
+
+func test_switching_turns_the_model_away_and_back() -> void:
+	var rifle_model: Node3D = _view.get_current_model()
+	var rifle_logic: WeaponLogic = _weapons.get_current_logic()
+	_weapons.request_switch(1)
+	var lowered_roll: float = 0.0
+	var raised_roll: float = 0.0
+	for tick: int in 60:
+		await wait_physics_frames(1)
+		await wait_process_frames(1)
+		var logic: WeaponLogic = _weapons.get_current_logic()
+		if logic == rifle_logic and logic.raise_progress > 0.3 and logic.raise_progress < 0.7:
+			lowered_roll = maxf(lowered_roll, absf(rifle_model.rotation.z))
+		elif logic != rifle_logic and logic.raise_progress > 0.3 and logic.raise_progress < 0.7:
+			raised_roll = maxf(raised_roll, absf(_view.get_current_model().rotation.z))
+	assert_gt(lowered_roll, deg_to_rad(3.0), "rolled while lowering")
+	assert_gt(raised_roll, deg_to_rad(3.0), "rolling in while raising")
+	assert_ne(_view.get_current_model(), rifle_model)
+	assert_eq(rifle_model.transform, Transform3D.IDENTITY, "stored at rest")
+	assert_eq(_view.get_current_model().transform, Transform3D.IDENTITY, "fully raised at rest")
+
+
+func test_knife_swing_strikes_then_recovers_over_the_cooldown() -> void:
+	var knife: WeaponData = _select(_weapons.get_secondary_choices(), WeaponTypes.Class.KNIFE, false)
+	await wait_physics_frames(_seconds(1.5))
+	assert_eq(_weapons.get_current_data().definition(), knife)
+	var model: Node3D = _view.get_current_model()
+	assert_eq(model.transform, Transform3D.IDENTITY)
+	await _press(&"fire")
+	await wait_physics_frames(_seconds(knife.shot_interval() * 0.2))
+	assert_gt(model.rotation.length(), deg_to_rad(30.0), "mid-swing")
+	await wait_physics_frames(_seconds(knife.shot_interval()))
+	assert_eq(model.transform, Transform3D.IDENTITY, "back at rest once the cooldown ends")
+
+
+func test_shield_bash_pushes_forward_and_returns() -> void:
+	var shield: WeaponData = _select(_weapons.get_secondary_choices(), WeaponTypes.Class.SHIELD, false)
+	await wait_physics_frames(_seconds(1.5))
+	assert_eq(_weapons.get_current_data().definition(), shield)
+	var model: Node3D = _view.get_current_model()
+	await _press(&"fire")
+	await wait_physics_frames(_seconds(shield.shot_interval() * 0.2))
+	assert_lt(model.position.z, -0.15, "bashing forward")
+	await wait_physics_frames(_seconds(shield.shot_interval()))
+	assert_eq(model.transform, Transform3D.IDENTITY)

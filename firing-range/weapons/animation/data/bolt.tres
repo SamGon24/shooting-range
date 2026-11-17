@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="HandlingProfile" load_steps=12 format=3]
+[gd_resource type="Resource" script_class="HandlingProfile" load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://weapons/animation/handling_profile.gd" id="1"]
 [ext_resource type="Script" path="res://weapons/animation/handling_track.gd" id="2"]
@@ -110,6 +110,17 @@ out_end = 0.74
 back_start = 0.76
 back_end = 0.8
 
+[sub_resource type="Resource" id="track_9"]
+script = ExtResource("2")
+event = 6
+part = &""
+offset = Vector3(0.0, 0.0, 0.0)
+rotation_degrees = Vector3(0.0, 0.0, -12.0)
+out_start = 0.0
+out_end = 1.0
+back_start = 1.0
+back_end = 1.0
+
 [resource]
 script = ExtResource("1")
-tracks = Array[ExtResource("2")]([SubResource("track_0"), SubResource("track_1"), SubResource("track_2"), SubResource("track_3"), SubResource("track_4"), SubResource("track_5"), SubResource("track_6"), SubResource("track_7"), SubResource("track_8")])
+tracks = Array[ExtResource("2")]([SubResource("track_0"), SubResource("track_1"), SubResource("track_2"), SubResource("track_3"), SubResource("track_4"), SubResource("track_5"), SubResource("track_6"), SubResource("track_7"), SubResource("track_8"), SubResource("track_9")])
