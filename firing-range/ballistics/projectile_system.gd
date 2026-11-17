@@ -13,6 +13,8 @@ extends Node3D
 signal projectile_fired(slot: int, origin: Vector3, velocity: Vector3, spec: ProjectileSpec)
 signal projectile_hit(hit: ProjectileHit)
 signal projectile_expired(slot: int)
+signal shot_started(shot_id: int)
+signal shot_finished(shot_id: int)
 
 const GROUP: StringName = &"projectile_system"
 
@@ -34,6 +36,9 @@ var _distances: PackedFloat32Array = PackedFloat32Array()
 ## Drag factor k (1/m) per slot, worked out once at launch.
 var _drags: PackedFloat32Array = PackedFloat32Array()
 var _specs: Array[ProjectileSpec] = []
+var _shot_ids: PackedInt64Array = PackedInt64Array()
+var _remaining: Dictionary[int, int] = {}
+var _next_shot_id: int = 0
 var _free_slots: PackedInt32Array = PackedInt32Array()
 var _active_count: int = 0
 var _dropped_count: int = 0
@@ -53,6 +58,7 @@ func _ready() -> void:
 	_distances.resize(capacity)
 	_drags.resize(capacity)
 	_specs.resize(capacity)
+	_shot_ids.resize(capacity)
 	_free_slots.resize(capacity)
 	for slot: int in capacity:
 		# Popped from the back, so slot 0 is handed out first.
@@ -75,6 +81,37 @@ func fire(origin: Vector3, direction: Vector3, spec: ProjectileSpec) -> int:
 	if _free_slots.is_empty():
 		_dropped_count += 1
 		return -1
+	return _launch(origin, direction, spec, _begin_shot(1))
+
+
+## Atomic volley: either every pellet launches, or none does. Uses exactly
+## the same pool, integration and collision sweep as a single projectile.
+func fire_volley(origin: Vector3, directions: PackedVector3Array, spec: ProjectileSpec) -> int:
+	if spec == null or directions.is_empty():
+		return -1
+	for direction: Vector3 in directions:
+		if direction.is_zero_approx():
+			return -1
+	if _free_slots.size() < directions.size():
+		_dropped_count += directions.size()
+		return -1
+	var shot_id: int = _begin_shot(directions.size())
+	var first_slot: int = -1
+	for direction: Vector3 in directions:
+		var slot: int = _launch(origin, direction, spec, shot_id)
+		if first_slot < 0:
+			first_slot = slot
+	return first_slot
+
+
+func _begin_shot(count: int) -> int:
+	_next_shot_id += 1
+	_remaining[_next_shot_id] = count
+	shot_started.emit(_next_shot_id)
+	return _next_shot_id
+
+
+func _launch(origin: Vector3, direction: Vector3, spec: ProjectileSpec, shot_id: int) -> int:
 
 	var slot: int = _free_slots[_free_slots.size() - 1]
 	_free_slots.remove_at(_free_slots.size() - 1)
@@ -86,6 +123,7 @@ func fire(origin: Vector3, direction: Vector3, spec: ProjectileSpec) -> int:
 	_distances[slot] = 0.0
 	_drags[slot] = spec.drag_factor(air_density)
 	_specs[slot] = spec
+	_shot_ids[slot] = shot_id
 	_active_count += 1
 	projectile_fired.emit(slot, origin, velocity, spec)
 	return slot
@@ -102,6 +140,7 @@ func advance(delta: float) -> void:
 		if _active[slot] == 0:
 			continue
 		var spec: ProjectileSpec = _specs[slot]
+		var shot_id: int = _shot_ids[slot]
 		var gravity: Vector3 = Vector3.DOWN * (_gravity * spec.gravity_scale)
 		var from: Vector3 = _positions[slot]
 		var step: PackedVector3Array = ProjectileMath.step_drag(from, _velocities[slot], gravity, _drags[slot], delta)
@@ -122,10 +161,12 @@ func advance(delta: float) -> void:
 			hit.travel_distance = _distances[slot] + from.distance_to(point)
 			hit.spec = spec
 			hit.source = spec.source
+			hit.shot_id = shot_id
 			hit.damage = spec.damage_at_distance(hit.travel_distance)
 			hit.slot = slot
 			_release(slot)
 			projectile_hit.emit(hit)
+			_finish_projectile(shot_id)
 			continue
 
 		_positions[slot] = to
@@ -135,6 +176,7 @@ func advance(delta: float) -> void:
 		if _ages[slot] >= spec.max_lifetime:
 			_release(slot)
 			projectile_expired.emit(slot)
+			_finish_projectile(shot_id)
 
 
 func get_active_count() -> int:
@@ -144,6 +186,21 @@ func get_active_count() -> int:
 ## Shots that could not be fired because every slot was in use.
 func get_dropped_count() -> int:
 	return _dropped_count
+
+
+func get_slot_shot_id(slot: int) -> int:
+	return _shot_ids[slot] if is_slot_active(slot) else -1
+
+
+func get_active_shot_count() -> int:
+	return _remaining.size()
+
+
+func _finish_projectile(shot_id: int) -> void:
+	_remaining[shot_id] -= 1
+	if _remaining[shot_id] == 0:
+		_remaining.erase(shot_id)
+		shot_finished.emit(shot_id)
 
 
 func is_slot_active(slot: int) -> bool:

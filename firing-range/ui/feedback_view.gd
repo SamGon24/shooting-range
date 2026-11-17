@@ -31,12 +31,15 @@ var _labels: Array[Label] = []
 var _points: PackedVector3Array = PackedVector3Array()
 var _ages: PackedFloat32Array = PackedFloat32Array()
 var _next: int = 0
+var _number_keys: Dictionary[String, int] = {}
+var _slot_keys: PackedStringArray = PackedStringArray()
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_points.resize(number_capacity)
 	_ages.resize(number_capacity)
+	_slot_keys.resize(number_capacity)
 	for index: int in number_capacity:
 		var label := Label.new()
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -57,18 +60,45 @@ func show_feedback(kind: HitFeedback.Kind, point: Vector3, amount: float, headsh
 		queue_redraw()
 	if amount <= 0.0:
 		return
-	var label: Label = _labels[_next]
+	var index: int = _allocate_number()
+	_write_number(index, point, amount, headshot)
+
+
+## Update one pooled label for all pellets of a shot hitting one target,
+## even if their travel times put the impacts in different physics ticks.
+func show_damage_total(shot_id: int, target_id: int, point: Vector3, amount: float, headshot: bool) -> void:
+	var key: String = "%d:%d" % [shot_id, target_id]
+	var index: int = _number_keys.get(key, -1)
+	if index < 0:
+		index = _allocate_number()
+		_number_keys[key] = index
+		_slot_keys[index] = key
+	_write_number(index, point, amount, headshot)
+
+
+func _allocate_number() -> int:
+	var index: int = _next
+	if not _slot_keys[index].is_empty():
+		_number_keys.erase(_slot_keys[index])
+		_slot_keys[index] = ""
+	_next = (_next + 1) % number_capacity
+	return index
+
+
+func _write_number(index: int, point: Vector3, amount: float, headshot: bool) -> void:
+	var label: Label = _labels[index]
 	label.text = str(roundi(amount))
 	label.add_theme_color_override("font_color", headshot_color if headshot else number_color)
 	label.modulate.a = 1.0
-	_points[_next] = point
-	_ages[_next] = 0.0
-	_next = (_next + 1) % number_capacity
+	_points[index] = point
+	_ages[index] = 0.0
 	_update_numbers()
 
 
 func clear_feedback() -> void:
 	_marker_age = INF
+	_number_keys.clear()
+	_slot_keys.fill("")
 	for index: int in _labels.size():
 		_ages[index] = number_lifetime
 		_labels[index].visible = false

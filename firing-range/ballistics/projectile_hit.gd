@@ -3,6 +3,8 @@ extends RefCounted
 ## What a projectile reports when it hits something.
 
 var source: DamageSource.Kind = DamageSource.Kind.BALLISTIC
+## Unique trigger event; all pellets in a volley share it, unlike pool slots.
+var shot_id: int = -1
 
 ## World position of the impact.
 var position: Vector3

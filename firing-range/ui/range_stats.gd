@@ -20,6 +20,12 @@ func record_hit(target_id: int, headshot: bool, killed: bool, now: float, tracks
 		headshots += 1
 	if not tracks_life:
 		return
+	record_target_damage(target_id, killed, now)
+
+
+## Every damaged target keeps its own timer, even when one volley scores
+## only one accuracy hit across several targets or hit zones.
+func record_target_damage(target_id: int, killed: bool, now: float) -> void:
 	if not _first_hits.has(target_id):
 		_first_hits[target_id] = now
 	if killed:
