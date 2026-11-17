@@ -16,12 +16,17 @@ extends Node
 ## firing). Automatic guns hold the trigger; pump guns receive press/release
 ## edges and interrupt shell loading once a round is ready.
 ##
+## Adding `--perf-reload` presses reload whenever the gun has fired at least
+## one round, so the run is dominated by tactical reloads: handling
+## animation, magazine release and the pooled physics drops.
+##
 ## The report includes the real vsync mode and how much of the run the window
 ## was focused. Keep the window in front while it runs: an unfocused or
 ## hidden window is paced differently by macOS and gives misleading numbers.
 
 const ARGUMENT: String = "--perf-probe"
 const FIRE_ARGUMENT: String = "--perf-fire"
+const RELOAD_ARGUMENT: String = "--perf-reload"
 const PLAYER_GROUP: StringName = &"player"
 const WARMUP_SECONDS: float = 2.0
 const MEASURE_SECONDS: float = 10.0
@@ -48,6 +53,11 @@ var _max_ragdoll_parts: int = 0
 var _guard_ticks: int = 0
 var _blasts: int = 0
 var _guard_hits: int = 0
+var _reload_stress: bool = false
+var _reloads: int = 0
+var _drops: int = 0
+var _drop_pool: MagazineDropPool
+var _peak_drops: int = 0
 
 
 func _ready() -> void:
@@ -56,6 +66,7 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	_firing = OS.get_cmdline_user_args().has(FIRE_ARGUMENT)
+	_reload_stress = _firing and OS.get_cmdline_user_args().has(RELOAD_ARGUMENT)
 	process_physics_priority = -20
 	set_physics_process(_firing)
 	Input.action_press("move_forward")
@@ -73,6 +84,11 @@ func _count_shots() -> void:
 	if weapons != null:
 		_select_weapon()
 		weapons.shot_fired.connect(func(_data: WeaponData) -> void: _shots += 1)
+		weapons.reload_started.connect(func(_empty: bool, _duration: float) -> void: _reloads += 1)
+	var view := get_tree().get_first_node_in_group(WeaponView.GROUP) as WeaponView
+	if view != null:
+		_drop_pool = view.get_drop_pool()
+		view.get_animator().copy_released.connect(func(_part: Node3D, _follower: Node3D) -> void: _drops += 1)
 	var projectiles := get_tree().get_first_node_in_group(ProjectileSystem.GROUP) as ProjectileSystem
 	_system = projectiles
 	if projectiles != null:
@@ -113,6 +129,10 @@ func _select_weapon() -> void:
 func _physics_process(_delta: float) -> void:
 	if _weapons == null or _weapons.get_current_data() == null:
 		return
+	if _drop_pool != null:
+		_peak_drops = maxi(_peak_drops, _drop_pool.active_count())
+	if _reload_stress:
+		_press_reload_when_possible()
 	if _weapons.get_current_data().guard != null:
 		_guard_ticks = (_guard_ticks + 1) % GUARD_INTERVAL_TICKS
 		if _guard_ticks == 0 and _system != null:
@@ -137,6 +157,15 @@ func _physics_process(_delta: float) -> void:
 		return
 	if logic.state in [WeaponLogic.State.READY, WeaponLogic.State.FIRING] and logic.get_time_to_next_shot() <= WeaponLogic.TIME_EPSILON:
 		Input.action_press("fire")
+
+
+func _press_reload_when_possible() -> void:
+	if Input.is_action_pressed("reload"):
+		Input.action_release("reload")
+		return
+	var logic: WeaponLogic = _weapons.get_current_logic()
+	if logic.data.uses_ammo and logic.ammo > 0 and logic.ammo < logic.data.magazine_size and logic.can_reload():
+		Input.action_press("reload")
 
 
 func _on_projectile_fired(_slot: int, _origin: Vector3, _velocity: Vector3, _spec: ProjectileSpec) -> void:
@@ -187,6 +216,7 @@ func _report_and_quit() -> void:
 	Input.action_release("move_forward")
 	Input.action_release("sprint")
 	Input.action_release("fire")
+	Input.action_release("reload")
 
 	var sorted: PackedInt64Array = _frame_times_usec.duplicate()
 	sorted.sort()
@@ -242,6 +272,9 @@ func _report_and_quit() -> void:
 		print("shots fired:     %d (%d hits) since start" % [_shots, _hits])
 		print("armed blasts:    %d since start" % _blasts)
 		print("shield blocks:   %d non-scoring rounds since start" % _guard_hits)
+		print("reloads:         %d started, %d magazines dropped since start" % [_reloads, _drops])
+		if _drop_pool != null:
+			print("dropped bodies:  %d peak active / %d pooled" % [_peak_drops, _drop_pool.capacity])
 	if _stress != null:
 		print("stress props:    %d (awake throughout)" % int(_stress.call("get_prop_count")))
 		print("ragdoll parts:   %d min / %d max during measurement" % [_min_ragdoll_parts, _max_ragdoll_parts])
