@@ -3,6 +3,8 @@ extends Resource
 ## What a weapon fires. Units are SI except where the suffix says otherwise
 ## (grams and millimetres read more naturally for bullets).
 
+@export var source: DamageSource.Kind = DamageSource.Kind.BALLISTIC
+
 enum WeaponClass { DEFAULT, SNIPER }
 
 ## Selects target multiplier rules independently of projectile damage.

@@ -121,6 +121,7 @@ func advance(delta: float) -> void:
 			hit.travel_time = _ages[slot] + delta
 			hit.travel_distance = _distances[slot] + from.distance_to(point)
 			hit.spec = spec
+			hit.source = spec.source
 			hit.damage = spec.damage_at_distance(hit.travel_distance)
 			hit.slot = slot
 			_release(slot)

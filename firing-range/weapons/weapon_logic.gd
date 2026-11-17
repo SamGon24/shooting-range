@@ -73,7 +73,7 @@ func tick(delta: float, input: WeaponInput) -> int:
 		State.RELOADING:
 			_reload_time_left -= delta
 			if _reload_time_left <= TIME_EPSILON:
-				ammo = data.magazine_size
+				ammo = data.reload_policy.refill(ammo, data.magazine_size) if data.reload_policy != null else data.magazine_size
 				_set_state(State.READY)
 				reload_finished.emit()
 		State.READY, State.FIRING:
@@ -146,7 +146,7 @@ func get_aim_state() -> AimState:
 
 
 func can_reload() -> bool:
-	return ammo < data.magazine_size and (state == State.READY or state == State.FIRING)
+	return (data.reload_policy.can_reload(ammo, data.magazine_size) if data.reload_policy != null else ammo < data.magazine_size) and (state == State.READY or state == State.FIRING)
 
 
 func _tick_ready(input: WeaponInput) -> int:
@@ -162,12 +162,12 @@ func _tick_ready(input: WeaponInput) -> int:
 		_start_reload()
 		return 0
 
-	var wants_shot: bool = input.trigger_held if data.automatic else input.trigger_pressed
+	var wants_shot: bool = data.wants_shot(input.trigger_held, input.trigger_pressed)
 	if ammo <= 0:
 		# An empty magazine reloads itself when the trigger is pulled.
 		if input.trigger_pressed:
 			dry_fired.emit()
-		if input.trigger_held and cooled_down:
+		if input.trigger_held and cooled_down and (data.reload_policy == null or data.reload_policy.kind != ReloadData.Kind.NONE):
 			_start_reload()
 		return 0
 

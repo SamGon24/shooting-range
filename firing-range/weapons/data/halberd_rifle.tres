@@ -1,8 +1,12 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data"]
 [ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2_spec"]
 [ext_resource type="PackedScene" path="res://weapons/viewmodels/halberd_rifle_viewmodel.tscn" id="3_viewmodel"]
+
+[ext_resource type="Resource" path="res://weapons/framework/auto.tres" id="4_fire"]
+[ext_resource type="Resource" path="res://weapons/framework/ballistic.tres" id="5_delivery"]
+[ext_resource type="Resource" path="res://weapons/framework/magazine.tres" id="6_reload"]
 
 [sub_resource type="Resource" id="projectile"]
 script = ExtResource("2_spec")
@@ -19,6 +23,10 @@ diameter_mm = 5.7
 
 [resource]
 script = ExtResource("1_data")
+weapon_class = 1
+fire_mode = ExtResource("4_fire")
+delivery = ExtResource("5_delivery")
+reload_policy = ExtResource("6_reload")
 display_name = "Halberd R-5"
 automatic = true
 rounds_per_minute = 700.0

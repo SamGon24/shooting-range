@@ -2,6 +2,8 @@ class_name ProjectileHit
 extends RefCounted
 ## What a projectile reports when it hits something.
 
+var source: DamageSource.Kind = DamageSource.Kind.BALLISTIC
+
 ## World position of the impact.
 var position: Vector3
 ## Surface normal at the impact, pointing away from the surface.

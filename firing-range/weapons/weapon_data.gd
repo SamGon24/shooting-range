@@ -3,11 +3,29 @@ extends Resource
 ## Every stat for one weapon. Weapon code reads these and holds no numbers of
 ## its own. The weapons live in `weapons/data/*.tres`.
 
+@export var weapon_class: WeaponTypes.Class = WeaponTypes.Class.RIFLE
+@export var role: WeaponTypes.Role = WeaponTypes.Role.PRIMARY
+@export var fire_mode: FireModeData
+@export var delivery: DeliveryData
+@export var reload_policy: ReloadData
+## Computed snapshots point to the original definition, never the reverse.
+var base_definition: WeaponData
+@export var recoil_scale: float = 1.0
+@export_enum("Iron:0", "Red dot:1", "2x:2", "4x:3", "8x:4") var optic_kind: int = 0
+var _legacy_automatic: bool = true
+
 @export var display_name: String = "Weapon"
 
 @export_group("Fire")
 ## True fires for as long as the trigger is held; false needs a press per shot.
-@export var automatic: bool = true
+@export var automatic: bool = true:
+	get:
+		return fire_mode.kind == FireModeData.Kind.FULL_AUTO if fire_mode != null else _legacy_automatic
+	set(value):
+		_legacy_automatic = value
+		if fire_mode != null and value != (fire_mode.kind == FireModeData.Kind.FULL_AUTO):
+			fire_mode = fire_mode.duplicate() as FireModeData
+			fire_mode.kind = FireModeData.Kind.FULL_AUTO if value else FireModeData.Kind.SEMI_AUTO
 ## Cyclic rate of fire, rounds per minute.
 @export_range(30.0, 1500.0, 1.0, "suffix:rpm") var rounds_per_minute: float = 700.0
 ## Time to work the bolt after a shot. 0 for weapons without one. The next
@@ -97,9 +115,17 @@ extends Resource
 
 ## Seconds between shots.
 func shot_interval() -> float:
-	return maxf(60.0 / rounds_per_minute, bolt_cycle_time)
+	return fire_mode.interval(rounds_per_minute, bolt_cycle_time) if fire_mode != null else maxf(60.0 / rounds_per_minute, bolt_cycle_time)
 
 
 ## Reload duration for a magazine holding `ammo_in_magazine` rounds.
 func reload_time(ammo_in_magazine: int) -> float:
 	return reload_empty_time if ammo_in_magazine <= 0 else reload_tactical_time
+
+
+func definition() -> WeaponData:
+	return base_definition if base_definition != null else self
+
+
+func wants_shot(held: bool, pressed: bool) -> bool:
+	return fire_mode.wants_shot(held, pressed) if fire_mode != null else (held if automatic else pressed)
