@@ -20,7 +20,7 @@ func _ready() -> void:
 	if controller == null:
 		push_error("WeaponAudio: `controller` must be assigned.")
 		return
-	for data: WeaponData in controller.loadout:
+	for data: WeaponData in controller.get_definitions():
 		var player := AudioStreamPlayer.new()
 		player.bus = &"Effects"
 		player.stream = SfxFactory.gunshot(data.shot_sound_pitch_hz, data.shot_sound_duration)
@@ -46,7 +46,7 @@ func _ready() -> void:
 
 
 func _on_shot_fired(data: WeaponData) -> void:
-	var player: AudioStreamPlayer = _shot_players.get(data)
+	var player: AudioStreamPlayer = _shot_players.get(data.definition())
 	if player != null:
 		player.play()
 

@@ -105,7 +105,7 @@ func _ready() -> void:
 	_pivot.name = "Pivot"
 	add_child(_pivot)
 
-	for data: WeaponData in controller.loadout:
+	for data: WeaponData in controller.get_definitions():
 		if data.viewmodel_scene == null:
 			continue
 		# Models wait outside the tree until they are the current weapon.
@@ -164,7 +164,7 @@ func _process(delta: float) -> void:
 	_pivot.position = offset
 	_pivot.rotation = angles
 
-	_set_model_shown(_current_data, not (_current_data.scoped and aim >= scope_hide_threshold))
+	_set_model_shown(_current_data.definition(), not (_current_data.scoped and aim >= scope_hide_threshold))
 
 	if _flash_time_left > 0.0:
 		_flash_time_left -= delta
@@ -180,7 +180,7 @@ func is_scope_view_active() -> bool:
 
 
 func get_current_model() -> Node3D:
-	return _models.get(_current_data) if _current_data != null else null
+	return _models.get(_current_data.definition()) if _current_data != null else null
 
 
 ## True if the current weapon's model is on screen (false while scoped in).
@@ -264,7 +264,7 @@ func _blend(rate: float, delta: float) -> float:
 
 func _on_weapon_changed(data: WeaponData) -> void:
 	for other: WeaponData in _models:
-		_set_model_shown(other, other == data)
+		_set_model_shown(other, other == data.definition())
 	_current_data = data
 	_kick = 0.0
 	_kick_velocity = 0.0
@@ -272,7 +272,7 @@ func _on_weapon_changed(data: WeaponData) -> void:
 	_flash_time_left = 0.0
 
 	# The flash rides on the current weapon's muzzle.
-	var muzzle: Node3D = _muzzles.get(data)
+	var muzzle: Node3D = _muzzles.get(data.definition())
 	if muzzle != null and _flash_mesh.get_parent() != muzzle:
 		_flash_mesh.reparent(muzzle, false)
 		_flash_particles.reparent(muzzle, false)

@@ -456,3 +456,51 @@ func test_switch_recalibrates_using_the_live_air_density() -> void:
 	_weapons.request_switch(0)
 	await wait_physics_frames(65)
 	assert_lt(_weapons.get_zero_angle(), initial, "reequip recalibrates instead of keeping the old atmosphere")
+
+
+func test_attachment_recompute_waits_for_reload_and_never_refills_ammo() -> void:
+	Input.action_press("fire")
+	await wait_physics_frames(10)
+	Input.action_release("fire")
+	await wait_physics_frames(8)
+	await _tap(&"reload")
+	var build: WeaponBuild = _weapons.get_build(0)
+	var computations: int = build.computation_count
+	var attachment := AttachmentData.new()
+	attachment.slot = WeaponTypes.Slot.MAGAZINE
+	attachment.compatible_classes = PackedInt32Array([WeaponTypes.Class.RIFLE])
+	var modifier := StatModifier.new()
+	modifier.stat = &"magazine_size"
+	modifier.operation = StatModifier.Operation.ADD
+	modifier.value = 10.0
+	attachment.modifiers = [modifier]
+	assert_true(_weapons.request_attachment(attachment.slot, attachment))
+	await wait_physics_frames(5)
+	assert_eq(build.computation_count, computations)
+	await wait_physics_frames(_seconds(_rifle.reload_tactical_time) + 4)
+	assert_eq(_weapons.get_current_data().magazine_size, 40)
+	assert_eq(_weapons.get_current_logic().ammo, 30, "attachment does not supply the ten new rounds")
+	assert_eq(build.computation_count, computations + 1)
+	await wait_physics_frames(10)
+	assert_eq(build.computation_count, computations + 1)
+	assert_true(_weapons.request_attachment(attachment.slot, null))
+	await wait_physics_frames(2)
+	assert_eq(_weapons.get_current_data().magazine_size, 30)
+
+
+func test_attachment_recalibrates_zero_without_mutating_launched_spec() -> void:
+	await _aim_fully()
+	var original: WeaponData = _weapons.get_current_data()
+	var zero: float = _weapons.get_zero_angle()
+	var attachment := AttachmentData.new()
+	attachment.slot = WeaponTypes.Slot.BARREL
+	attachment.compatible_classes = PackedInt32Array([WeaponTypes.Class.RIFLE])
+	var modifier := StatModifier.new()
+	modifier.stat = &"projectile.muzzle_velocity"
+	modifier.value = 1.1
+	attachment.modifiers = [modifier]
+	assert_true(_weapons.request_attachment(attachment.slot, attachment))
+	await wait_physics_frames(2)
+	assert_eq(original.projectile.muzzle_velocity, 850.0)
+	assert_almost_eq(_weapons.get_current_data().projectile.muzzle_velocity, 935.0, 0.00001)
+	assert_lt(_weapons.get_zero_angle(), zero)

@@ -13,4 +13,8 @@ func is_valid() -> bool:
 
 
 func weapons() -> Array[WeaponData]:
-	return [primary, secondary] if is_valid() else []
+	var result: Array[WeaponData] = []
+	if is_valid():
+		result.append(primary)
+		result.append(secondary)
+	return result

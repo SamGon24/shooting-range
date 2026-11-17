@@ -20,6 +20,9 @@ const GROUP: StringName = &"weapon_controller"
 
 ## Weapons carried, in slot order (slot 1, slot 2, ...).
 @export var loadout: Array[WeaponData] = []
+@export var loadout_definition: WeaponLoadout
+var _builds: Array[WeaponBuild] = []
+var _pending_attachments: Dictionary[int, Dictionary] = {}
 @export var player: PlayerController
 
 ## Seed for recoil randomness. 0 picks a random seed; tests and captures
@@ -54,7 +57,13 @@ func _ready() -> void:
 		_rng.seed = random_seed
 	else:
 		_rng.randomize()
-	for data: WeaponData in loadout:
+	var definitions: Array[WeaponData] = get_definitions()
+	loadout.clear()
+	for definition: WeaponData in definitions:
+		var build := WeaponBuild.new(definition)
+		_builds.append(build)
+		var data: WeaponData = build.get_stats()
+		loadout.append(data)
 		_recoils.append(RecoilLogic.new(data, _rng))
 		var logic := WeaponLogic.new(data)
 		logic.fired.connect(_on_logic_fired.bind(logic))
@@ -92,6 +101,7 @@ func _physics_process(delta: float) -> void:
 		request_switch(1)
 
 	_update_switch()
+	_apply_pending_attachments()
 
 	var logic: WeaponLogic = _logics[_current]
 	var controls_live: bool = _controls_live()
@@ -254,7 +264,7 @@ func _launch_projectile(data: WeaponData, direction: Vector3) -> void:
 			push_warning("WeaponController: no ProjectileSystem in the scene; shots go nowhere.")
 		return
 	var origin: Vector3 = player.get_eye_position() - player.get_aim_basis().y * data.sight_height_m
-	projectile_system.fire(origin, direction, data.projectile)
+	data.delivery.launch(projectile_system, origin, direction, data.projectile) if data.delivery != null else projectile_system.fire(origin, direction, data.projectile)
 
 
 func _on_logic_fired(logic: WeaponLogic) -> void:
@@ -281,3 +291,56 @@ func _on_logic_reload_cancelled(_logic: WeaponLogic) -> void:
 func clear_input_latches() -> void:
 	_fire_latched = false
 	_reload_latched = false
+
+
+func get_definitions() -> Array[WeaponData]:
+	if loadout_definition != null:
+		return loadout_definition.weapons()
+	var definitions: Array[WeaponData] = []
+	for data: WeaponData in loadout:
+		definitions.append(data.definition())
+	return definitions
+
+
+func get_build(slot: int) -> WeaponBuild:
+	return _builds[slot] if slot >= 0 and slot < _builds.size() else null
+
+
+func get_requested_attachment(slot: WeaponTypes.Slot) -> AttachmentData:
+	if _current < 0:
+		return null
+	if _pending_attachments.has(_current) and _pending_attachments[_current].has(slot):
+		return _pending_attachments[_current][slot]
+	return _builds[_current].get_attachment(slot)
+
+
+func request_attachment(slot: WeaponTypes.Slot, attachment: AttachmentData) -> bool:
+	if _current < 0 or not _builds[_current].can_attach(slot, attachment):
+		return false
+	if get_requested_attachment(slot) == attachment:
+		return true
+	if not _pending_attachments.has(_current):
+		_pending_attachments[_current] = {}
+	_pending_attachments[_current][slot] = attachment
+	return true
+
+
+func _apply_pending_attachments() -> void:
+	if not _pending_attachments.has(_current):
+		return
+	var logic: WeaponLogic = _logics[_current]
+	if logic.state not in [WeaponLogic.State.READY, WeaponLogic.State.FIRING] or logic.get_time_to_next_shot() > WeaponLogic.TIME_EPSILON:
+		return
+	var build: WeaponBuild = _builds[_current]
+	for slot: int in _pending_attachments[_current]:
+		build.set_attachment(slot as WeaponTypes.Slot, _pending_attachments[_current][slot])
+	_pending_attachments.erase(_current)
+	var computed: WeaponData = build.get_stats()
+	if computed == logic.data:
+		return
+	logic.data = computed
+	logic.ammo = mini(logic.ammo, computed.magazine_size)
+	_recoils[_current].data = computed
+	_recoils[_current].bloom = minf(_recoils[_current].bloom, computed.max_bloom_degrees)
+	loadout[_current] = computed
+	_announce_weapon()

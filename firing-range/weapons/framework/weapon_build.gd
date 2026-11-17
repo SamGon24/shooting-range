@@ -14,7 +14,7 @@ func _init(definition: WeaponData) -> void:
 	base = definition
 
 
-func set_attachment(slot: WeaponTypes.Slot, attachment: AttachmentData) -> bool:
+func can_attach(slot: WeaponTypes.Slot, attachment: AttachmentData) -> bool:
 	if attachment != null:
 		if attachment.slot != slot or not attachment.accepts(base.weapon_class):
 			return false
@@ -23,6 +23,12 @@ func set_attachment(slot: WeaponTypes.Slot, attachment: AttachmentData) -> bool:
 				return false
 			if modifier.operation == StatModifier.Operation.MULTIPLY and modifier.value < 0.0:
 				return false
+	return true
+
+
+func set_attachment(slot: WeaponTypes.Slot, attachment: AttachmentData) -> bool:
+	if not can_attach(slot, attachment):
+		return false
 	if _attachments.get(slot) == attachment:
 		return true
 	if attachment == null:
