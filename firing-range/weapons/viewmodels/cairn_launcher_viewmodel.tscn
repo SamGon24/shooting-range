@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [sub_resource type="StandardMaterial3D" id="metal"]
 albedo_color = Color(0.16, 0.17, 0.19, 1)
@@ -36,6 +36,14 @@ size = Vector3(0.035, 0.025, 0.02)
 material = SubResource("metal")
 size = Vector3(0.008, 0.02, 0.008)
 
+[sub_resource type="StandardMaterial3D" id="warhead"]
+albedo_color = Color(0.33, 0.36, 0.25, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="loaded_rocket"]
+material = SubResource("warhead")
+size = Vector3(0.085, 0.085, 0.3)
+
 [node name="cairn_launcher" type="Node3D"]
 
 [node name="Tube" type="MeshInstance3D" parent="."]
@@ -72,6 +80,11 @@ mesh = SubResource("box_5")
 position = Vector3(0, 0.09, -0.45)
 cast_shadow = 0
 mesh = SubResource("box_6")
+
+[node name="LoadedRocket" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, -0.66)
+cast_shadow = 0
+mesh = SubResource("loaded_rocket")
 
 [node name="Muzzle" type="Marker3D" parent="."]
 position = Vector3(0, 0, -0.75)

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=10 format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1"]
 [ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2"]
@@ -7,6 +7,7 @@
 [ext_resource type="Resource" path="res://weapons/framework/explosive.tres" id="5"]
 [ext_resource type="Resource" path="res://weapons/framework/single.tres" id="6"]
 [ext_resource type="Script" path="res://ballistics/explosion_data.gd" id="8"]
+[ext_resource type="Resource" path="res://weapons/animation/data/rocket.tres" id="handling"]
 
 [sub_resource type="Resource" id="blast"]
 script = ExtResource("8")
@@ -44,6 +45,7 @@ reload_policy = ExtResource("6")
 automatic = false
 projectile = SubResource("projectile")
 viewmodel_scene = ExtResource("3")
+handling = ExtResource("handling")
 uses_ammo = true
 can_aim = true
 movement_speed_scale = 1.0

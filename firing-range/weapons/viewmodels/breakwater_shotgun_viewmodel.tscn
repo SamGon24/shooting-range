@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=13 format=3]
 
 [sub_resource type="StandardMaterial3D" id="metal"]
 albedo_color = Color(0.16, 0.17, 0.19, 1)
@@ -39,6 +39,14 @@ size = Vector3(0.03, 0.022, 0.02)
 [sub_resource type="BoxMesh" id="box_7"]
 material = SubResource("metal")
 size = Vector3(0.006, 0.03, 0.006)
+
+[sub_resource type="StandardMaterial3D" id="shell"]
+albedo_color = Color(0.55, 0.12, 0.1, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="loading_shell"]
+material = SubResource("shell")
+size = Vector3(0.02, 0.02, 0.065)
 
 [node name="breakwater_shotgun" type="Node3D"]
 
@@ -81,6 +89,11 @@ mesh = SubResource("box_6")
 position = Vector3(0, 0.045, -0.44)
 cast_shadow = 0
 mesh = SubResource("box_7")
+
+[node name="LoadingShell" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.045, -0.06)
+cast_shadow = 0
+mesh = SubResource("loading_shell")
 
 [node name="Muzzle" type="Marker3D" parent="."]
 position = Vector3(0, 0.01, -0.62)

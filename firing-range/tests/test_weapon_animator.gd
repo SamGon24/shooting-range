@@ -72,10 +72,16 @@ func _parts_in(profile: HandlingProfile, event: HandlingTrack.Event) -> Array[St
 	return parts
 
 
+## Hidden parts may wait anywhere (a rocket out of sight before it is
+## loaded), so only shown parts must be at rest.
 func _assert_rest(pose: HandlingPose, message: String) -> void:
 	for part: StringName in pose.offsets:
+		if pose.is_hidden(part):
+			continue
 		assert_almost_eq(pose.offset(part).length(), 0.0, REST_TOLERANCE, "%s offset of '%s'" % [message, part])
 	for part: StringName in pose.rotations:
+		if pose.is_hidden(part):
+			continue
 		assert_almost_eq(pose.rotation(part).length(), 0.0, REST_TOLERANCE, "%s rotation of '%s'" % [message, part])
 
 
@@ -138,6 +144,8 @@ func test_every_event_ends_at_rest_and_joins_its_neighbours() -> void:
 		HandlingTimeline.evaluate(profile, {HandlingTrack.Event.RELOAD_EMPTY: 0.0}, true, pose)
 		HandlingTimeline.evaluate(profile, {HandlingTrack.Event.EMPTY_HOLD: 1.0}, true, other)
 		for part: StringName in profile.get_parts():
+			if pose.is_hidden(part) or other.is_hidden(part):
+				continue
 			assert_almost_eq(pose.offset(part).distance_to(other.offset(part)), 0.0, REST_TOLERANCE, "%s %s empty hold -> reload" % [data.display_name, part])
 		HandlingTimeline.evaluate(profile, {HandlingTrack.Event.LOWERED: 0.0}, false, pose)
 		_assert_rest(pose, "%s fully raised" % data.display_name)
@@ -255,3 +263,97 @@ func test_sniper_bolt_cycles_after_each_shot() -> void:
 	await wait_physics_frames(_seconds(sniper.shot_interval() * 0.6))
 	assert_almost_eq(bolt.transform.origin.distance_to(rest.origin), 0.0, 0.0001)
 	assert_almost_eq(bolt.transform.basis.get_euler().length(), 0.0, 0.0001)
+
+
+func _select(choices: Array[WeaponData], weapon_class: WeaponTypes.Class, primary: bool) -> WeaponData:
+	for choice: WeaponData in choices:
+		if choice.weapon_class == weapon_class:
+			if primary:
+				assert_true(_weapons.request_primary(choice))
+			else:
+				assert_true(_weapons.request_secondary(choice))
+			return choice
+	return null
+
+
+func _is_shown(node: Node3D) -> bool:
+	return node.transform.basis.get_scale().x > 0.5
+
+
+func test_shells_load_one_at_a_time_and_firing_cuts_the_insert() -> void:
+	var shotgun: WeaponData = _select(_weapons.get_primary_choices(), WeaponTypes.Class.SHOTGUN, true)
+	await wait_physics_frames(_seconds(1.5))
+	assert_eq(_weapons.get_current_data().definition(), shotgun)
+	var model: Node3D = _view.get_current_model()
+	var shell := model.get_node("LoadingShell") as Node3D
+	var pump := model.get_node("Handguard") as Node3D
+	var pump_rest: Transform3D = _view.get_animator().get_rest(shotgun, &"Handguard")
+	assert_false(_is_shown(shell), "staged shell hidden at rest")
+	var logic: WeaponLogic = _weapons.get_current_logic()
+	logic.ammo = 3
+	await _press(&"reload")
+	await wait_physics_frames(_seconds(shotgun.reload_policy.shell_start_time) + 6)
+	assert_eq(logic.reload_phase, WeaponLogic.ReloadPhase.INSERT)
+	assert_true(_is_shown(shell), "a shell is on its way in")
+	assert_ne(model.transform, Transform3D.IDENTITY, "tilted to the loading port")
+	await _press(&"fire")
+	await wait_physics_frames(1)
+	assert_ne(logic.reload_phase, WeaponLogic.ReloadPhase.INSERT)
+	assert_false(_is_shown(shell), "the unfinished shell vanishes with the insert")
+	assert_eq(logic.ammo, 3, "no partial shell granted")
+	await wait_physics_frames(_seconds(shotgun.reload_policy.shell_end_time) + _seconds(shotgun.shot_interval() * 0.4))
+	assert_eq(logic.ammo, 2, "the queued shot fired")
+	assert_gt(pump.transform.origin.z, pump_rest.origin.z + 0.05, "pumping after the shot")
+	await wait_physics_frames(_seconds(shotgun.shot_interval()))
+	assert_almost_eq(pump.transform.origin.distance_to(pump_rest.origin), 0.0, 0.0001)
+	assert_eq(model.transform, Transform3D.IDENTITY)
+	assert_true(_releases.is_empty(), "shells never drop a magazine")
+
+
+func test_rocket_disappears_when_fired_and_slides_in_on_reload() -> void:
+	var launcher: WeaponData = _select(_weapons.get_secondary_choices(), WeaponTypes.Class.ROCKET, false)
+	await wait_physics_frames(_seconds(1.5))
+	assert_eq(_weapons.get_current_data().definition(), launcher)
+	var rocket := _view.get_current_model().get_node("LoadedRocket") as Node3D
+	var rest: Transform3D = _view.get_animator().get_rest(launcher, &"LoadedRocket")
+	assert_true(_is_shown(rocket))
+	var logic: WeaponLogic = _weapons.get_current_logic()
+	logic.ammo = 0
+	await wait_physics_frames(2)
+	assert_false(_is_shown(rocket), "empty tube")
+	await _press(&"reload")
+	await wait_physics_frames(_seconds(launcher.reload_empty_time * 0.1))
+	assert_false(_is_shown(rocket), "not yet in hand")
+	await wait_physics_frames(_seconds(launcher.reload_empty_time * 0.3))
+	assert_true(_is_shown(rocket))
+	assert_lt(rocket.transform.origin.y, rest.origin.y - 0.05, "still sliding in")
+	await wait_physics_frames(_seconds(launcher.reload_empty_time * 0.6) + 3)
+	assert_eq(logic.ammo, 1)
+	assert_true(_is_shown(rocket))
+	assert_almost_eq(rocket.transform.origin.distance_to(rest.origin), 0.0, 0.0001)
+	assert_true(_releases.is_empty())
+
+
+func test_lmg_belt_empties_and_is_laid_after_a_new_box() -> void:
+	var lmg: WeaponData = _select(_weapons.get_primary_choices(), WeaponTypes.Class.LMG, true)
+	await wait_physics_frames(_seconds(2.0))
+	assert_eq(_weapons.get_current_data().definition(), lmg)
+	var model: Node3D = _view.get_current_model()
+	var belt := model.get_node("Belt") as Node3D
+	var lid := model.get_node("Lid") as Node3D
+	assert_true(_is_shown(belt))
+	var logic: WeaponLogic = _weapons.get_current_logic()
+	logic.ammo = 0
+	await wait_physics_frames(2)
+	assert_false(_is_shown(belt), "no belt in an empty gun")
+	await _press(&"reload")
+	await wait_physics_frames(_seconds(lmg.reload_empty_time * 0.2))
+	assert_gt(absf(lid.rotation.x), deg_to_rad(60.0), "cover open")
+	await wait_physics_frames(_seconds(lmg.reload_empty_time * 0.45))
+	assert_eq(_releases, [model.get_node("Magazine")] as Array[Node3D], "the box drops once")
+	assert_true(_is_shown(belt), "belt laid")
+	await wait_physics_frames(_seconds(lmg.reload_empty_time * 0.4))
+	assert_eq(logic.ammo, lmg.magazine_size)
+	assert_almost_eq(lid.rotation.length(), 0.0, 0.0001)
+	assert_true(_is_shown(belt))
+	assert_eq(_releases.size(), 1)
