@@ -70,7 +70,7 @@ New primaries (Milestone 8):
 - Breakwater P-6 pump shotgun: six shells, 0.8 s pump cycle, eight simulated pellets per shell, with harsh falloff beyond 15 m.
 - Interruptible shell reloads credit each completed insert. Fire closes the loading action before shooting; an empty gun waits for its first complete shell. Switching preserves inserted shells.
 - Shotgun accuracy counts one shot and at most one hit per shell. Pellets striking the same target update one summed damage number, even across physics ticks.
-- F11 exchanges the primary while preserving each gun's ammo and attachments. The player still carries two slots; slot 2 retains the original sniper for range comparison.
+- P exchanges the primary while preserving each gun's ammo and attachments. The player still carries two slots; slot 2 retains the original sniper for range comparison.
 
 Later Phase 2 work is listed under [Roadmap](#roadmap) and [Future phases and known limitations](#future-phases-and-known-limitations).
 
@@ -125,7 +125,7 @@ You can also open `project.godot` in the editor and press F5.
 | Aim down sights | Right mouse button (hold) |
 | Reload | R |
 | Switch weapon | 1 / 2, or mouse wheel |
-| Cycle primary: rifle → SMG → LMG → shotgun | F11 |
+| Cycle primary: rifle → SMG → LMG → shotgun | P |
 | FOV down / up | `[` / `]` |
 | Mouse sensitivity down / up | `-` / `=` |
 | Toggle debug overlay | F3 or `\` |
@@ -141,7 +141,7 @@ You can also open `project.godot` in the editor and press F5.
 
 ## Settings and pause
 
-On Mac keyboards, use **Fn + F5–F11** if macOS consumes the function keys. In the Godot editor, F5 also runs the project: attachment keys act inside the focused game window. Toggle F3 to see the selection list; each attachment cycle includes **None (native)**.
+On Mac keyboards, use **Fn + F5–F10** if macOS consumes the function keys. In the Godot editor, F5 also runs the project: attachment keys act inside the focused game window. Toggle F3 to see the selection list; each attachment cycle includes **None (native)**.
 
 Open the menu with **Esc**. Resume receives focus immediately. Use arrows or Tab to select controls, Left/Right to change a slider, and Enter/Space to activate a control. Controller Start opens the menu, D-pad / left stick navigates and adjusts, A activates and B resumes. Menu navigation needs no mouse. Full controller gameplay is a later phase.
 
@@ -159,7 +159,7 @@ Changes apply live and save when you resume. Previous view settings, including i
 
 ## Weapons and primary selection
 
-Press **F11** to cycle Halberd → Rill → Foundry → Breakwater → Halberd. **1** equips that primary and **2** equips Longwatch; the wheel switches between those two carried slots. Changes use normal lower / raise timing. Ammo and attachment choices stay with each gun for the session; exchanging a primary never refills it. The current and requested primary appear in the F3 selection list. This temporary range selector will be replaced by the Armory.
+Press **P** to cycle Halberd → Rill → Foundry → Breakwater → Halberd. **1** equips that primary and **2** equips Longwatch; the wheel switches between those two carried slots. Changes use normal lower / raise timing. Ammo and attachment choices stay with each gun for the session; exchanging a primary never refills it. The current and requested primary appear in the F3 selection list. This temporary range selector will be replaced by the Armory.
 
 Bare weapon values, before attachments:
 
@@ -244,7 +244,7 @@ For Movie Maker captures, add `--always-on-top`. macOS throttles a Godot window 
 | Weapon stats: sight zero distance and height, fire rate, magazine, reload times, recoil pattern and recovery, spread and bloom, ADS time, FOV and sensitivity, bolt cycle, raise and lower times, viewmodel poses and kick | `weapons/data/halberd_rifle.tres` and `weapons/data/longwatch_sniper.tres` (fields documented in `weapons/weapon_data.gd`) |
 | New primary stats, including sprint-to-fire recovery | `weapons/data/rill_smg.tres`, `foundry_lmg.tres`, `breakwater_shotgun.tres`; complete new tuning table in DECISIONS |
 | Pellet count / intrinsic cone; shell opening / closing times; pump policy | `weapons/framework/pellet.tres`, `shell.tres`, `pump.tres` |
-| Primary offerings / order | `weapons/data/primary_catalog.tres`; F11 action in `project.godot` |
+| Primary offerings / order | `weapons/data/primary_catalog.tres`; `primary_next` (P) in `project.godot` |
 | Bullet stats: muzzle velocity, damage and falloff, mass, diameter, drag coefficient | The `projectile` sub-resource inside each weapon `.tres` (fields documented in `ballistics/projectile_spec.gd`) |
 | Attachment modifiers, compatible classes, optic FOV and sight height | `weapons/attachments/data/*.tres`; catalog and exact values below |
 | Modifier limits | `weapons/attachments/data/stat_limits.tres`; complete bounds in `docs/DECISIONS.md` |
@@ -372,7 +372,7 @@ Time to kill is measured in physics time from the first damaging hit on each dum
 
 ## New primaries play-test
 
-1. Run the game and press F3. Press F11 to select Rill, Foundry and Breakwater in order, then return to Halberd. Check names, models and ammo; 1/2 and the wheel should still switch the two carried slots.
+1. Run the game and press F3. Press P to select Rill, Foundry and Breakwater in order, then return to Halberd. Check names, models and ammo; 1/2 and the wheel should still switch the two carried slots.
 2. Hold Rill fire, then compare aimed / hip bursts at 25 and 100 m. Check fast ADS, 32-round capacity and the pronounced distant damage falloff.
 3. Hold Foundry fire through its 100-round capacity. Check slow ADS and reload, stronger hip recoil than aimed recoil, and a short recovery delay after sprinting.
 4. With Breakwater, click once near a dummy. Check eight paths with F4, one shell consumed, one shot/hit in stats and one accumulating damage number per target. A held trigger must not repeatedly fire; repeated clicks must respect the 0.8 s pump cycle.

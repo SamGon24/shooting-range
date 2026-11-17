@@ -32,11 +32,16 @@ func _select(data: WeaponData) -> void:
 	assert_eq(_weapons.get_current_logic().state, WeaponLogic.State.READY)
 
 
-func test_f11_cycles_new_primaries_in_stable_order_with_only_two_carried_slots() -> void:
+func test_primary_cycle_key_selects_new_primaries_with_only_two_carried_slots() -> void:
 	for expected: WeaponData in [SMG, LMG, SHOTGUN, RIFLE]:
-		Input.action_press("primary_next")
+		var press := InputEventKey.new()
+		press.physical_keycode = KEY_P
+		press.pressed = true
+		Input.parse_input_event(press)
 		await wait_physics_frames(1)
-		Input.action_release("primary_next")
+		var release := InputEventKey.new()
+		release.physical_keycode = KEY_P
+		Input.parse_input_event(release)
 		await wait_physics_frames(90)
 		assert_eq(_weapons.get_current_data().definition(), expected)
 		assert_eq(_weapons.loadout.size(), 2)

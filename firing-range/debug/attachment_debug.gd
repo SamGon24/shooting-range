@@ -90,7 +90,7 @@ func _on_weapon_changed(_data: WeaponData) -> void:
 func _refresh() -> void:
 	var lines := PackedStringArray()
 	var primary: WeaponData = _controller.get_primary_selection()
-	lines.append("F11 Primary: " + primary.display_name if primary != null else "")
+	lines.append("P Primary: " + primary.display_name if primary != null else "")
 	for slot: int in ACTIONS.size():
 		var attachment: AttachmentData = _controller.get_requested_attachment(slot as WeaponTypes.Slot)
 		lines.append("F%d %s: %s" % [5 + slot, WeaponTypes.SLOT_NAMES[slot], attachment.display_name if attachment != null else "None (native)"])
