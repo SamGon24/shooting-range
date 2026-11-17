@@ -42,6 +42,7 @@ func _ready() -> void:
 	controller.dry_fired.connect(_play_handling.bind(_click_high))
 	controller.reload_started.connect(_on_reload_started)
 	controller.reload_finished.connect(_play_handling.bind(_click_mid))
+	controller.shell_inserted.connect(_on_shell_inserted)
 	controller.weapon_changed.connect(_on_weapon_changed)
 
 
@@ -57,6 +58,10 @@ func _on_reload_started(_is_empty: bool, _duration: float) -> void:
 
 func _on_weapon_changed(_data: WeaponData) -> void:
 	_play_handling(_click_low)
+
+
+func _on_shell_inserted(_ammo: int) -> void:
+	_play_handling(_click_mid)
 
 
 func _play_handling(stream: AudioStreamWAV) -> void:

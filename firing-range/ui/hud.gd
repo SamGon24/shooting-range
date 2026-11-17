@@ -77,7 +77,10 @@ func _process(delta: float) -> void:
 	var recoil: RecoilLogic = _controller.get_current_recoil()
 	var logic: WeaponLogic = _controller.get_current_logic()
 	if camera != null and recoil != null and logic != null:
-		_crosshair.set_spread(recoil.spread_degrees(logic.aim_progress), camera.fov, get_viewport().get_visible_rect().size.y)
+		var spread: float = recoil.spread_degrees(logic.aim_progress)
+		if data.delivery != null and data.delivery.kind == DeliveryData.Kind.PELLET:
+			spread += data.delivery.pellet_spread_degrees
+		_crosshair.set_spread(spread, camera.fov, get_viewport().get_visible_rect().size.y)
 
 
 ## Connects the HUD to a weapon controller and view. Called automatically
@@ -126,10 +129,15 @@ func _on_weapon_changed(data: WeaponData) -> void:
 
 
 func _on_ammo_changed(ammo: int, magazine_size: int) -> void:
-	_ammo.text = "%d / %d" % [ammo, magazine_size]
+	var logic: WeaponLogic = _controller.get_current_logic()
+	var shell_loading: bool = logic.is_reloading() and logic.data.reload_policy != null and logic.data.reload_policy.kind == ReloadData.Kind.SHELL
+	_ammo.text = ("LOADING " if shell_loading else "") + "%d / %d" % [ammo, magazine_size]
 
 
 func _on_reload_started(_is_empty: bool, _duration: float) -> void:
+	if _controller.get_current_data().reload_policy != null and _controller.get_current_data().reload_policy.kind == ReloadData.Kind.SHELL:
+		_refresh_ammo()
+		return
 	_ammo.text = "RELOADING"
 
 

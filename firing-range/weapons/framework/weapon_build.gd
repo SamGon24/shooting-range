@@ -61,6 +61,8 @@ func get_stats() -> WeaponData:
 	_computed = base.duplicate() as WeaponData
 	_computed.base_definition = base
 	_computed.projectile = base.projectile.duplicate() as ProjectileSpec
+	if base.delivery != null and base.delivery.kind == DeliveryData.Kind.PELLET:
+		_computed.projectile.source = DamageSource.Kind.PELLET
 	var optic: AttachmentData = get_attachment(WeaponTypes.Slot.OPTIC)
 	if optic != null and optic.optic_kind >= 0:
 		_computed.optic_kind = optic.optic_kind

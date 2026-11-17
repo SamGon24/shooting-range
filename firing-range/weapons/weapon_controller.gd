@@ -15,6 +15,7 @@ signal dry_fired
 signal reload_started(is_empty: bool, duration: float)
 signal reload_finished
 signal reload_cancelled
+signal shell_inserted(ammo: int)
 
 const GROUP: StringName = &"weapon_controller"
 
@@ -71,6 +72,7 @@ func _ready() -> void:
 		logic.reload_started.connect(_on_logic_reload_started.bind(logic))
 		logic.reload_finished.connect(_on_logic_reload_finished.bind(logic))
 		logic.reload_cancelled.connect(_on_logic_reload_cancelled.bind(logic))
+		logic.shell_inserted.connect(_on_logic_shell_inserted)
 		_logics.append(logic)
 	if not _logics.is_empty():
 		_current = 0
@@ -264,7 +266,7 @@ func _launch_projectile(data: WeaponData, direction: Vector3) -> void:
 			push_warning("WeaponController: no ProjectileSystem in the scene; shots go nowhere.")
 		return
 	var origin: Vector3 = player.get_eye_position() - player.get_aim_basis().y * data.sight_height_m
-	data.delivery.launch(projectile_system, origin, direction, data.projectile) if data.delivery != null else projectile_system.fire(origin, direction, data.projectile)
+	data.delivery.launch(projectile_system, origin, direction, data.projectile, _rng) if data.delivery != null else projectile_system.fire(origin, direction, data.projectile)
 
 
 func _on_logic_fired(logic: WeaponLogic) -> void:
@@ -285,6 +287,10 @@ func _on_logic_reload_finished(_logic: WeaponLogic) -> void:
 
 func _on_logic_reload_cancelled(_logic: WeaponLogic) -> void:
 	reload_cancelled.emit()
+
+
+func _on_logic_shell_inserted(ammo: int) -> void:
+	shell_inserted.emit(ammo)
 
 
 ## Menu activation must not carry a buffered click into resumed gameplay.

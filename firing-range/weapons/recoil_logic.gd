@@ -59,17 +59,7 @@ func spread_degrees(aim_progress: float) -> float:
 ## spread evenly over the cone's cross-section. Returns `direction`
 ## unchanged (normalised) when the cone is 0.
 func deviate(direction: Vector3, spread: float) -> Vector3:
-	var forward: Vector3 = direction.normalized()
-	if spread <= 0.0:
-		return forward
-	var angle: float = deg_to_rad(spread) * sqrt(_rng.randf())
-	var around: float = _rng.randf() * TAU
-	var side: Vector3 = forward.cross(Vector3.UP)
-	if side.length_squared() < 0.000001:
-		side = forward.cross(Vector3.RIGHT)
-	side = side.normalized()
-	var tilt_axis: Vector3 = side.rotated(forward, around)
-	return forward.rotated(tilt_axis, angle)
+	return ConeSpread.sample(direction, spread, _rng)
 
 
 ## The pattern's kick for shot `index` (0-based), without the random part.

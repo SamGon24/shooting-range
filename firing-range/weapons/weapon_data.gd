@@ -32,6 +32,8 @@ var _legacy_automatic: bool = true
 ## Time to work the bolt after a shot. 0 for weapons without one. The next
 ## shot waits for whichever is longer: this or the cyclic rate.
 @export_range(0.0, 3.0, 0.01, "suffix:s") var bolt_cycle_time: float = 0.0
+## Recovery after sprint ends; zero preserves the original MVP handling.
+@export_range(0.0, 2.0, 0.01, "suffix:s") var sprint_to_fire_time: float = 0.0
 ## What the weapon fires (muzzle velocity and, later, drag and damage).
 @export var projectile: ProjectileSpec
 

@@ -7,21 +7,22 @@ extends RefCounted
 ## LOWERING back to HOLSTERED. Aiming is tracked separately as a 0..1
 ## progress, because it overlaps READY and FIRING.
 ##
-## Ammo only changes in two places: a shot removes one round, and a reload
-## that runs to completion fills the magazine. A reload interrupted by
-## lowering the weapon therefore leaves the count exactly as it was.
+## Shots remove one round; magazine completion fills the gun, while shell
+## reloads credit each completed insert. Cancellation never grants a round.
 
 signal fired
 signal dry_fired
 signal reload_started(is_empty: bool, duration: float)
 signal reload_finished
 signal reload_cancelled
+signal shell_inserted(ammo: int)
 signal state_changed(new_state: State)
 signal raised
 signal lowered
 
 enum State { HOLSTERED, RAISING, READY, FIRING, RELOADING, LOWERING }
 enum AimState { HIP, AIMING_IN, AIMED, AIMING_OUT }
+enum ReloadPhase { NONE, START, INSERT, FINISH }
 
 ## Slack for comparing accumulated tick times against zero.
 const TIME_EPSILON: float = 0.00001
@@ -44,6 +45,9 @@ var _reload_duration: float = 0.0
 var _reload_is_empty: bool = false
 var _reload_queued: bool = false
 var _carry_remainder: bool = false
+var reload_phase: ReloadPhase = ReloadPhase.NONE
+var _shell_fire_requested: bool = false
+var _sprint_recovery_left: float = 0.0
 
 
 func _init(weapon_data: WeaponData) -> void:
@@ -55,6 +59,7 @@ func _init(weapon_data: WeaponData) -> void:
 func tick(delta: float, input: WeaponInput) -> int:
 	previous_aim_progress = aim_progress
 	previous_raise_progress = raise_progress
+	_sprint_recovery_left = data.sprint_to_fire_time if input.sprinting else maxf(_sprint_recovery_left - delta, 0.0)
 
 	var shots: int = 0
 	_carry_remainder = false
@@ -71,11 +76,14 @@ func tick(delta: float, input: WeaponInput) -> int:
 				_holster()
 				lowered.emit()
 		State.RELOADING:
-			_reload_time_left -= delta
-			if _reload_time_left <= TIME_EPSILON:
-				ammo = data.reload_policy.refill(ammo, data.magazine_size) if data.reload_policy != null else data.magazine_size
-				_set_state(State.READY)
-				reload_finished.emit()
+			if _uses_shells():
+				shots = _tick_shell_reload(delta, input)
+			else:
+				_reload_time_left -= delta
+				if _reload_time_left <= TIME_EPSILON:
+					ammo = data.reload_policy.refill(ammo, data.magazine_size) if data.reload_policy != null else data.magazine_size
+					_set_state(State.READY)
+					reload_finished.emit()
 		State.READY, State.FIRING:
 			shots = _tick_ready(input)
 
@@ -104,6 +112,8 @@ func start_lower() -> void:
 		return
 	if state == State.RELOADING:
 		_reload_time_left = 0.0
+		reload_phase = ReloadPhase.NONE
+		_shell_fire_requested = false
 		reload_cancelled.emit()
 	_reload_queued = false
 	_set_state(State.LOWERING)
@@ -171,7 +181,7 @@ func _tick_ready(input: WeaponInput) -> int:
 			_start_reload()
 		return 0
 
-	if not wants_shot or input.sprinting:
+	if not wants_shot or input.sprinting or _sprint_recovery_left > TIME_EPSILON:
 		return 0
 	_carry_remainder = true
 
@@ -205,6 +215,9 @@ func _start_reload() -> void:
 	_reload_is_empty = ammo <= 0
 	_reload_duration = data.reload_time(ammo)
 	_reload_time_left = _reload_duration
+	_shell_fire_requested = false
+	if _uses_shells():
+		_start_shell_phase(ReloadPhase.START)
 	_set_state(State.RELOADING)
 	reload_started.emit(_reload_is_empty, _reload_duration)
 
@@ -222,3 +235,52 @@ func _set_state(new_state: State) -> void:
 		return
 	state = new_state
 	state_changed.emit(state)
+
+
+func _uses_shells() -> bool:
+	return data.reload_policy != null and data.reload_policy.kind == ReloadData.Kind.SHELL
+
+
+func _start_shell_phase(phase: ReloadPhase) -> void:
+	reload_phase = phase
+	match phase:
+		ReloadPhase.START:
+			_reload_duration = data.reload_policy.shell_start_time
+		ReloadPhase.INSERT:
+			_reload_duration = data.reload_time(ammo)
+		ReloadPhase.FINISH:
+			_reload_duration = data.reload_policy.shell_end_time
+	_reload_time_left = _reload_duration
+
+
+func _tick_shell_reload(delta: float, input: WeaponInput) -> int:
+	if data.wants_shot(input.trigger_held, input.trigger_pressed) and not input.sprinting:
+		_shell_fire_requested = true
+	if _shell_fire_requested and ammo > 0 and reload_phase != ReloadPhase.FINISH:
+		# Discard an unfinished insert; completed rounds remain loaded.
+		_start_shell_phase(ReloadPhase.FINISH)
+	_reload_time_left -= delta
+	while _reload_time_left <= TIME_EPSILON:
+		var remainder: float = maxf(-_reload_time_left, 0.0)
+		match reload_phase:
+			ReloadPhase.START:
+				_start_shell_phase(ReloadPhase.INSERT)
+			ReloadPhase.INSERT:
+				ammo = data.reload_policy.refill(ammo, data.magazine_size)
+				shell_inserted.emit(ammo)
+				_start_shell_phase(ReloadPhase.FINISH if ammo >= data.magazine_size or _shell_fire_requested else ReloadPhase.INSERT)
+			ReloadPhase.FINISH:
+				reload_phase = ReloadPhase.NONE
+				_set_state(State.READY)
+				reload_finished.emit()
+				if not _shell_fire_requested:
+					return 0
+				_shell_fire_requested = false
+				var resumed := WeaponInput.new()
+				resumed.trigger_pressed = true
+				resumed.trigger_held = true
+				resumed.aim_held = input.aim_held
+				resumed.sprinting = input.sprinting
+				return _tick_ready(resumed)
+		_reload_time_left -= remainder
+	return 0

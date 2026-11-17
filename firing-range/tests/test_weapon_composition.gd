@@ -15,9 +15,12 @@ func test_trigger_policy_is_independent_of_delivery_and_reload() -> void:
 	reload.kind = ReloadData.Kind.NONE
 	assert_false(reload.can_reload(0, 5))
 	reload.kind = ReloadData.Kind.SHELL
-	assert_false(reload.is_supported())
+	assert_true(reload.is_supported())
+	assert_eq(reload.refill(2, 5), 3)
 	var delivery := DeliveryData.new()
 	delivery.kind = DeliveryData.Kind.PELLET
+	assert_true(delivery.is_supported())
+	delivery.kind = DeliveryData.Kind.EXPLOSIVE
 	assert_false(delivery.is_supported(), "reserved delivery is explicit, not silently ballistic")
 
 

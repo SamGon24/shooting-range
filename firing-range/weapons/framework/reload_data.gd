@@ -3,10 +3,12 @@ extends Resource
 
 enum Kind { MAGAZINE, SHELL, SINGLE_ROUND, NONE }
 @export var kind: Kind = Kind.MAGAZINE
+@export_range(0.0, 2.0, 0.01, "suffix:s") var shell_start_time: float = 0.2
+@export_range(0.0, 2.0, 0.01, "suffix:s") var shell_end_time: float = 0.2
 
 
 func is_supported() -> bool:
-	return kind != Kind.SHELL
+	return true
 
 
 func can_reload(ammo: int, capacity: int) -> bool:
@@ -14,5 +16,4 @@ func can_reload(ammo: int, capacity: int) -> bool:
 
 
 func refill(ammo: int, capacity: int) -> int:
-	assert(is_supported(), "Interruptible shell reload arrives in Milestone 8")
-	return mini(ammo + 1, capacity) if kind == Kind.SINGLE_ROUND else capacity
+	return mini(ammo + 1, capacity) if kind in [Kind.SINGLE_ROUND, Kind.SHELL] else capacity
