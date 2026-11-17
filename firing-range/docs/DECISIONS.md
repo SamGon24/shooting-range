@@ -717,3 +717,172 @@ Manual judgment of recoil, sound balance, pellet-cone feel and handling remains 
 ## Primary cycling key after Milestone 8
 
 Move `primary_next` from F11 to **P** (physical keycode 80) because macOS intercepts F11 for desktop controls. P is otherwise unused. The InputMap action, two-slot behavior and per-gun session state remain the same. The F3 hint and README controls now show P. Primary-selection integration tests pass 6/6, including cycling with physical P events; headless startup is clean.
+
+## Milestone 9: secondaries and strict loadouts
+
+### Composition and shared damage reporting
+
+The four secondary definitions compose the existing policies: Wayline is semi / ballistic / magazine; Cairn is semi / explosive / single-round; Latch and Palisade are semi / melee / none. `WeaponData` adds `uses_ammo=true`, `can_aim=true` and `movement_speed_scale=1` defaults, plus an optional `GuardData`. Knife / shield override ammo and ADS off. Their unused carrier projectile fields never create a simulated bullet. Every original rifle / sniper stat remains unchanged; regression scenes explicitly request `tests/fixtures/mvp_loadout.tres` rather than depending on the range's new production loadout.
+
+`weapons/data/range_loadout.tres` now disables comparison mode and carries Halberd / Wayline. Primary catalog order remains Halberd, Rill, Foundry, Breakwater, Longwatch; P now reaches all five because Longwatch is no longer carried as a secondary. `weapons/data/secondary_catalog.tres` offers Wayline, Cairn, Latch, Palisade. O exchanges slot 2 using the same lower / raise pipeline as P. Exactly two slots remain carried, with one runtime cache per offered definition. Ammo, recoil, built stats and attachments survive exchanges. The last requested replacement wins, including cancellation and cross-slot requests; role checks reject putting a secondary in the primary slot or vice versa. No Armory or loadout persistence is introduced early.
+
+Rockets use the original pooled RK4 integrator, drag and swept ray. `TargetHits` routes an explosive contact to `ExplosionSystem` rather than adding direct contact damage. A rocket arms at **travelled path length ≥10 m**; earlier contacts are duds. Expiry is not an airburst. Armed contact queries a sphere, deduplicates each dummy and applies damage to its torso through the original target interface. Armor order, exact plate breaks, health overflow, death, feedback, timers and reset remain target responsibilities. One rocket can damage several dummies but scores one hit; splash cannot score a headshot.
+
+`ExplosionData` sets full damage / impulse through 1 m and linear falloff to zero at 6 m: `f = clamp((6-distance)/5,0,1)`, capped at 1 inside the inner radius. Damage is **180 × f** and impulse **45 N·s × f**, using torso centre / rigid-body origin distance respectively. A reused visibility ray starts 0.02 m off the struck surface; world geometry and shields can occlude damage / impulse. Newly killed ragdoll parts join the same deduplicated impulse pass, so they receive radial force once, without duplicate contact momentum. Already active ragdolls, props and steel receive outward impulse; frozen bodies are skipped. Coincident body origins use upward impulse. Indirect steel impulses do not fabricate a direct ring or scoring target hit.
+
+`MeleeSystem` owns one reused camera `ShapeCast3D`. A swept sphere selects the nearest contact; its radius is included in the authored reach. Walls and shields block contact, and the player's own shield RID is excluded only for that strike. A swing or whiff opens and closes the existing logical-shot lifecycle without occupying a projectile slot. Contact emits the same `projectile_hit` signal with source `MELEE`, slot -1 and an explicit momentum override. Target zones, props, steel and ragdolls use the existing handlers; `ProjectileHit.momentum()` otherwise retains bullet mass × velocity exactly. A fresh press is required after the 0.5 / 0.9 s cooldown. No ammo, reload, ADS or muzzle flash is produced for melee.
+
+The shield's reusable `WeaponGuard` is an `AnimatableBody3D` on layer 8, following fixed-tick gameplay eye / aim independently of cosmetic bob or kick. It blocks direct frontal projectiles while ready or bashing; it is inactive during raising, lowering or holstering. Its finite box leaves the sides exposed. The default projectile collision mask becomes `1|8`; existing world / zone collisions remain on layer 1. The contact cast also uses `1|8`, margin 0. The blast query uses `1|4|8` (live zones / world, ragdolls, shield), while its visibility ray uses `1|8`, so corpses do not block splash. The blast candidate cap is **128** (authoring range 16–256), above the range's bounded actor count even with all 54 parts active. Contact result cap is 8 (range 1–32).
+
+Movement scales walk, crouch, sprint, slide thresholds / boost / maximum / decay and air target speed by the held weapon's multiplier. Equipping the shield immediately reduces existing horizontal momentum by 0.8; switching away restores normal speed targets without granting a velocity boost. Vertical motion is unchanged. At steady state its walk / crouch / sprint speeds are **3.60 / 1.76 / 5.60 m/s**. The `movement_speed_scale` authoring range is 0.1–1; other guns remain at 1.
+
+### Complete secondary tuning reference
+
+Columns correspond to `weapons/data/wayline_pistol.tres`, `cairn_launcher.tres`, `latch_knife.tres`, `palisade_shield.tres`. All are secondary-role, semi-auto press gated, native irons / unscoped, recoil scale 1. Target multipliers remain head 1.5, torso 1, limbs 0.8; only Longwatch retains the sniper head multiplier 2. All physical units are SI except the explicitly labelled grams / millimetres.
+
+| Field / units | Wayline P-15 | Cairn R-1 | Latch K-1 | Palisade S-1 |
+|---|---|---|---|---|
+| Class / delivery / reload | pistol / ballistic / magazine | rocket / explosive / single-round | knife / melee / none | shield / melee / none |
+| Uses ammo / can aim / movement scale | true / true / 1 | true / true / 1 | false / false / 1 | false / false / 0.8 |
+| Velocity, m/s | 360 | 120 | 50 unused | 50 unused |
+| Gravity scale / lifetime, s | 1 / 3 | 0.15 / 6 | 0 / 0.1 unused | 0 / 0.1 unused |
+| Projectile / contact damage | 28 | 0 (180 radial blast only) | 75 | 40 |
+| Distance falloff start / end, m / minimum | 20 / 75 / 0.4 | 0 / 0 / 1 unused | 0 / 0 / 1 | 0 / 0 / 1 |
+| Mass, g / diameter, mm / Cd | 8 / 9 / 0.3 | 1500 / 80 / 0.06 | 4 / 5.7 / 0 unused | 4 / 5.7 / 0 unused |
+| Source | ballistic | ballistic impact → splash damage | melee | melee |
+| Rate, rpm / cycle, s | 400 / 0 | 60 / 0 | 120 / 0.5 | 66.666666667 / 0.9 |
+| Zero, m / sight height, m / local bore Y, m | 50 / 0.035 / 0.008 | 50 / 0.100 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
+| Capacity | 15 | 1 | 1 unused; HUD MELEE | 1 unused; HUD MELEE |
+| Tactical / empty reload, s | 1.25 / 1.65 | 2.4 / 2.8 | 0.1 / 0.1 unused | 0.1 / 0.1 unused |
+| Raise / lower / sprint recovery, s | 0.18 / 0.16 / 0.08 | 0.65 / 0.45 / 0.30 | 0.22 / 0.18 / 0.10 | 0.45 / 0.35 / 0.20 |
+| ADS time, s / FOV, degrees / sensitivity | 0.16 / 55 / 0.8 | 0.42 / 45 / 0.55 | 0.2 / 65 / 1 unused | 0.2 / 65 / 1 unused |
+| Pattern (yaw,pitch), degrees | (0,0.7), (0.12,0.8), (-0.08,0.75) | (0,2.5) | (0,0) | (0,0) |
+| Random recoil ±(yaw,pitch), degrees | (0.15,0.12) | (0.15,0.20) | (0,0) | (0,0) |
+| Pattern loop / aimed recoil scale | 3 / 0.85 | 1 / 1 | 1 / 1 | 1 / 1 |
+| Recovery delay, s / rate, degrees/s / reset, s | 0.12 / 14 / 0.25 | 0.20 / 10 / 1 | 0.10 / 10 / 0.5 | 0.10 / 10 / 0.5 |
+| Hip / aimed spread half-angle, degrees | 2.8 / 0.1 | 1.5 / 0 | 0 / 0 | 0 / 0 |
+| Bloom per shot / max, degrees / recovery, degrees/s | 0.2 / 1.5 / 6 | 0 / 0 / 4 | 0 / 0 / 4 | 0 / 0 / 4 |
+| Hip pose, m | (0.17,-0.17,-0.35) | (0.23,-0.20,-0.50) | (0.18,-0.22,-0.42) | (0,-0.25,-0.60) |
+| ADS pose, m | (0,-0.043,-0.26) | (0,-0.10,-0.45) | same as hip, unused | same as hip, unused |
+| Cosmetic kick back, m / pitch, degrees | 0.035 / 2 | 0.12 / 4 | 0.02 / 1 | 0.025 / 0.8 |
+| Shot / swish pitch, Hz / duration, s | 170 / 0.18 | 65 / 0.35 | 240 / 0.20 | 120 / 0.25 |
+
+Pistol raise and lower are individually faster than every other weapon. Rocket reload has no staged animation yet; empty single-round refill follows the authored 2.8 s time. `ProjectileSpec` inspector mass / diameter maxima expand from 100 g / 20 mm to **5000 g / 200 mm** to allow the rocket, without changing any existing projectile values or attachment clamps. `stats_eligible=true` is the projectile default; only training rounds override it. Ballistic fields marked unused above are inert carrier metadata, retained to keep one shared damage event type.
+
+The rocket's `blast` sub-resource explicitly sets arming 10 m (range 0–100), radius 6 m (0.1–20), inner radius 1 m (0–20), damage 180 (0–500), impulse 45 N·s (0–200), occlusion true and surface offset 0.02 m (0.001–0.1). These are also `ExplosionData` authoring defaults. `knife_contact.tres` / `bash.tres` set reaches **1.8 / 1.5 m**, cast radii **0.12 / 0.18 m**, impulses **6 / 12 N·s**, results **8 / 8**. Contact authoring defaults are the knife's values; reach range 0.1–3 m, radius 0.01–0.5 m, impulse 0–50 N·s. Actual radius is capped at half the reach, preserving the total reach even for a very short authored strike.
+
+`weapons/data/palisade_guard.tres` matches `GuardData` defaults: **size (0.65,1.25,0.08) m**, eye offset **(0,-0.25,-0.60) m**, collision layer **8**; collision mask 0, no player pushing body. Pistol compatibility is limited to muzzle / optic / magazine; all seventeen existing attachment trade-offs stay unchanged. Rocket / knife / shield reject all attachments. Fitted pistol optics use the existing geometry-based ADS height and numerical zero recalibration. Melee zero distance 0 explicitly skips calibration.
+
+### Feedback, controls and bounded effects
+
+`weapons/effects/explosion_effects.gd` reads projectile slots without any physics query. It draws rockets in one shadowless BoxMesh MultiMesh sized to the existing 128-projectile pool. Blast flashes use one further MultiMesh and an eight-slot ring pool, overwriting the oldest on overflow. Four spatial boom voices are created once. Processing sleeps when no rocket / flash is active; ordinary bullets do not wake it. Pause inherits the range's pausable process mode. Hit / armor / kill chirps, damage numbers and logical-shot stats still come only from actual target damage.
+
+| Cosmetic tuning in `explosion_effects.gd` | Value |
+|---|---|
+| Rocket size, m / RGB | (0.06,0.06,0.30) / (0.85,0.55,0.15) |
+| Flash capacity / lifetime | 8 / 0.30 s |
+| Flash radius fraction of gameplay radius / initial radius | 0.35 / 0.15 m |
+| Flash RGBA | (1,0.4,0.08,0.45), alpha decreases linearly to zero |
+| Flash geometry | unit sphere, radius 1 / height 2 m, 8 radial segments / 4 rings; double-sided, unshaded, no shadows |
+| Boom voices / volume / pitch / duration | 4 / -10 dB / 40 Hz / 0.6 s |
+| Spatial boom unit size / maximum distance | 30 / 450 m |
+| MultiMesh bounds | (-1000,-100,-1000) origin, (2000,200,2000) size, m |
+
+Flash radius grows linearly to `blast.radius_m × 0.35`; it does not imply a gameplay radius change. Visual exports allow capacities 1–32 flashes / 1–16 voices, lifetime 0.05–1 s, fraction 0.01–1, starting radius 0.01–1 m, volume -40–6 dB, pitch 10–200 Hz, duration 0.1–2 s, attenuation unit size 1–100 m and max distance 10–1000 m. Rocket bodies face their simulated velocity; effects interpolation is off. Existing impact effects skip persistent marks on `AnimatableBody3D`, including the shield, because those bodies move; sparks / sound remain.
+
+`SfxFactory.swish` caches deterministic 22050 Hz / 16-bit mono filtered noise plus a sine tone. Its smoothing coefficient is 0.1, noise gain 0.7, tone gain 0.1, envelope `sin(PI*t/duration)^2`; pitch and duration come from the melee Resources. Boom uses the existing falling-thump / noise gunshot synthesis. All are original project sounds credited in CREDITS; no binary samples or models were added.
+
+InputMap adds `secondary_next` = **O**, physical keycode **79**, and `shield_test_fire` = **B**, code **66**, both dead zone **0.2**. P remains physical 80; no F11 binding is restored. The F3 list adds secondary selection, shows unavailable attachment slots and a shield B hint, and moves its top offset to **-210 px**. The guard probe sends one round from **15 m** ahead of the gameplay eye towards it, only while a shield is ready / firing. Exported distance range is 1–50 m. `debug/data/guard_probe_round.tres` sets **120 m/s**, gravity **0**, lifetime **0.5 s**, damage **0**, `stats_eligible=false`; remaining carrier defaults are unchanged. This uses the same projectile sweep and blocks on intervening scenery. It never increases player shots or hits. The range has no enemy attacks / player health system; B makes protection observable without introducing either.
+
+### Secondary greybox geometry
+
+All dimensions and positions below are metres, with identity part rotations and X 0 unless listed. Four text scenes live in `weapons/viewmodels/*_viewmodel.tscn`. Metal uses RGB (0.16,0.17,0.19), roughness 0.8; polymer (0.30,0.31,0.27), roughness 0.9, alpha 1. Shield visor uses RGBA (0.36,0.53,0.56,0.25), roughness 0.2 and alpha transparency. Parts cast no shadows. Native pistol / rocket sight post tips are respectively 0.043 / 0.100 m above model origin, yielding authored sight heights after subtracting their bore Y.
+
+`wayline_pistol_viewmodel.tscn`:
+
+| Part | Size | Position | Material |
+|---|---|---|---|
+| Receiver | (0.04, 0.045, 0.15) | (0, 0, 0) | metal |
+| Slide | (0.035, 0.035, 0.13) | (0, 0.015, -0.02) | metal |
+| Barrel | (0.016, 0.016, 0.1) | (0, 0.008, -0.165) | metal |
+| Grip | (0.03, 0.085, 0.05) | (0, -0.055, 0.035) | polymer |
+| Magazine | (0.022, 0.07, 0.03) | (0, -0.08, 0.035) | metal |
+| RearSight | (0.025, 0.012, 0.012) | (0, 0.034, 0.04) | metal |
+| FrontSightPost | (0.006, 0.013, 0.006) | (0, 0.0365, -0.12) | metal |
+
+Markers: Muzzle = Vector3(0, 0.008, -0.22); Mounts/Muzzle = Vector3(0, 0.008, -0.22); Mounts/Optic = Vector3(0, 0.008, -0.02); Mounts/Magazine = Vector3(0, -0.04, 0.035).
+
+`cairn_launcher_viewmodel.tscn`:
+
+| Part | Size | Position | Material |
+|---|---|---|---|
+| Tube | (0.14, 0.14, 0.75) | (0, 0, -0.25) | polymer |
+| FrontRim | (0.17, 0.17, 0.06) | (0, 0, -0.65) | metal |
+| RearRim | (0.17, 0.17, 0.06) | (0, 0, 0.15) | metal |
+| Grip | (0.045, 0.12, 0.06) | (0, -0.11, 0.05) | polymer |
+| Rest | (0.1, 0.04, 0.18) | (0, -0.09, 0.02) | metal |
+| RearSight | (0.035, 0.025, 0.02) | (0, 0.0825, 0.05) | metal |
+| FrontSightPost | (0.008, 0.02, 0.008) | (0, 0.09, -0.45) | metal |
+
+Markers: Muzzle = Vector3(0, 0, -0.75).
+
+`latch_knife_viewmodel.tscn`:
+
+| Part | Size | Position | Material |
+|---|---|---|---|
+| Grip | (0.03, 0.03, 0.12) | (0, 0, 0.04) | polymer |
+| Guard | (0.07, 0.015, 0.012) | (0, 0, -0.025) | metal |
+| Blade | (0.025, 0.008, 0.27) | (0, 0, -0.17) | metal |
+| Tip | (0.012, 0.008, 0.04) | (0, 0, -0.325) | metal |
+
+Markers: Muzzle = Vector3(0, 0, -0.345).
+
+`palisade_shield_viewmodel.tscn`:
+
+| Part | Size | Position | Material |
+|---|---|---|---|
+| LowerPanel | (0.65, 0.6, 0.05) | (0, -0.32, 0) | polymer |
+| LeftFrame | (0.09, 0.6, 0.05) | (-0.28, 0.3, 0) | metal |
+| RightFrame | (0.09, 0.6, 0.05) | (0.28, 0.3, 0) | metal |
+| TopFrame | (0.65, 0.1, 0.05) | (0, 0.575, 0) | metal |
+| VisorBottom | (0.47, 0.2, 0.05) | (0, 0.1, 0) | polymer |
+| VisorTop | (0.47, 0.125, 0.05) | (0, 0.4625, 0) | polymer |
+| Visor | (0.47, 0.2, 0.012) | (0, 0.3, -0.028) | visor |
+| Grip | (0.12, 0.035, 0.1) | (0, 0, 0.07) | metal |
+
+Markers: Muzzle = Vector3(0, 0, -0.05).
+
+### Milestone 9 performance and validation
+
+The probe now accepts all nine names: `--perf-weapon=rifle|smg|lmg|shotgun|sniper|pistol|rocket|knife|shield`. Primaries and secondaries select through their normal role-aware exchange APIs. Non-auto weapons receive press / release edges; empty guns reload normally, shell reload interruption remains unchanged, and ammo-free melee repeatedly swings through its real cooldown. Reports add armed blast and shield-block counts alongside existing shots, physical collisions, dropped projectiles and awake actors.
+
+Shield stress sends the non-scoring training Resource through the original projectile system every **15 physics ticks (0.25 s)** from **2 m** ahead. This is a probe-only fixture, separate from B's normal 15 m test. An initial 15 m moving stress attempt recorded zero blocks: during the 0.125 s flight the walking player could move outside the finite shield. It was excluded as a blocking benchmark. The shorter flight gives real blocks while retaining walking, view sweep, all actors and the regular projectile / impact effects path. The corrected probe records **45 blocks** plus **13 bash swings** per run, without adding incoming rounds to player stats. All probe processing remains disabled in ordinary play.
+
+Measured on the target Intel i5 / Iris 655, Compatibility, **1280×720**, 60 Hz physics, full HUD and diagnostics. Every accepted run was focused for **100%** of measured frames, with **54 min / 54 max awake ragdoll parts**, **eight awake props** and three driven steel hinges. Runs used the existing 2 s warmup / 10 s measurement in isolation from tests, imports, captures and commits. A temporary external driver restored foreground focus without changing normal game focus handling.
+
+| Capped run | Average | 1% low | Worst frame | Frames >25 ms | Peak projectiles / dropped | Actions since start |
+|---|---|---|---|---|---|---|
+| M8 fitted Foundry, historical reference | 60.0 fps | 40.6 fps | 29.45 ms | 3 / 601 | 36 / 0 | 100 shots |
+| M9 fitted Wayline | 60.0 fps | 50.6 fps | 22.27 ms | 0 / 602 | 3 / 0 | 46 shots |
+| M9 Cairn | 60.0 fps | 52.5 fps | 21.01 ms | 0 / 601 | 1 / 0 | 3 shots / 3 armed blasts |
+| M9 Latch | 60.0 fps | 42.1 fps | 29.52 ms | 2 / 601 | 0 / 0 | 23 swings |
+| M9 Palisade, corrected fixture repeat | 60.0 fps | 52.1 fps | 20.37 ms | 0 / 601 | 2 / 0 | 13 bashes / 45 blocks |
+| M9 fitted Foundry regression | 60.0 fps | 39.8 fps | 25.86 ms | 3 / 601 | 36 / 0 | 100 shots |
+
+Wayline fits baffle / irons / extended magazine at 1.5 s; Foundry additionally fits long barrel / braced stock. No free ammo is granted. Sampled draw calls / primitives were respectively **188 / 4,088**, **184 / 3,662**, **180 / 3,608**, **175 / 3,724**, **174 / 3,620** for the five M9 rows. Physical collision counts include scenery / incoming training rounds and are not HUD accuracy.
+
+The first corrected shield run also averaged 60.0 fps, but had a **35.0 fps 1% low, 32.49 ms worst and 57/601 frames >25 ms**. A fully focused uncapped diagnostic then averaged **103.3 fps**, 9.68 ms mean, with **51.0 fps 1% low, 33.81 ms worst, 5/1035 frames >16.67 ms and 2/1035 >25 ms**, still recording 45 blocks / all actors / zero dropped rounds. Repeating the capped run produced the Palisade row above. There was no intervening gameplay optimization or feature removal; these results demonstrate variable pacing and uncapped headroom, not a controlled before/after improvement.
+
+The 60 fps average is retained. A strict per-frame 16.67 ms floor is **not** claimed: the knife / LMG tails and the variable shield pacing remain visible in these measurements. Bounded query candidates, one contact cast, sleeping effects processing, reused colliders, cached weapon state and fixed visual / audio pools keep additional gameplay work bounded. Keep incoming shield impacts and rocket blasts in the Milestone 12 final performance matrix, alongside the historical fitted LMG case.
+
+The full tests cover splash arming / falloff / occlusion, torso deduplication / armor carry-over / exact last-plate break, multi-target logical hits and stats reset, real prop / steel / newly killed ragdoll impulses, expiry duds, melee wall blocking / reach / overlap / timing / one-shot scoring, ammo-free rules, guard blocking / side exposure / pose reuse, scaled movement / momentum, authored pistol timing / reload / attachment compatibility and role-safe cached secondary exchange. Range integration uses real controller fire for a knife headshot, rocket splash kill, 25 m pistol torso hit (about 26.5 damage), 40-damage shield torso bash and non-scoring shield test round. Frozen MVP stats and all original regression tests remain green. Effects tests cover bounded reuse, rocket-only rendering, expiry and pausing; moving-body impact tests include the shield's animatable body type.
+
+Movie Maker frames were inspected for all four native models, the pistol / rocket ADS sight geometry, the shield visor and incoming sparks with no floating persistent mark, a **113 displayed knife headshot** (75 × 1.5 rounded) and **180 rocket torso kill**. Both kill captures show one shot / hit and 0.000 s TTK, with headshot percentage 100% / 0% respectively. A separate clear-view capture with the cosmetic model hidden confirms the expanding orange blast at the actual impact. Short firing captures can retain the existing engine warning about active audio playback objects at Movie Maker shutdown; the ordinary boot and GUT shutdown checks are separate.
+
+Final verification: **340/340 headless GUT tests, 6,606 assertions, 176.911 s**, clean exit with no engine errors or leaked-object warnings. A separate headless startup (10 frames) and ordinary windowed startup (120 frames) both exit successfully with zero errors / warnings. The focused stress measurements above are separate from the boot and Movie Maker checks.
+
+### Remaining Phase 2 scope
+
+Human judgment of recoil, sight readability, sound balance, blast / melee feel and shield coverage remains pending; README's numbered secondary checklist describes each check. This range still has no player damage / enemy simulation, so the shield test is an incoming training round rather than an AI opponent. Shield sides remain exposed and its collider does not model destructible glass or penetration. Corpses retain the existing bullet-excluded layer and pin joints; blasts can still push them.
+
+Milestone 10 should animate the existing handling / reload policy timelines and the already working knife / bash signals without changing their contact timing. Milestone 11 can consume the existing role-filtered catalogs and cached builds for Armory / persistence. No additional gameplay milestone is needed between them. Browser export and full controller gameplay remain unvalidated future work; this milestone adds only GDScript, built-in physics / audio and InputMap actions, with no new runtime filesystem access or native dependency.
