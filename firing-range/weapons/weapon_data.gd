@@ -105,6 +105,9 @@ var _legacy_automatic: bool = true
 
 @export_group("Viewmodel (cosmetic)")
 @export var viewmodel_scene: PackedScene
+## Procedural reload / cycle / equip / melee animation for the viewmodel.
+## Its timings are fractions of this weapon's own Resource times.
+@export var handling: HandlingProfile
 ## Viewmodel position relative to the camera when firing from the hip.
 @export var hip_position: Vector3 = Vector3(0.17, -0.17, -0.42)
 ## Viewmodel position when fully aimed, so the sights sit on the screen centre.
