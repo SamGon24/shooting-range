@@ -238,6 +238,11 @@ func get_slot_velocity(slot: int) -> Vector3:
 	return _velocities[slot]
 
 
+## Read-only delivery metadata for pooled visual effects.
+func get_slot_spec(slot: int) -> ProjectileSpec:
+	return _specs[slot] if is_slot_active(slot) else null
+
+
 func _release(slot: int) -> void:
 	_active[slot] = 0
 	_specs[slot] = null

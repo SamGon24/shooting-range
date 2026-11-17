@@ -58,7 +58,7 @@ func show_impact(hit: ProjectileHit) -> void:
 	_play_sound(hit.position)
 	# Marks only stick to the static world; a mark on something that moves
 	# would be left hanging in the air.
-	if hit.collider is StaticBody3D:
+	if hit.collider is StaticBody3D and not hit.collider is AnimatableBody3D:
 		_place_mark(hit.position, hit.normal)
 
 
