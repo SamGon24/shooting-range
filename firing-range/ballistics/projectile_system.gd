@@ -3,7 +3,7 @@ extends Node3D
 ## Simulates every projectile in the world from one node.
 ##
 ## Projectiles are rows in packed arrays, not nodes: firing takes a free slot
-## and never allocates. Each physics tick, every live projectile is integrated
+## and never allocates a projectile node. Each physics tick, every live projectile is integrated
 ## under gravity and air drag, and a ray is cast from its previous position to
 ## its new one, so a fast bullet cannot skip through a thin object between
 ## ticks.

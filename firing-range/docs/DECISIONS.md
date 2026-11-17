@@ -598,3 +598,117 @@ The range still averages the requested 60 fps capped, with substantial average u
 3. When Milestone 9 supplies secondaries, choose a real default secondary and disable the range's explicit comparison exception. Do not reclassify the sniper to satisfy the slot rule.
 4. Milestone 11 should edit selections through the existing build boundary and preview independent snapshots. Add stable attachment-ID persistence / validation there; keep authored Resource inputs immutable. Use the same fixed FOV reference in Armory magnification labels.
 5. Keep a full-slot assembly in Milestone 12's arsenal stress matrix, including high-zoom ADS, pellet bursts and splash. Budget total draw calls and contacts together; the current tail measurements justify retaining that explicit check.
+
+## Milestone 8 — new primaries, pellets and shell reloads
+
+### One logical shot, independent pooled projectiles
+
+The three new primaries are composed Resources: **Rill S-4** (SMG), **Foundry L-8** (LMG) and **Breakwater P-6** (pump shotgun). There are no gun subclasses or alternate target-hit paths. A pellet is a normal pooled projectile with its own RK4 gravity/drag integration and original swept raycast; `DamageSource.PELLET` follows the existing target interface and zone / armor rules.
+
+`ProjectileSystem` now assigns a monotonic `shot_id` to every successful single shot or volley. Pool-slot IDs remain independent and reusable. `fire_volley` validates every direction and checks capacity before launching, so it emits all eight pellets or rejects the whole volley. Rejected volleys do not count as shots and increment dropped-projectile count by the requested count. Group metadata is bounded by live projectiles and released after the final impact / expiry. Completion is emitted after damage callbacks, so downstream consumers can finish a group without losing its last hit.
+
+Stats listen to `shot_started`, deduplicate hits by shot ID and retain eligibility only until `shot_finished`. Reset discards eligibility for all old groups. One shotgun shell counts as one shot and at most one hit, even if several zones / targets or steel are struck. Any head pellet promotes the shot's headshot flag once, so headshot percentage remains ≤100%. Each damaged target still receives its own first-damage / kill timer, independent of whether the shot has already scored a hit elsewhere. Original single-projectile behavior is retained, including old-round exclusion after reset.
+
+Pellet damage presentation aggregates by `(shot_id, target instance ID)`. The existing 24-label pool updates one keyed label as more pellets arrive, including across physics ticks; it does not wait for misses to expire. Values sum zone-adjusted incoming damage and round once for display. Any contributing head pellet makes the number amber. A target already killed continues to reject later pellets through the existing target interface. Marker / confirmation events for one dummy/shot emit on the first hit and on priority upgrades (armor break / kill), avoiding eight identical hit chirps. Physics damage remains immediate; UI aggregation never determines damage.
+
+`ConeSpread.sample` extracts the original recoil-cone algorithm without changing its random draws: polar angle `half_angle × sqrt(U)` and uniform azimuth. Ballistic weapons retain their exact seeded behavior. Pellet delivery consumes eight further samples from the same per-controller RNG, around the already calibrated and spread-adjusted bore direction, before this shot's recoil applies. Its intrinsic cone remains present while ADS; the hip crosshair displays the sum of weapon spread / bloom and pellet half-angle as an envelope.
+
+### Shell phases and sprint recovery
+
+`WeaponLogic` owns START → INSERT → FINISH phases for shell reloads. START and FINISH use the reload policy Resource's opening / closing times. The first INSERT uses the gun's empty or tactical reload time according to current ammo; later inserts use the tactical time. Each completed INSERT credits exactly one shell and emits `shell_inserted`. Partial inserts credit nothing. Large time steps carry their remainder through phase boundaries; normal gameplay remains at 60 Hz.
+
+A fresh pump trigger press while loading requests interruption. With a loaded shell, the current partial insert is discarded and FINISH begins. While empty, the press remains queued until the first shell completes, then FINISH runs. On closing, the queued press fires once through ordinary readiness / sprint / pump gates. Holding a pump trigger never repeats shots. Lowering cancels the reload and queued press while retaining completed shells. Reload pressed during the 0.8 s pump cycle still waits for that cycle; interruption cannot bypass it. HUD reads `LOADING n / capacity`; a cached existing handling click accompanies inserts. Detailed pump / shell hand animation remains Milestone 10 work.
+
+The new `WeaponData.sprint_to_fire_time` defaults to zero, preserving both MVP guns. Each sprinting tick refreshes the authored delay; after sprint ends it counts down in physics time before fire can resume. Rill / Foundry / Breakwater use 0.10 / 0.35 / 0.20 s. The field is allowlisted and clamped to 0–2 s in `weapons/attachments/data/stat_limits.tres`; existing attachment modifiers otherwise remain unchanged.
+
+### Two carried slots, cached range offerings
+
+`WeaponCatalog` separates available definitions from the two carried loadout slots. `WeaponRuntime` holds a cached build, logic and recoil state per offered gun. Models and synthesized sounds are created once per definition, while only the current model is in the scene. F11 (`primary_next`, physical code 4194342, dead zone 0.2) exchanges slot 1 through normal lowering / raising. 1 / 2 and the wheel retain their two-slot behavior. Gun state survives exchange without refill; pending attachment requests are keyed by definition, so a queued SMG magazine cannot accidentally apply to an LMG newly installed in the same slot.
+
+Catalog order in `weapons/data/primary_catalog.tres` is Halberd, Rill, Foundry, Breakwater, Longwatch. The range's explicit comparison loadout already carries Longwatch in slot 2, so the primary cycle excludes that duplicate and cycles the first four. The selector uses stable catalog order rather than current-slot order; repeated cycling reaches every offered gun. Requests can be cancelled by selecting the original gun or choosing a carried slot during lowering. Default startup stays Halberd / Longwatch, and the frozen Milestone 6 stat fixture is unchanged. No Armory UI or persistence is introduced ahead of Milestone 11.
+
+The F3 selection label gains an F11 primary line and moves its top offset from -155 to **-180 px**; other label settings retain Milestone 7 values. The three new models use the same five mount paths as the existing guns and geometry-derived 0.050 m sight height above a 0.010 m bore. Fitted optics retain the existing authored FOV / height / ADS-pose calculation. All seventeen attachments fit each new primary. Reload-speed modifiers scale shell insertion times; policy opening / closing times remain fixed. Capacity modifiers change tube capacity without granting shells.
+
+### Complete new weapon tuning reference
+
+Columns below correspond to `weapons/data/rill_smg.tres`, `weapons/data/foundry_lmg.tres`, and `weapons/data/breakwater_shotgun.tres`. They are the gameplay and cosmetic tuning authority. Values are bare, before attachments. All three use primary role, default target multiplier class, unscoped native iron presentation, gravity scale 1, and the unchanged range air density / target settings.
+
+| Field / units | Rill S-4 | Foundry L-8 | Breakwater P-6 |
+|---|---|---|---|
+| Weapon class / fire / delivery / reload | SMG / auto / ballistic / magazine | LMG / auto / ballistic / magazine | shotgun / pump / pellet / shell |
+| Rate, rpm / cycle, s | 900 / 0 | 700 / 0 | 75 / 0.80 |
+| Velocity, m/s | 400 | 850 | 400 per pellet |
+| Projectile damage | 24 | 30 | 18 per pellet (144 for eight torso pellets) |
+| Falloff start / end, m | 25 / 75 | 60 / 250 | 15 / 40 |
+| Minimum damage fraction | 0.35 | 0.75 | 0.20 |
+| Bullet mass, g / diameter, mm / Cd | 8 / 9 / 0.32 | 8 / 7.2 / 0.30 | 3.5 / 8.4 / 0.45 |
+| Lifetime, s | 3 | 3 | 1.5 |
+| Source | ballistic | ballistic | pellet |
+| Zero, m / sight height, m / bore Y, m | 100 / 0.050 / 0.010 | 100 / 0.050 / 0.010 | 25 / 0.050 / 0.010 |
+| Capacity | 32 | 100 | 6 |
+| Tactical / empty reload, s | 1.50 / 2.00 | 4.20 / 5.00 | 0.55 / 0.85 per insert |
+| ADS time, s / FOV, degrees / sensitivity | 0.18 / 50 / 0.80 | 0.48 / 45 / 0.60 | 0.30 / 55 / 0.75 |
+| Raise / lower / sprint recovery, s | 0.28 / 0.22 / 0.10 | 0.80 / 0.55 / 0.35 | 0.45 / 0.35 / 0.20 |
+| Recoil scale / aimed recoil scale | 1 / 0.85 | 1 / 0.45 | 1 / 0.85 |
+| Random recoil ±(yaw,pitch), degrees | (0.16,0.10) | (0.20,0.12) | (0.30,0.25) |
+| Recoil loop length | 6 | 8 | 3 |
+| Recovery delay, s / rate, degrees/s / pattern reset, s | 0.10 / 11 / 0.22 | 0.15 / 8 / 0.35 | 0.20 / 10 / 0.60 |
+| Hip / aimed spread half-angle, degrees | 2.5 / 0.10 | 3.5 / 0.15 | 1.5 / 0 (plus intrinsic pellet cone) |
+| Bloom per shot / maximum, degrees / recovery, degrees/s | 0.12 / 1.4 / 5 | 0.10 / 1.6 / 3 | 0.40 / 0.8 / 4 |
+| Hip pose, m | (0.17,-0.17,-0.42) | same | same |
+| ADS pose, m | (0,-0.060,-0.38) | same | same |
+| Cosmetic kick back, m / pitch, degrees | 0.025 / 1.2 | 0.050 / 2.0 | 0.080 / 4.0 |
+| Shot sound pitch, Hz / duration, s | 160 / 0.15 | 90 / 0.28 | 65 / 0.40 |
+
+Recoil patterns are `(yaw,pitch)` in degrees, in the respective weapon Resources; the complete pattern loops after its final entry:
+
+- Rill: `(0,0.32), (0.08,0.38), (0.12,0.42), (-0.06,0.38), (-0.14,0.35), (0.05,0.32)`.
+- Foundry: `(0,0.70), (0.10,0.75), (0.18,0.80), (0.12,0.75), (-0.08,0.70), (-0.15,0.65), (-0.10,0.60), (0.05,0.60)`.
+- Breakwater: `(0.15,2.80), (-0.10,3.00), (0.05,2.90)`.
+
+`weapons/framework/pellet.tres` selects eight pellets and a **3°** intrinsic half-angle; `DeliveryData` authoring defaults are likewise 8 / 3°, with inspector ranges 1–32 pellets / 0–15°. `weapons/framework/shell.tres` sets opening / closing to **0.20 / 0.20 s** (also the `ReloadData` defaults, inspector ranges 0–2 s each). `pump.tres` selects pump-action gating. The empty native shotgun reload totals `0.20 + 0.85 + 5 × 0.55 + 0.20 = 4.0 s`; a tactical top-up takes opening + missing shell count × 0.55 + closing. The original guns retain sprint recovery zero and all original stats.
+
+### New model geometry tuning
+
+All geometry lives in `weapons/viewmodels/{rill_smg,foundry_lmg,breakwater_shotgun}_viewmodel.tscn`. Eight shadowless BoxMesh parts use metal RGB `(0.16,0.17,0.19)`, roughness 0.8, and polymer `(0.30,0.31,0.27)`, roughness 0.9, alpha 1. All positions / dimensions below are metres. Receiver is centred at zero; each barrel centre has Y 0.010. Native rear sight is a 0.030×0.022×0.020 metal box at `(0,0.046,0.070)`; front post is 0.006×0.030×0.006 at Y 0.045. The tip therefore remains 0.050 above the bore. Polymer grip is 0.030×0.085×0.040 at `(0,-0.070,0.090)`.
+
+| Geometry | Rill | Foundry | Breakwater |
+|---|---|---|---|
+| Receiver size | (0.045,0.065,0.20) | (0.075,0.090,0.40) | (0.055,0.075,0.28) |
+| Handguard size / centre Z | (0.042,0.050,0.13) / -0.16 | (0.065,0.065,0.30) / -0.32 | (0.065,0.065,0.24) / -0.27 |
+| Barrel size / centre Z | (0.018,0.018,0.10) / -0.27 | (0.030,0.030,0.24) / -0.58 | (0.035,0.035,0.38) / -0.43 |
+| Stock size / centre Z | (0.035,0.055,0.15) / 0.16 | (0.065,0.080,0.25) / 0.30 | (0.050,0.070,0.24) / 0.27 |
+| Magazine size / centre Y,Z | (0.027,0.15,0.035) / -0.095,-0.025 | (0.14,0.16,0.13) / -0.095,-0.040 | (0.028,0.028,0.40) / -0.035,-0.28 |
+| Front post centre Z | -0.21 | -0.45 | -0.44 |
+| Muzzle / muzzle mount Z | -0.32 | -0.70 | -0.62 |
+
+Handguards use Y -0.005; stocks Y -0.012. All listed parts have X 0 and identity rotation. Muzzle markers use `(0,0.010,Z above)`; barrel mounts `(0,0.010,handguard Z)`; optic mounts `(0,0.010,-0.010)`; stock mounts the stock centre; magazine mounts `(0,-0.030,magazine Z)`. Mount parents have identity transforms. Attachments reuse the existing Milestone 7 parts and tuning unchanged. No binary models or sounds were added; existing CREDITS coverage remains accurate.
+
+### Performance tooling and measured results
+
+`debug/perf_probe.gd` accepts `--perf-weapon=rifle|smg|lmg|shotgun` together with the existing probe / firing flags. It selects through the same primary exchange API used by F11, drives InputMap fire edges for pump guns and interrupts shell loading when a round is ready. This keeps an enlarged tube from spending most of a short measurement loading. Auto guns retain held fire. Physics priority is -20; all probe processing is disabled in ordinary play. The report adds selected gun, peak simultaneous projectiles and dropped count. Its printed collision-hit count is per projectile and includes scenery; the HUD's accuracy still uses deduplicated logical target hits.
+
+The existing 2 s warmup / 10 s measurement and 60 Hz gameplay tick are unchanged. All five attachment actions are pressed at 1.5 s, after equip and before measurement: baffle / long barrel / fitted irons / braced stock / extended magazine. Larger capacities receive no free rounds, so initial native ammo remains. The projectile pool stays capped at 128.
+
+Target Intel Mac, Compatibility, 1280×720, full HUD / diagnostics, all 54 ragdoll parts awake throughout, eight continuously forced props and three driven steel hinges. Each accepted capped run was focused for 100% of measured frames. Probes ran in isolation from tests / imports / captures / commits; a temporary external SceneTree driver restored foreground focus without altering shipped focus behavior.
+
+| Run | Average | 1% low | Worst | Frames >25 ms | Peak projectiles / dropped |
+|---|---|---|---|---|---|
+| Milestone 7 fitted rifle, historical reference | 60.0 fps | 42.6 fps | 30.46 ms | 2 / 600 | not recorded |
+| Milestone 8 fitted Rill | 60.0 fps | 52.0 fps | 20.21 ms | 0 / 601 | 14 / 0 |
+| Milestone 8 fitted Foundry | 60.0 fps | 40.6 fps | 29.45 ms | 3 / 601 | 36 / 0 |
+| Milestone 8 fitted Breakwater | 60.0 fps | 52.1 fps | 21.03 ms | 0 / 601 | 8 / 0 |
+
+The runs fired 102 / 100 / 9 logical shots respectively. Final sampled draw calls / primitives were 189 / 4,134, 168 / 3,400 and 186 / 3,800; counts depend on the sampled particle / ragdoll pose. Breakwater generated 72 physical collisions from its nine eight-pellet shots while also exercising interrupted shell loading. A separate uncapped Foundry diagnostic averaged 120.2 fps but had only 89% focused frames, so it is excluded from acceptance and headroom comparisons.
+
+The capped 60 fps average is retained across all three new primaries. This is not a strict per-frame 16.67 ms floor: Foundry retains three capped pacing spikes, comparable to the existing Milestone 7 tail behavior. Keep those tails in the final arsenal performance matrix; these historical rows are not a controlled thermal before/after optimization claim. Bounded live projectiles, per-shot bookkeeping, cached gun state and pooled labels keep the added work limited.
+
+### Verification and remaining scope
+
+The full arsenal suite covers the original frozen stat comparisons and regression tests plus shot grouping, cross-tick / multi-target totals, stats reset with reused slots, pool exhaustion / expiry, keyed-label eviction, seeded pellet count / speed / cone, vertical aim, every shell phase / cancellation path, sprint recovery and pump cooldown. Each new gun is tested for timing, magazine / reload, real projectile-to-target delivery, all attachment compatibility and authored sight geometry. Range integration tests cover F11 order, two-slot count, preserved ammo / attachments, definition-keyed pending changes, cancelled exchanges, cached models / sounds / stats, eight pellets per shell and loading HUD.
+
+Final full headless GUT run: **297/297 tests, 5,713 assertions, 144.681 s**, clean shutdown with no engine errors. The loading HUD also checks the shell phase, so the cancellation signal clears `LOADING` immediately before the lowering state transition. Its regression test checks the readout while the shotgun is still displayed, not after a different gun replaces it.
+
+Headless and normal windowed boot complete without errors. Movie Maker hip / ADS frames were inspected for all three new native models. A close shotgun capture shows one 108-point torso total on the killing shot, a red X, ammo 5 / 6, shots 1 / hits 1, accuracy 100%, headshots 0% and TTK 0.000 s. The remaining pellets are ignored after the existing target death transition, explaining 108 rather than 144 on that unarmored target. The armored real-delivery test separately verifies all eight torso pellets sum to 144.
+
+Manual judgment of recoil, sound balance, pellet-cone feel and handling remains pending; README has the numbered checklist. Detailed reload / pump animations remain Milestone 10, Armory / saved loadouts Milestone 11, and secondary delivery / weapons Milestone 9. Menu controller bindings remain available; full controller gameplay and a browser export are still future work.
