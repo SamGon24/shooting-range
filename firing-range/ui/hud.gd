@@ -130,7 +130,7 @@ func _on_weapon_changed(data: WeaponData) -> void:
 
 func _on_ammo_changed(ammo: int, magazine_size: int) -> void:
 	var logic: WeaponLogic = _controller.get_current_logic()
-	var shell_loading: bool = logic.is_reloading() and logic.data.reload_policy != null and logic.data.reload_policy.kind == ReloadData.Kind.SHELL
+	var shell_loading: bool = logic.is_reloading() and logic.reload_phase != WeaponLogic.ReloadPhase.NONE and logic.data.reload_policy != null and logic.data.reload_policy.kind == ReloadData.Kind.SHELL
 	_ammo.text = ("LOADING " if shell_loading else "") + "%d / %d" % [ammo, magazine_size]
 
 

@@ -107,3 +107,16 @@ func test_repeated_primary_selection_reuses_models_sounds_and_computed_builds() 
 		await _select(data)
 		assert_eq(_weapons.get_build(0).computation_count, 1)
 	assert_eq(get_tree().get_node_count(), initial_nodes)
+
+
+func test_cancelling_shell_reload_clears_loading_text_before_weapon_lowers() -> void:
+	await _select(SHOTGUN)
+	_weapons.get_current_logic().ammo = 1
+	Input.action_press("reload")
+	await wait_physics_frames(3)
+	Input.action_release("reload")
+	assert_true(_hud.get_ammo_text().begins_with("LOADING"))
+	_weapons.request_switch(1)
+	await wait_physics_frames(1)
+	assert_eq(_weapons.get_current_data().definition(), SHOTGUN, "still displaying the lowering shotgun")
+	assert_eq(_hud.get_ammo_text(), "1 / 6", "cancelled phase is no longer loading")
