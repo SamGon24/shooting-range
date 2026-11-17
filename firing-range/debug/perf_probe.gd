@@ -10,10 +10,11 @@ extends Node
 ##   godot --path . -- --perf-probe                              (as played)
 ##   godot --path . --disable-vsync --max-fps 0 -- --perf-probe  (uncapped)
 ##   godot --path . -- --perf-probe --perf-fire                  (firing)
+##   godot --path . -- --perf-probe --perf-fire --perf-weapon=shotgun
 ##
 ## With `--perf-fire` the player walks instead of sprinting (sprinting blocks
-## firing) and holds the trigger, so the rifle fires full-auto and reloads
-## for the whole run.
+## firing). Automatic guns hold the trigger; pump guns receive press/release
+## edges and interrupt shell loading once a round is ready.
 ##
 ## The report includes the real vsync mode and how much of the run the window
 ## was focused. Keep the window in front while it runs: an unfocused or
@@ -34,6 +35,9 @@ var _frame_times_usec: PackedInt64Array = PackedInt64Array()
 var _focused_frames: int = 0
 var _firing: bool = false
 var _shots: int = 0
+var _weapons: WeaponController
+var _system: ProjectileSystem
+var _peak_projectiles: int = 0
 var _hits: int = 0
 var _stress: Node
 var _min_ragdoll_parts: int = 1000000
@@ -43,8 +47,11 @@ var _max_ragdoll_parts: int = 0
 func _ready() -> void:
 	if not OS.get_cmdline_user_args().has(ARGUMENT):
 		set_process(false)
+		set_physics_process(false)
 		return
 	_firing = OS.get_cmdline_user_args().has(FIRE_ARGUMENT)
+	process_physics_priority = -20
+	set_physics_process(_firing)
 	Input.action_press("move_forward")
 	if _firing:
 		Input.action_press("fire")
@@ -56,11 +63,56 @@ func _ready() -> void:
 
 func _count_shots() -> void:
 	var weapons := get_tree().get_first_node_in_group(WeaponController.GROUP) as WeaponController
+	_weapons = weapons
 	if weapons != null:
+		_select_primary()
 		weapons.shot_fired.connect(func(_data: WeaponData) -> void: _shots += 1)
 	var projectiles := get_tree().get_first_node_in_group(ProjectileSystem.GROUP) as ProjectileSystem
+	_system = projectiles
 	if projectiles != null:
+		projectiles.projectile_fired.connect(_on_projectile_fired)
 		projectiles.projectile_hit.connect(func(_hit: ProjectileHit) -> void: _hits += 1)
+
+
+func _select_primary() -> void:
+	var prefix: String = "--perf-weapon="
+	for argument: String in OS.get_cmdline_user_args():
+		if not argument.begins_with(prefix):
+			continue
+		var classes: Dictionary[String, WeaponTypes.Class] = {"rifle": WeaponTypes.Class.RIFLE, "smg": WeaponTypes.Class.SMG, "lmg": WeaponTypes.Class.LMG, "shotgun": WeaponTypes.Class.SHOTGUN}
+		var weapon_key: String = argument.trim_prefix(prefix)
+		if not classes.has(weapon_key):
+			push_warning("PerfProbe: unknown primary '%s'" % weapon_key)
+			return
+		for definition: WeaponData in _weapons.get_primary_choices():
+			if definition.weapon_class == classes[weapon_key]:
+				_weapons.request_primary(definition)
+				return
+
+
+func _physics_process(_delta: float) -> void:
+	if _weapons == null or _weapons.get_current_data() == null:
+		return
+	if _weapons.get_current_data().automatic:
+		if not Input.is_action_pressed("fire"):
+			Input.action_press("fire")
+		return
+	# Pump / bolt weapons need real press/release edges, including a fresh
+	# pull after reload. Keep enlarged shell capacities from spending the
+	# whole measurement loading: close and fire as soon as a shell is ready.
+	if Input.is_action_pressed("fire"):
+		Input.action_release("fire")
+		return
+	var logic: WeaponLogic = _weapons.get_current_logic()
+	if logic.is_reloading() and logic.ammo > 0 and logic.data.reload_policy != null and logic.data.reload_policy.kind == ReloadData.Kind.SHELL:
+		Input.action_press("fire")
+		return
+	if logic.state in [WeaponLogic.State.READY, WeaponLogic.State.FIRING] and logic.get_time_to_next_shot() <= WeaponLogic.TIME_EPSILON:
+		Input.action_press("fire")
+
+
+func _on_projectile_fired(_slot: int, _origin: Vector3, _velocity: Vector3, _spec: ProjectileSpec) -> void:
+	_peak_projectiles = maxi(_peak_projectiles, _system.get_active_count())
 
 
 func _process(delta: float) -> void:
@@ -149,6 +201,10 @@ func _report_and_quit() -> void:
 	if _player != null:
 		print("player speed:    %.2f m/s" % _player.get_horizontal_speed())
 	if _firing:
+		if _weapons != null:
+			print("weapon:          %s" % _weapons.get_current_data().display_name)
+		if _system != null:
+			print("projectiles:     %d peak / %d capacity, %d dropped" % [_peak_projectiles, _system.capacity, _system.get_dropped_count()])
 		print("shots fired:     %d (%d hits) since start" % [_shots, _hits])
 	if _stress != null:
 		print("stress props:    %d (awake throughout)" % int(_stress.call("get_prop_count")))
