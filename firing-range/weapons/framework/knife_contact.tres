@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="DeliveryData" load_steps=4 format=3]
+[ext_resource type="Script" path="res://weapons/framework/delivery_data.gd" id="1"]
+[ext_resource type="Script" path="res://ballistics/contact_data.gd" id="2"]
+[sub_resource type="Resource" id="contact"]
+script = ExtResource("2")
+reach_m = 1.8
+radius_m = 0.12
+impulse_n_s = 6.0
+max_results = 8
+[resource]
+script = ExtResource("1")
+kind = 3
+contact = SubResource("contact")

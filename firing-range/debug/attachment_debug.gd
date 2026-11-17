@@ -9,6 +9,7 @@ var _label: Label
 var _requests: Array[int] = []
 var _clear_requested: bool = false
 var _primary_requested: bool = false
+var _secondary_requested: bool = false
 
 
 func _ready() -> void:
@@ -18,7 +19,7 @@ func _ready() -> void:
 	_label.anchor_top = 1.0
 	_label.anchor_bottom = 1.0
 	_label.offset_left = 24
-	_label.offset_top = -180
+	_label.offset_top = -210
 	_label.offset_right = 600
 	_label.offset_bottom = -24
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -46,6 +47,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_clear_requested = true
 	if event.is_action_pressed("primary_next"):
 		_primary_requested = true
+	if event.is_action_pressed("secondary_next"):
+		_secondary_requested = true
 
 
 func _physics_process(_delta: float) -> void:
@@ -57,6 +60,13 @@ func _physics_process(_delta: float) -> void:
 		if not choices.is_empty():
 			var index: int = choices.find(_controller.get_primary_selection())
 			_controller.request_primary(choices[(index + 1) % choices.size()])
+			_refresh()
+	if _secondary_requested or Input.is_action_just_pressed("secondary_next"):
+		_secondary_requested = false
+		var choices: Array[WeaponData] = _controller.get_secondary_choices()
+		if not choices.is_empty():
+			var index: int = choices.find(_controller.get_secondary_selection())
+			_controller.request_secondary(choices[(index + 1) % choices.size()])
 			_refresh()
 	for slot: int in ACTIONS.size():
 		if Input.is_action_just_pressed(ACTIONS[slot]) and not _requests.has(slot):
@@ -91,8 +101,15 @@ func _refresh() -> void:
 	var lines := PackedStringArray()
 	var primary: WeaponData = _controller.get_primary_selection()
 	lines.append("P Primary: " + primary.display_name if primary != null else "")
+	var secondary: WeaponData = _controller.get_secondary_selection()
+	lines.append("O Secondary: " + secondary.display_name if secondary != null else "")
 	for slot: int in ACTIONS.size():
 		var attachment: AttachmentData = _controller.get_requested_attachment(slot as WeaponTypes.Slot)
-		lines.append("F%d %s: %s" % [5 + slot, WeaponTypes.SLOT_NAMES[slot], attachment.display_name if attachment != null else "None (native)"])
+		var label: String = attachment.display_name if attachment != null else "None (native)"
+		if not WeaponTypes.allows_slot(_controller.get_current_data().weapon_class, slot as WeaponTypes.Slot):
+			label = "Unavailable"
+		lines.append("F%d %s: %s" % [5 + slot, WeaponTypes.SLOT_NAMES[slot], label])
 	lines.append("F10 Clear current weapon attachments")
+	if _controller.get_current_data().guard != null:
+		lines.append("B Test incoming round")
 	_label.text = "\n".join(lines)

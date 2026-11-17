@@ -34,8 +34,8 @@ enum WeaponClass { DEFAULT, SNIPER }
 ## Quadratic drag: deceleration = 0.5 * air density * Cd * area / mass * v².
 ## Cd is held constant (no Mach dependence). 0 turns drag off.
 @export_range(0.0, 1.0, 0.001) var drag_coefficient: float = 0.0
-@export_range(0.1, 100.0, 0.01, "suffix:g") var mass_grams: float = 4.0
-@export_range(1.0, 20.0, 0.01, "suffix:mm") var diameter_mm: float = 5.7
+@export_range(0.1, 5000.0, 0.01, "suffix:g") var mass_grams: float = 4.0
+@export_range(1.0, 200.0, 0.01, "suffix:mm") var diameter_mm: float = 5.7
 
 
 ## Drag factor k in 1/m, so drag deceleration is k * |v| * v.

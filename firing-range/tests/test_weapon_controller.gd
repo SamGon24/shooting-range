@@ -27,6 +27,7 @@ func before_each() -> void:
 	_projectiles.projectile_hit.connect(func(hit: ProjectileHit) -> void: _hits.append(hit))
 
 	_player = PLAYER_SCENE.instantiate() as PlayerController
+	(_player.get_node("Weapons") as WeaponController).loadout_definition = preload("res://tests/fixtures/mvp_loadout.tres")
 	_world.add_child(_player)
 	_weapons = _player.get_node("Weapons") as WeaponController
 	_rifle = _weapons.loadout[0]

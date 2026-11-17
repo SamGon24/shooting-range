@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="WeaponLoadout" load_steps=4 format=3]
 [ext_resource type="Script" path="res://weapons/framework/weapon_loadout.gd" id="1"]
 [ext_resource type="Resource" path="res://weapons/data/halberd_rifle.tres" id="2"]
-[ext_resource type="Resource" path="res://weapons/data/longwatch_sniper.tres" id="3"]
+[ext_resource type="Resource" path="res://weapons/data/wayline_pistol.tres" id="3"]
 [resource]
 script = ExtResource("1")
 primary = ExtResource("2")
 secondary = ExtResource("3")
-comparison_mode = true
+comparison_mode = false

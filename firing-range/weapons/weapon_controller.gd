@@ -23,8 +23,10 @@ const GROUP: StringName = &"weapon_controller"
 @export var loadout: Array[WeaponData] = []
 @export var loadout_definition: WeaponLoadout
 @export var primary_catalog: WeaponCatalog
+@export var secondary_catalog: WeaponCatalog
 var _inventory: Dictionary[WeaponData, WeaponRuntime] = {}
-var _primary_pending: WeaponData
+var _replacement: WeaponData
+var _replacement_slot: int = -1
 var _builds: Array[WeaponBuild] = []
 var _pending_attachments: Dictionary[WeaponData, Dictionary] = {}
 @export var player: PlayerController
@@ -159,7 +161,8 @@ func _physics_process(delta: float) -> void:
 func request_switch(slot: int) -> void:
 	if slot < 0 or slot >= _logics.size():
 		return
-	_primary_pending = null
+	_replacement = null
+	_replacement_slot = -1
 	if slot == _current and _pending == -1 and _logics[_current].state != WeaponLogic.State.LOWERING:
 		return
 	_pending = slot
@@ -233,18 +236,19 @@ func _controls_live() -> bool:
 
 
 func _update_switch() -> void:
-	if _primary_pending != null:
+	if _replacement != null:
 		var old: WeaponLogic = _logics[_current]
 		if old.state != WeaponLogic.State.HOLSTERED:
 			old.start_lower()
 			return
-		var runtime: WeaponRuntime = _inventory[_primary_pending]
-		_builds[0] = runtime.build
-		_logics[0] = runtime.logic
-		_recoils[0] = runtime.recoil
-		loadout[0] = runtime.logic.data
-		_current = 0
-		_primary_pending = null
+		var runtime: WeaponRuntime = _inventory[_replacement]
+		_builds[_replacement_slot] = runtime.build
+		_logics[_replacement_slot] = runtime.logic
+		_recoils[_replacement_slot] = runtime.recoil
+		loadout[_replacement_slot] = runtime.logic.data
+		_current = _replacement_slot
+		_replacement = null
+		_replacement_slot = -1
 		runtime.logic.start_raise()
 		_announce_weapon()
 		return
@@ -365,6 +369,10 @@ func get_available_definitions() -> Array[WeaponData]:
 		for definition: WeaponData in primary_catalog.primaries:
 			if definition != null and not definitions.has(definition):
 				definitions.append(definition)
+	if secondary_catalog != null:
+		for definition: WeaponData in secondary_catalog.secondaries:
+			if definition != null and not definitions.has(definition):
+				definitions.append(definition)
 	return definitions
 
 
@@ -379,16 +387,38 @@ func get_primary_choices() -> Array[WeaponData]:
 
 
 func get_primary_selection() -> WeaponData:
-	return _primary_pending if _primary_pending != null else (loadout[0].definition() if not loadout.is_empty() else null)
+	return _replacement if _replacement_slot == 0 else (loadout[0].definition() if not loadout.is_empty() else null)
 
 
 func request_primary(definition: WeaponData) -> bool:
-	if not _inventory.has(definition) or not get_primary_choices().has(definition):
+	return _request_replacement(definition, 0, get_primary_choices())
+
+
+func get_secondary_choices() -> Array[WeaponData]:
+	var choices: Array[WeaponData] = []
+	var offered: Array[WeaponData] = secondary_catalog.secondaries if secondary_catalog != null else get_available_definitions()
+	for definition: WeaponData in offered:
+		if definition != null and definition.role == WeaponTypes.Role.SECONDARY and definition.weapon_class >= WeaponTypes.Class.PISTOL and not choices.has(definition):
+			choices.append(definition)
+	return choices
+
+
+func get_secondary_selection() -> WeaponData:
+	return _replacement if _replacement_slot == 1 else (loadout[1].definition() if loadout.size() > 1 else null)
+
+
+func request_secondary(definition: WeaponData) -> bool:
+	return _request_replacement(definition, 1, get_secondary_choices())
+
+
+func _request_replacement(definition: WeaponData, slot: int, choices: Array[WeaponData]) -> bool:
+	if slot >= loadout.size() or not _inventory.has(definition) or not choices.has(definition):
 		return false
-	if definition == loadout[0].definition():
-		request_switch(0)
+	if definition == loadout[slot].definition():
+		request_switch(slot)
 		return true
-	_primary_pending = definition
+	_replacement = definition
+	_replacement_slot = slot
 	_pending = -1
 	return true
 

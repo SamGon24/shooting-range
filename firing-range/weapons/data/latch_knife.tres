@@ -1,0 +1,72 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1"]
+[ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2"]
+[ext_resource type="PackedScene" path="res://weapons/viewmodels/latch_knife_viewmodel.tscn" id="3"]
+[ext_resource type="Resource" path="res://weapons/framework/semi.tres" id="4"]
+[ext_resource type="Resource" path="res://weapons/framework/knife_contact.tres" id="5"]
+[ext_resource type="Resource" path="res://weapons/framework/none.tres" id="6"]
+
+[sub_resource type="Resource" id="projectile"]
+script = ExtResource("2")
+source = 3
+muzzle_velocity = 50.0
+gravity_scale = 0.0
+max_lifetime = 0.1
+damage = 75.0
+falloff_start_distance = 0.0
+falloff_end_distance = 0.0
+min_damage_fraction = 1.0
+drag_coefficient = 0.0
+mass_grams = 4.0
+diameter_mm = 5.7
+
+[resource]
+script = ExtResource("1")
+display_name = "Latch K-1"
+weapon_class = 7
+role = 1
+fire_mode = ExtResource("4")
+delivery = ExtResource("5")
+reload_policy = ExtResource("6")
+automatic = false
+projectile = SubResource("projectile")
+viewmodel_scene = ExtResource("3")
+uses_ammo = false
+can_aim = false
+movement_speed_scale = 1.0
+optic_kind = 0
+recoil_scale = 1.0
+bore_height_m = 0.0
+rounds_per_minute = 120.0
+bolt_cycle_time = 0.5
+sprint_to_fire_time = 0.1
+zero_distance_m = 0.0
+sight_height_m = 0.0
+magazine_size = 1
+reload_tactical_time = 0.1
+reload_empty_time = 0.1
+recoil_loop_length = 1
+aimed_recoil_scale = 1.0
+recoil_recovery_delay = 0.1
+recoil_recovery_rate = 10.0
+recoil_reset_time = 0.5
+hip_spread_degrees = 0.0
+aimed_spread_degrees = 0.0
+spread_per_shot_degrees = 0.0
+max_bloom_degrees = 0.0
+bloom_recovery_rate = 4.0
+ads_time = 0.2
+ads_fov_degrees = 65.0
+ads_sensitivity_scale = 1.0
+scoped = false
+raise_time = 0.22
+lower_time = 0.18
+hip_position = Vector3(0.18, -0.22, -0.42)
+ads_position = Vector3(0.18, -0.22, -0.42)
+kick_back = 0.02
+kick_pitch_degrees = 1.0
+shot_sound_pitch_hz = 240.0
+shot_sound_duration = 0.2
+recoil_pattern = PackedVector2Array(0, 0)
+recoil_random_degrees = Vector2(0, 0)

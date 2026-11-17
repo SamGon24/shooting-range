@@ -23,7 +23,7 @@ func _ready() -> void:
 	for data: WeaponData in controller.get_available_definitions():
 		var player := AudioStreamPlayer.new()
 		player.bus = &"Effects"
-		player.stream = SfxFactory.gunshot(data.shot_sound_pitch_hz, data.shot_sound_duration)
+		player.stream = SfxFactory.swish(data.shot_sound_pitch_hz, data.shot_sound_duration) if data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE else SfxFactory.gunshot(data.shot_sound_pitch_hz, data.shot_sound_duration)
 		player.volume_db = shot_volume_db
 		player.max_polyphony = shot_polyphony
 		add_child(player)

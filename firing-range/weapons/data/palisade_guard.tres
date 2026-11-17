@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="GuardData" load_steps=2 format=3]
+[ext_resource type="Script" path="res://weapons/guard_data.gd" id="1"]
+[resource]
+script = ExtResource("1")
+size_m = Vector3(0.65, 1.25, 0.08)
+eye_offset_m = Vector3(0, -0.25, -0.6)
+collision_layer = 8

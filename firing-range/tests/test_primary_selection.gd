@@ -5,6 +5,7 @@ const RIFLE: WeaponData = preload("res://weapons/data/halberd_rifle.tres")
 const SMG: WeaponData = preload("res://weapons/data/rill_smg.tres")
 const LMG: WeaponData = preload("res://weapons/data/foundry_lmg.tres")
 const SHOTGUN: WeaponData = preload("res://weapons/data/breakwater_shotgun.tres")
+const SNIPER: WeaponData = preload("res://weapons/data/longwatch_sniper.tres")
 var _weapons: WeaponController
 var _hud: Hud
 var _view: WeaponView
@@ -33,7 +34,7 @@ func _select(data: WeaponData) -> void:
 
 
 func test_primary_cycle_key_selects_new_primaries_with_only_two_carried_slots() -> void:
-	for expected: WeaponData in [SMG, LMG, SHOTGUN, RIFLE]:
+	for expected: WeaponData in [SMG, LMG, SHOTGUN, SNIPER, RIFLE]:
 		var press := InputEventKey.new()
 		press.physical_keycode = KEY_P
 		press.pressed = true
@@ -45,7 +46,7 @@ func test_primary_cycle_key_selects_new_primaries_with_only_two_carried_slots() 
 		await wait_physics_frames(90)
 		assert_eq(_weapons.get_current_data().definition(), expected)
 		assert_eq(_weapons.loadout.size(), 2)
-		assert_eq(_weapons.get_logic(1).data.weapon_class, WeaponTypes.Class.SNIPER)
+		assert_eq(_weapons.get_logic(1).data.weapon_class, WeaponTypes.Class.PISTOL)
 		assert_eq(_hud.get_weapon_name_text(), expected.display_name)
 		assert_true(_view.is_model_shown())
 		assert_eq(_view.get_current_model(), _view._models[expected])
