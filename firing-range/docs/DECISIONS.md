@@ -1495,3 +1495,93 @@ before disabling Mode B; the final suite verifies the disabled fallback instead.
 Milestone 14 implementation stops here for the README play-test. The first-use
 hitch and the strict cold-run frame-time budget remain unresolved. No physical
 controller validation or Milestone 15 work is included.
+
+
+## Scope-view revision: visible housing and local magnification (3.5× / 4×)
+
+The owner requested visible scope borders, a magnified interior and normal
+peripheral scenery for both the hybrid and the existing 4×. This supersedes the
+Milestone 14 full-screen-zoom presentation above. The failed two-camera prototype
+is replaced with a **single-render screen-texture lens**; it is not re-enabled.
+
+While aiming with either optic, the main camera stays at the selected player
+FOV. A circular ColorRect samples the already rendered scene around the screen
+center with scale `tan(source_fov/2) / tan(target_fov/2)`. The hybrid target FOV
+still follows the chosen FOV / 3.5× tangent calculation. The 4× retains its
+existing authored 18.098708656° FOV (4× at the 65° comparison reference). Its
+existing sensitivity stats also remain unchanged. No attachment compatibility,
+weapon stats, zero calibration, recoil, spread or projectile code changes.
+
+The visible lens diameter is 52% of viewport height (374.4 px at 720p). An
+original procedural housing adds a 22 px rim, edge highlights, adjustment
+turrets and a short mounting foot, all scaled with viewport height. An etched
+reticle draws above the lens. Only the narrow housing occludes the surrounding
+scene; there is no outside fill or vignette. The existing blackout node stays
+hidden for optic kinds 3 and 5. Kinds 2 and 4 (2× and 8×) retain their old views.
+Viewmodels are removed while aimed using the existing workaround; firing effects
+skip detached models for both supported optics. HUD feedback/text draws after
+the lens, so it is not magnified into the glass.
+
+This method avoids rendering the world twice, but cannot add source detail: lens
+scenery is visibly softer when enlarged at 720p. Housing and reticle are drawn
+at native display resolution. The earlier SubViewport / extra camera code and
+its disabled settings toggle are removed. Obsolete `hybrid_lens` preferences in
+settings.cfg are ignored. Scope selection and ADS still use existing InputMap
+controls for mouse/keyboard and controller; physical-controller validation is
+still pending.
+
+Focused tests cover both live optics with a normal-FOV main camera, local zoom
+math, no blackout, no SubViewport allocation, stable reticle position while the
+camera recoils, firing without detached-model errors and hide-on-un-ADS behavior.
+The 4× retains its original input sensitivity and the hybrid retains 1/3.5.
+Movie Maker frames were inspected for both optics, including a recoil change in
+the 4× view. They show the housing, distinct interior magnification and clear
+peripheral scenery. The softness trade-off is visible and is not described as a
+full-resolution second render.
+
+
+### Scope rendering cost and optimization
+
+The initial screen-texture lens with separately drawn housing/reticle reached
+71.0 fps (hybrid) / 71.6 fps (4×) uncapped with 205 sampled draw calls. A localized
+BackBufferCopy alone remained at 71.1 fps. Consolidating the lens, housing and
+reticle into one canvas shader draw raised the measured hybrid result to
+100.1 fps and the 4× to 103.5 fps, both at 190 sampled draw calls.
+
+The explicit BackBufferCopy covers only the center texels sampled by the lens:
+`lens_diameter / sample_zoom`, plus a two-pixel border on each side for bilinear
+filtering. This suppresses the implicit full-screen copy. Lens, rim, turrets,
+mount and reticle are composed in the same shader; the HUD is drawn afterwards.
+The visible 374.4 px glass has a larger transparent carrier to contain the
+housing. No second world render or new physics world is created.
+
+The uncapped optimized runs were at 1280×720, Compatibility, Iris Plus 655,
+100% window focus, 2 s warm-up / 10 s measurement, with the lens active through
+all measured frames including reloads. The fixture kept 54 ragdoll parts and
+eight props awake, three steel hinges moving, firing and the full HUD. No
+projectiles were dropped. Both views clear the 90 fps uncapped average target.
+First-use hitches still occur; these results do not claim the cold-frame budget
+has been resolved. The first optimized capped hybrid run was only 88% focused
+and was excluded from the accepted measurement table.
+
+
+| Final optimized scope run | Average | 1% low | Worst frame | Frames >25 ms |
+|---|---|---|---|---|
+| 3.5× uncapped | 100.1 fps | 25.0 fps | 237.31 ms | 1 |
+| 4× uncapped | 103.5 fps | 27.2 fps | 232.92 ms | 1 |
+| 3.5× capped, fully focused repeat | 58.8 fps | 14.3 fps | 235.61 ms | 28 |
+| 4× capped | 58.8 fps | 15.5 fps | 233.89 ms | 1 |
+
+All final rows used 190 sampled draw calls. The capped hybrid repeat also had
+many smaller pacing misses; the strict 60 fps / no-frame-over-25-ms cold-run
+budget is still not met. The native-ADS baseline previously recorded before
+this revision already had a 229.80 ms hitch / 58.9 fps average (above). This
+comparison does not prove every pacing miss has the same cause. The uncapped
+headroom requirement is met, and the performance limitation remains explicit.
+
+Final verification: **436/436 GUT tests, 7,995 assertions, 268.288 s**, with clean
+main-menu and range ten-frame headless boots. Final single-shader Movie Maker
+frames were inspected for both the 3.5× and 4×; the 4× sequence includes a recoil
+change. No shader or engine errors occurred in the final captures or performance
+runs. README provides the revised visual play-test. Real-controller validation
+remains pending; this revision does not claim a hardware input test.

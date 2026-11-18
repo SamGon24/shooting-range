@@ -4,7 +4,7 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 ## Status
 
-**Milestones 13–14 implemented; play-tests pending.** Controller hardware validation remains open. The hybrid optic ships with full-screen zoom; its lens viewport is disabled after failing the performance gate. See the mapping and numbered checklists below.
+**Milestones 13–14 implemented; play-tests pending.** Controller hardware validation remains open. The 3.5× and 4× optics use a visible scope housing with localized lens magnification and clear peripheral vision. See the mapping and numbered checklists below.
 
 **MVP complete (Milestones 1 to 6), play-tested.**
 
@@ -612,46 +612,42 @@ Challenge screens do not exist until Milestone 16; their controller navigation
 must be validated when implemented. Stop here for the Milestone 13 play-test.
 
 
-## Milestone 14 — 3.5× hybrid optic
+## Milestone 14 — 3.5× hybrid and 4× scope views
 
 Fit **3.5x hybrid** in the Armory on the Halberd rifle, Rill SMG or Foundry LMG.
-It saves with the existing loadout. Keyboard debug cycling with F7 also includes
-it on those weapons. Armory selection uses the same D-pad/stick, A and B controls
-as every other attachment; ADS stays right mouse / LT.
+The existing **4x scope** keeps its original weapon compatibility. Both save with
+the loadout and use the existing Armory navigation and ADS controls (right mouse
+/ LT). Keyboard debug cycling with F7 also selects them.
 
-The default view zooms the full screen by 3.5×, with an etched reticle and thin
-edge housing. It has **no blackout or vignette**. Magnification follows your FOV
-setting with tangent-correct zoom; aimed input sensitivity is 1/3.5 of hip input,
-then multiplied by your ADS sensitivity setting. Older optics keep their behavior.
-The attachment adds 0.06 s ADS time and uses a 0.07 m sight height.
+Both views now show a circular scope housing, etched reticle and magnified lens,
+with the surrounding scene left at your selected normal FOV. Neither blacks out
+or vignettes the rest of the window. The 2× and 8× views keep their previous
+presentation. The hybrid's 3.5× magnification follows the FOV setting; the 4× keeps
+its authored zoom reference and existing sensitivity stats. Hybrid sensitivity
+remains 1/3.5 before the user's ADS multiplier.
 
-The experimental local lens view is disabled: continuous rendering reached
-69.2 fps uncapped on the target GPU, below the required 90 fps. The disabled
-setting explains this; even a previously saved lens preference uses the default
-full-screen view. No second viewport is allocated in the shipped mode.
+The lens enlarges the already rendered scene with a screen-texture shader. This
+uses one scene render and no second camera or viewport. The trade-off is softer
+lens detail at 720p; the reticle and scope housing remain sharp. The earlier
+experimental two-camera lens and its disabled settings toggle have been removed.
+Old saved values for that setting are ignored. Projectile, recoil and spread
+logic is unchanged. The known first-use hitch remains tracked in DECISIONS.
 
-The default mode clears 90 fps uncapped on the measured rifle run, but the
-existing first-use hitch also occurs with native ADS. Cold capped runs do not
-meet the strict frame-time budget; measured results and limits are in DECISIONS.
+### Scope play-test
 
-### Hybrid optic play-test
+1. Fit the 3.5× hybrid and then the 4×. Save/restart once to verify the loadout.
+   Repeat selection with a controller when available.
+2. ADS and inspect the visible circular housing and rim. Look at distant targets:
+   the scene inside the glass should enlarge while the outside stays normal.
+3. Check every window corner stays visible; there should be no black mask or
+   vignette outside the housing. Judge whether the enlarged lens detail is clear
+   enough at 720p.
+4. Fire bursts, strafe, crouch, reload and switch weapons. Check the reticle stays
+   centered as recoil moves the world and the hip viewmodel returns correctly.
+5. Try the hybrid at different FOV settings and ADS sensitivity multipliers.
+   Check mouse and controller aiming. Verify the 4× retains its existing feel.
+6. Confirm iron sights, red dot, 2× and 8× sniper presentation still behave as
+   before. Watch FPS and report any first-hit hitch with the weapon and optic.
 
-1. In Armory, fit the hybrid on the rifle, SMG and LMG in turn. Save, enter Play,
-   and restart once to check persistence. Confirm it is absent on the shotgun,
-   sniper and secondaries. Repeat selection with a controller when available.
-2. ADS using right mouse / LT. Check the reticle is centered, the housing stays
-   thin at the screen edge, and the world remains visible in every corner.
-3. Compare ADS at FOV 50, 65 and 100. Each should give 3.5× magnification relative
-   to that hip FOV. Adjust the ADS sensitivity multiplier and check both devices.
-4. Fire a burst while aiming. The world should move with recoil while the etched
-   reticle stays centered. Check hitmarkers, damage numbers and ammo remain clear.
-5. Walk, strafe, crouch and slide while aiming; reload, swap weapons and refit
-   optics. Check the viewmodel returns at the hip and no model freezes on screen.
-6. Check iron sights, red dot, 2×, 4× and native 8× sniper views still behave as
-   before. The hybrid's no-blackout behavior should not change the other scopes.
-7. Confirm the experimental lens setting is disabled. Watch FPS and report any
-   first-hit hitch with the weapon, optic and whether it follows a fresh launch
-   or a switch. Physical-controller feel remains unverified until you test it.
-
-Stop here for the Milestone 14 play-test. Milestone 13's hardware checklist is
-still pending; neither milestone's human validation is marked complete.
+Controller hardware validation remains pending; this visual revision does not
+mark that play-test complete. No Milestone 15 work is included.
