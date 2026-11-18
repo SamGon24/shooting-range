@@ -25,3 +25,5 @@ func _on_hit(hit: ProjectileHit) -> void:
 		(hit.collider as SteelPlate).receive_hit(hit)
 	elif hit.collider is PhysicsProp:
 		(hit.collider as PhysicsProp).receive_hit(hit)
+	elif hit.collider is RagdollPart:
+		(hit.collider as RagdollPart).receive_hit(hit)

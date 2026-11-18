@@ -9,6 +9,8 @@ extends Node3D
 ## far the limb may leave its hanging pose and the twist limit is how far it
 ## may roll about its own length.
 
+## Physics layer of an active corpse part (layer 3).
+const CORPSE_LAYER: int = 4
 const ATTACHED_PARTS: PackedInt32Array = [0, 2, 3, 4, 5]
 const ANCHORS: Array[Vector3] = [Vector3(0,1.49,0), Vector3(-0.27,1.43,0), Vector3(-0.14,0.88,0), Vector3(0.27,1.43,0), Vector3(0.14,0.88,0)]
 ## Direction each joint's twist axis takes in the dummy's frame: the neck
@@ -36,7 +38,8 @@ func _ready() -> void:
 
 func setup(transforms: Array[Transform3D], shapes: Array[Shape3D], meshes: Array[Mesh], owner_transform: Transform3D) -> void:
 	for index: int in transforms.size():
-		var body := RigidBody3D.new()
+		var body := RagdollPart.new()
+		body.ragdoll = self
 		body.mass = part_masses[index]
 		body.freeze = true
 		body.collision_layer = 0
@@ -66,8 +69,10 @@ func activate(transforms: Array[Transform3D], owner_transform: Transform3D, hit:
 		var part: RigidBody3D = parts[index]
 		part.global_transform = transforms[index]
 		part.reset_physics_interpolation()
-		part.collision_layer = 4
-		# Collide with world and props, excluding bullets, player and corpses.
+		# Layer 4 is in the projectile mask, so bullets stop on a corpse and
+		# push it. It collides with world and props only, never the player or
+		# other corpses.
+		part.collision_layer = CORPSE_LAYER
 		part.collision_mask = 1
 		part.freeze = false
 		part.linear_velocity = carrier_velocity

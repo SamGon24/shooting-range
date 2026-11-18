@@ -21,8 +21,9 @@ const GROUP: StringName = &"projectile_system"
 ## Maximum projectiles alive at once. A shot fired when every slot is in use
 ## is dropped and counted in `get_dropped_count`.
 @export_range(8, 1024) var capacity: int = 128
-## Physics layers a projectile can hit.
-@export_flags_3d_physics var collision_mask: int = 1 | 8
+## Physics layers a projectile can hit: world and targets (1), corpses (4)
+## and shields (8).
+@export_flags_3d_physics var collision_mask: int = 1 | 4 | 8
 @export var collide_with_areas: bool = false
 ## Air density for drag, kg/m³. Sea level at 15 °C by default.
 @export_range(0.0, 2.0, 0.001, "suffix:kg/m³") var air_density: float = ProjectileMath.SEA_LEVEL_AIR_DENSITY
