@@ -61,6 +61,8 @@ var _guard: WeaponGuard
 
 
 func _ready() -> void:
+	shot_fired.connect(func(_data: WeaponData) -> void: GameInput.vibrate("fire"))
+	reload_started.connect(func(_empty: bool, _duration: float) -> void: GameInput.vibrate("reload"))
 	add_to_group(GROUP)
 	if player == null:
 		push_error("WeaponController: `player` must be assigned.")
@@ -109,7 +111,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Presses are caught as events and applied on the next physics tick. A
 	# mouse wheel "press" lasts a single frame, and a quick click can start
 	# and end between two ticks; polling in the tick would miss both.
-	if event.is_action_pressed("weapon_next"):
+	if event.is_action_pressed("weapon_swap"):
+		request_switch_relative(1)
+	elif event.is_action_pressed("melee"):
+		if get_current_data() != null and get_current_data().delivery.kind == DeliveryData.Kind.MELEE:
+			_fire_latched = true
+	elif event.is_action_pressed("weapon_next"):
 		request_switch_relative(1)
 	elif event.is_action_pressed("weapon_prev"):
 		request_switch_relative(-1)
@@ -146,7 +153,7 @@ func _physics_process(delta: float) -> void:
 	_reload_latched = false
 	_input.trigger_pressed = controls_live and fire_pressed
 	_input.trigger_held = controls_live and (fire_pressed or Input.is_action_pressed("fire"))
-	_input.aim_held = controls_live and Input.is_action_pressed("aim")
+	_input.aim_held = controls_live and GameInput.held("aim", ViewSettings.toggle_ads)
 	_input.reload_pressed = controls_live and reload_pressed
 	_input.sprinting = player.is_sprinting
 

@@ -77,7 +77,19 @@ var ttk_from_first_shot: bool = false:
 		ttk_from_first_shot = value
 		changed.emit()
 
-const KEYS: PackedStringArray = ["fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps", "ttk_from_first_shot"]
+var stick_x: float = 180.0
+var stick_y: float = 120.0
+var stick_deadzone: float = 0.15
+var stick_dynamic: bool = false
+var stick_invert_y: bool = false
+var aim_assist: float = 0.5
+var rumble_scale: float = 0.5
+var toggle_ads: bool = false
+var toggle_crouch: bool = false
+var toggle_sprint: bool = false
+var auto_sprint: bool = false
+
+const KEYS: PackedStringArray = ["stick_x", "stick_y", "stick_deadzone", "stick_dynamic", "stick_invert_y", "aim_assist", "rumble_scale", "toggle_ads", "toggle_crouch", "toggle_sprint", "auto_sprint", "fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps", "ttk_from_first_shot"]
 
 
 func _ready() -> void:

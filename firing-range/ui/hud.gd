@@ -35,6 +35,7 @@ func _ready() -> void:
 	ViewSettings.changed.connect(_refresh_preferences)
 	_refresh_preferences()
 	feedback.feedback.connect(feedback_view.show_feedback)
+	feedback.feedback.connect(func(_kind: HitFeedback.Kind, _point: Vector3, _amount: float, _head: bool) -> void: GameInput.vibrate("hit"))
 	feedback.damage_total.connect(feedback_view.show_damage_total)
 	feedback.stats_changed.connect(_mark_stats_dirty)
 	_refresh_stats()

@@ -19,6 +19,7 @@ var _settings: SettingsPanel
 
 
 func _ready() -> void:
+	GameInput.controller_lost.connect(func() -> void: set_paused(true))
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 200
 	_shade = ColorRect.new()
@@ -76,6 +77,7 @@ func _input(event: InputEvent) -> void:
 
 
 func set_paused(paused: bool) -> void:
+	GameInput.toggles.clear()
 	if paused == visible:
 		return
 	if paused:

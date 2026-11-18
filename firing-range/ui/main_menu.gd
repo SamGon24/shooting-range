@@ -17,6 +17,7 @@ var _status: Label
 
 
 func _ready() -> void:
+	GameInput.clear()
 	var margin: MarginContainer = MenuStyle.backdrop(self)
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 70)
@@ -58,7 +59,11 @@ func _ready() -> void:
 	settings_back = MenuStyle.button("Save & Back", close_settings)
 	_settings.add_child(settings_back)
 	_panel = SettingsPanel.new()
-	_settings.add_child(_panel)
+	var settings_scroll := ScrollContainer.new()
+	settings_scroll.custom_minimum_size = Vector2(620, 400)
+	settings_scroll.follow_focus = true
+	_settings.add_child(settings_scroll)
+	settings_scroll.add_child(_panel)
 	_status = MenuStyle.label("Changes apply live. Save & Back keeps them for next time.", 14, MenuStyle.MUTED)
 	_settings.add_child(_status)
 	var focusables: Array[Control] = [settings_back]

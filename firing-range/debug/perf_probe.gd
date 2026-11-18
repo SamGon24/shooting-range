@@ -136,6 +136,8 @@ func _select_weapon() -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	if OS.get_cmdline_user_args().has("--perf-controller") and _player != null:
+		_player._controller_look(_delta, true)
 	if _weapons == null or _weapons.get_current_data() == null:
 		return
 	if _cold and _elapsed < WARMUP_SECONDS:

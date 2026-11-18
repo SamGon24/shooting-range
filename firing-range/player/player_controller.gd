@@ -119,14 +119,15 @@ func _process(_delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_controller_look(delta)
 	_previous_height = _height
 	_previous_recoil = Vector2(recoil_pitch, recoil_yaw)
 
 	var on_floor: bool = is_on_floor()
 	var move_input: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var crouch_held: bool = Input.is_action_pressed("crouch")
+	var crouch_held: bool = GameInput.held("crouch", ViewSettings.toggle_crouch)
 	var crouch_pressed: bool = Input.is_action_just_pressed("crouch")
-	var sprint_held: bool = Input.is_action_pressed("sprint")
+	var sprint_held: bool = GameInput.held("sprint", ViewSettings.toggle_sprint) or ViewSettings.auto_sprint
 
 	_tick_timers(delta, on_floor)
 	if Input.is_action_just_pressed("jump"):
@@ -411,3 +412,31 @@ func _update_head(fraction: float) -> void:
 	_head.global_transform = Transform3D(
 		Basis.from_euler(Vector3(_view_pitch(pitch + recoil.x), yaw + recoil.y, 0.0)), origin + Vector3.UP * eye
 	)
+
+
+func _controller_look(delta: float, probe: bool = false) -> void:
+	if not probe and (not mouse_look_enabled or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED or not GameInput.controller_active):
+		return
+	var stick := Vector2(Input.get_axis("look_left", "look_right"), Input.get_axis("look_up", "look_down"))
+	if probe:
+		stick = Vector2(0.3, 0.2)
+	if stick.is_zero_approx():
+		return
+	var over_target: bool = false
+	if ViewSettings.aim_assist > 0.0:
+		var origin: Vector3 = get_eye_position()
+		var query := PhysicsRayQueryParameters3D.create(origin, origin - get_aim_basis().z * 300.0, 1 | 8)
+		query.collide_with_areas = true
+		query.exclude = [get_rid()]
+		var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+		var zone := hit.get("collider") as TargetHitZone
+		over_target = zone != null and zone.dummy != null and not zone.dummy.state.dead
+	var rotation_input: Vector2 = ControllerMath.look(stick, delta, Vector2(ViewSettings.stick_x, ViewSettings.stick_y), clampf(ViewSettings.stick_deadzone, 0.0, 0.95), ViewSettings.stick_dynamic, ViewSettings.stick_invert_y, look_sensitivity_scale, ViewSettings.aim_assist, over_target)
+	# Same manual-look recoil absorption as the mouse; assist only scales input.
+	var horizontal: Vector2 = RecoilLogic.absorb(recoil_yaw, rotation_input.x)
+	var vertical: Vector2 = RecoilLogic.absorb(recoil_pitch, rotation_input.y)
+	_previous_recoil += Vector2(vertical.x - recoil_pitch, horizontal.x - recoil_yaw)
+	recoil_yaw = horizontal.x
+	recoil_pitch = vertical.x
+	yaw = wrapf(yaw + horizontal.y, -PI, PI)
+	pitch = clampf(pitch + vertical.y, -MAX_PITCH, MAX_PITCH)

@@ -15,6 +15,26 @@ func _ready() -> void:
 	_add_slider("Effects volume", "effects_volume", 0.0, 1.0, 0.05)
 	_add_toggle("Show gameplay FPS", "show_fps")
 	_add_toggle("Time to kill starts at the first shot", "ttk_from_first_shot")
+	_add_slider("Controller X degrees/sec", "stick_x", 30, 360, 5)
+	_add_slider("Controller Y degrees/sec", "stick_y", 30, 360, 5)
+	_add_slider("Stick radial dead zone", "stick_deadzone", 0, 0.4, 0.01)
+	_add_slider("Aim slowdown strength (0 = off)", "aim_assist", 0, 1, 0.05)
+	_add_slider("Rumble (0 = off)", "rumble_scale", 0, 1, 0.05)
+	_add_toggle("Dynamic stick ramp (off = linear)", "stick_dynamic")
+	_add_toggle("Controller invert Y", "stick_invert_y")
+	_add_toggle("Toggle ADS", "toggle_ads")
+	_add_toggle("Toggle crouch / slide", "toggle_crouch")
+	_add_toggle("Toggle sprint", "toggle_sprint")
+	_add_toggle("Auto sprint", "auto_sprint")
+	var remap := Button.new()
+	remap.text = "Remap controls"
+	remap.pressed.connect(func() -> void:
+		var dialog := BindingMenu.new()
+		add_child(dialog)
+		dialog.popup_centered(Vector2i(620, 580)))
+	add_child(remap)
+	focusables.append(remap)
+
 
 
 func refresh() -> void:
