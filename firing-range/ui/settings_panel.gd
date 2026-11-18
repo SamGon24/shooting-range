@@ -26,6 +26,8 @@ func _ready() -> void:
 	_add_toggle("Toggle crouch / slide", "toggle_crouch")
 	_add_toggle("Toggle sprint", "toggle_sprint")
 	_add_toggle("Auto sprint", "auto_sprint")
+	_add_toggle("Hybrid lens view (performance budget exceeded)", "hybrid_lens")
+	(focusables.back() as CheckButton).disabled = not HybridOptic.LENS_MODE_AVAILABLE
 	var remap := Button.new()
 	remap.text = "Remap controls"
 	remap.pressed.connect(func() -> void:

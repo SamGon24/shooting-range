@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="AttachmentData" load_steps=5 format=3]
+[ext_resource type="Script" path="res://weapons/attachments/attachment_data.gd" id="1"]
+[ext_resource type="Script" path="res://weapons/attachments/stat_modifier.gd" id="2"]
+[ext_resource type="PackedScene" path="res://weapons/attachments/parts/hybrid_35x.tscn" id="3"]
+
+[sub_resource type="Resource" id="m0"]
+script = ExtResource("2")
+stat = &"ads_time"
+operation = 0
+value = 0.06
+
+[resource]
+script = ExtResource("1")
+id = &"hybrid_35x"
+display_name = "3.5x hybrid"
+slot = 2
+compatible_classes = PackedInt32Array(0, 1, 3)
+modifiers = Array[ExtResource("2")]([SubResource("m0")])
+part_scene = ExtResource("3")
+optic_kind = 5
+optic_fov_degrees = 20.63208701419401
+optic_sight_height_m = 0.07
+
+optic_magnification = 3.5

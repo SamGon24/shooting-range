@@ -16,7 +16,7 @@ extends Resource
 var base_definition: WeaponData
 @export var bore_height_m: float = 0.01
 @export var recoil_scale: float = 1.0
-@export_enum("Iron:0", "Red dot:1", "2x:2", "4x:3", "8x:4") var optic_kind: int = 0
+@export_enum("Iron:0", "Red dot:1", "2x:2", "4x:3", "8x:4", "Hybrid 3.5x:5") var optic_kind: int = 0
 var _legacy_automatic: bool = true
 
 @export var display_name: String = "Weapon"
@@ -155,3 +155,6 @@ func definition() -> WeaponData:
 
 func wants_shot(held: bool, pressed: bool) -> bool:
 	return fire_mode.wants_shot(held, pressed) if fire_mode != null else (held if automatic else pressed)
+
+## Nonzero only for optics whose zoom follows the selected player FOV.
+@export var optic_magnification: float = 0.0

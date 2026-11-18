@@ -11,6 +11,7 @@ extends CanvasLayer
 ## Stats are recorded immediately; throttle expensive text shaping.
 @export var stats_update_seconds: float = 0.2
 
+var hybrid: HybridOptic
 var _stats_dirty: bool = false
 var _stats_elapsed: float = 0.0
 
@@ -32,6 +33,11 @@ var _view: WeaponView
 
 
 func _ready() -> void:
+	hybrid = HybridOptic.new()
+	hybrid.name = "HybridOptic"
+	# Draw below feedback and text, above the world.
+	add_child(hybrid)
+	move_child(hybrid, 0)
 	ViewSettings.changed.connect(_refresh_preferences)
 	_refresh_preferences()
 	feedback.feedback.connect(feedback_view.show_feedback)
@@ -73,6 +79,7 @@ func _process(delta: float) -> void:
 	var scoped: bool = _view != null and _view.is_scope_view_active()
 	var aim: float = _controller.get_aim_blend(Engine.get_physics_interpolation_fraction())
 	var data: WeaponData = _controller.get_current_data()
+	hybrid.update_view(data, aim, get_viewport().get_camera_3d())
 	_scope.visible = scoped or (data != null and data.optic_kind == 1 and aim >= red_dot_show_aim_blend)
 	_crosshair.visible = not scoped and aim < crosshair_hide_aim_blend
 	var camera: Camera3D = get_viewport().get_camera_3d()

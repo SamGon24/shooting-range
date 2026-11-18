@@ -77,7 +77,7 @@ func test_pistol_accepts_only_three_slots_and_other_secondaries_accept_none() ->
 	var catalog := load("res://weapons/attachments/data/catalog.tres") as AttachmentCatalog
 	var pistol := WeaponBuild.new(PISTOL)
 	for attachment: AttachmentData in catalog.choices:
-		var accepts: bool = attachment.slot in [WeaponTypes.Slot.MUZZLE, WeaponTypes.Slot.OPTIC, WeaponTypes.Slot.MAGAZINE]
+		var accepts: bool = attachment.slot in [WeaponTypes.Slot.MUZZLE, WeaponTypes.Slot.OPTIC, WeaponTypes.Slot.MAGAZINE] and attachment.id != &"hybrid_35x"
 		assert_eq(pistol.set_attachment(attachment.slot, attachment), accepts)
 		if accepts:
 			var computed: WeaponData = pistol.get_stats()

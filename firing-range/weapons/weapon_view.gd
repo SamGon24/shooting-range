@@ -158,6 +158,8 @@ func _process(delta: float) -> void:
 
 	camera_feel.aim_blend = aim
 	camera_feel.aim_fov_degrees = _current_data.ads_fov_degrees
+	if _current_data.optic_kind == 5:
+		camera_feel.aim_fov_degrees = _current_data.definition().ads_fov_degrees if HybridOptic.uses_lens() else OpticMath.fov_for_zoom(ViewSettings.fov_degrees, _current_data.optic_magnification)
 
 	_update_sway(delta)
 	_update_bob(delta)
@@ -189,7 +191,7 @@ func _process(delta: float) -> void:
 	_pivot.position = offset
 	_pivot.rotation = angles
 
-	_set_model_shown(_current_data.definition(), not (_current_data.scoped and aim >= scope_hide_threshold))
+	_set_model_shown(_current_data.definition(), not ((_current_data.scoped or _current_data.optic_kind == 5) and aim >= scope_hide_threshold))
 
 	if _flash_time_left > 0.0:
 		_flash_time_left -= delta
@@ -351,7 +353,7 @@ func _on_shot_fired(data: WeaponData) -> void:
 	# later, and the eject step skips itself while no model is on screen.
 	_queue_casing(data)
 
-	if is_scope_view_active() or (data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE):
+	if is_scope_view_active() or (data.optic_kind == 5 and camera_feel.aim_blend >= scope_hide_threshold) or (data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE):
 		return
 	_flash_mesh.rotation.z = randf() * TAU
 	_flash_mesh.scale = Vector3.ONE

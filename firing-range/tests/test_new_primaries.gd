@@ -106,6 +106,9 @@ func test_all_catalog_attachments_fit_each_new_primary_without_mutating_base() -
 	for data: WeaponData in GUNS:
 		var build := WeaponBuild.new(data)
 		for attachment: AttachmentData in catalog.choices:
+			if attachment.id == &"hybrid_35x" and data.weapon_class == WeaponTypes.Class.SHOTGUN:
+				assert_false(build.set_attachment(attachment.slot, attachment))
+				continue
 			assert_true(build.set_attachment(attachment.slot, attachment))
 			assert_not_null(build.get_stats())
 			build.set_attachment(attachment.slot, null)

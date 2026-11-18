@@ -46,6 +46,7 @@ var _player: PlayerController
 var _elapsed: float = 0.0
 var _last_ticks_usec: int = 0
 var _frame_times_usec: PackedInt64Array = PackedInt64Array()
+var _lens_frames: int = 0
 var _focused_frames: int = 0
 var _firing: bool = false
 var _shots: int = 0
@@ -92,6 +93,10 @@ func _count_shots() -> void:
 	_weapons = weapons
 	if weapons != null:
 		_select_weapon()
+		if OS.get_cmdline_user_args().has("--perf-hybrid"):
+			weapons.request_attachment(WeaponTypes.Slot.OPTIC, preload("res://weapons/attachments/data/hybrid_35x.tres"))
+			Input.action_press("aim")
+			ViewSettings.hybrid_lens = OS.get_cmdline_user_args().has("--perf-lens")
 		weapons.shot_fired.connect(func(_data: WeaponData) -> void: _shots += 1)
 		weapons.reload_started.connect(func(_empty: bool, _duration: float) -> void: _reloads += 1)
 	var view := get_tree().get_first_node_in_group(WeaponView.GROUP) as WeaponView
@@ -209,6 +214,16 @@ func _process(delta: float) -> void:
 		_player.yaw = deg_to_rad(SWEEP_DEGREES) * sweep
 		_player.pitch = deg_to_rad(-4.0)
 
+	if OS.get_cmdline_user_args().has("--perf-hybrid") and _weapons != null:
+		var data: WeaponData = _weapons.get_current_data()
+		if data != null and data.optic_kind != 5:
+			_weapons.request_attachment(WeaponTypes.Slot.OPTIC, preload("res://weapons/attachments/data/hybrid_35x.tres"))
+		# Keep the optic visible through reloads for the worst-case render budget.
+		var overlay := get_tree().get_first_node_in_group(&"hybrid_optic") as HybridOptic
+		if overlay != null and data != null:
+			overlay.update_view(data, 1.0, get_viewport().get_camera_3d())
+			if overlay.lens_active and _elapsed >= WARMUP_SECONDS:
+				_lens_frames += 1
 	if _elapsed < WARMUP_SECONDS:
 		return
 	_frame_times_usec.append(frame_usec)
@@ -259,6 +274,9 @@ func _report_and_quit() -> void:
 	var viewport_size: Vector2i = get_viewport().get_visible_rect().size
 	print("=== PERF PROBE ===")
 	print("renderer:        %s" % RenderingServer.get_current_rendering_method())
+	if OS.get_cmdline_user_args().has("--perf-hybrid"):
+		print("hybrid mode:     ", "lens" if HybridOptic.uses_lens() else "fullscreen")
+		print("lens frames:     %d / %d" % [_lens_frames, count])
 	print("adapter:         %s" % RenderingServer.get_video_adapter_name())
 	print("window pixels:   %dx%d" % [window_size.x, window_size.y])
 	print("vsync mode:      %s" % _vsync_mode_name(DisplayServer.window_get_vsync_mode()))

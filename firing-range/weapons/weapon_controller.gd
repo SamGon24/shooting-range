@@ -170,7 +170,10 @@ func _physics_process(delta: float) -> void:
 		player.add_recoil(deg_to_rad(kick.y), -deg_to_rad(kick.x))
 	player.recover_recoil(deg_to_rad(recoil.recovery_allowance(delta)))
 
-	player.look_sensitivity_scale = lerpf(1.0, logic.data.ads_sensitivity_scale * ViewSettings.ads_sensitivity_multiplier, logic.aim_progress)
+	var ads_scale: float = logic.data.ads_sensitivity_scale
+	if logic.data.optic_kind == 5:
+		ads_scale = OpticMath.sensitivity_for_zoom(logic.data.optic_magnification)
+	player.look_sensitivity_scale = lerpf(1.0, ads_scale * ViewSettings.ads_sensitivity_multiplier, logic.aim_progress)
 	_update_held_effects()
 
 	if logic.ammo != _last_ammo:

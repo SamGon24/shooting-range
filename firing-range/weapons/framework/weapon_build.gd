@@ -18,7 +18,11 @@ func can_attach(slot: WeaponTypes.Slot, attachment: AttachmentData) -> bool:
 	if attachment != null:
 		if attachment.slot != slot or not attachment.accepts(base.weapon_class):
 			return false
-		if attachment.optic_kind < -1 or attachment.optic_kind > 4 or not is_finite(attachment.optic_fov_degrees) or not is_finite(attachment.optic_sight_height_m):
+		if attachment.optic_kind < -1 or attachment.optic_kind > 5 or not is_finite(attachment.optic_fov_degrees) or not is_finite(attachment.optic_sight_height_m):
+			return false
+		if not is_finite(attachment.optic_magnification) or attachment.optic_magnification < 0.0:
+			return false
+		if attachment.optic_kind == 5 and attachment.optic_magnification <= 1.0:
 			return false
 		for modifier: StatModifier in attachment.modifiers:
 			if modifier == null or not LIMITS.bounds.has(modifier.stat) or not is_finite(modifier.value):
@@ -70,7 +74,8 @@ func get_stats() -> WeaponData:
 		_computed.optic_kind = optic.optic_kind
 		_computed.ads_fov_degrees = optic.optic_fov_degrees
 		_computed.sight_height_m = optic.optic_sight_height_m
-		_computed.scoped = optic.optic_kind >= 2
+		_computed.scoped = optic.optic_kind >= 2 and optic.optic_kind <= 4
+		_computed.optic_magnification = optic.optic_magnification
 	var values: Dictionary[StringName, float] = {}
 	for stat: StringName in LIMITS.bounds:
 		values[stat] = _read(stat)

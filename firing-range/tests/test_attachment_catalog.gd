@@ -11,7 +11,7 @@ func test_catalog_has_unique_compatible_mounted_tradeoffs_in_every_slot() -> voi
 		assert_false(ids.has(attachment.id))
 		ids[attachment.id] = true
 		assert_true(attachment.accepts(RIFLE.weapon_class))
-		assert_true(attachment.accepts(SNIPER.weapon_class))
+		assert_eq(attachment.accepts(SNIPER.weapon_class), attachment.id != &"hybrid_35x")
 		var part := attachment.part_scene.instantiate() as Node3D
 		assert_not_null(part.get_node_or_null(attachment.part_mount))
 		part.free()
@@ -25,7 +25,7 @@ func test_catalog_has_unique_compatible_mounted_tradeoffs_in_every_slot() -> voi
 		assert_true(benefit and cost, attachment.display_name + " is a trade-off")
 	for slot: int in WeaponTypes.SLOT_NAMES.size():
 		var count: int = CATALOG.for_slot(slot as WeaponTypes.Slot, RIFLE.weapon_class).size()
-		assert_eq(count, 5 if slot == WeaponTypes.Slot.OPTIC else 3)
+		assert_eq(count, 6 if slot == WeaponTypes.Slot.OPTIC else 3)
 
 
 func test_optics_set_zoom_reticle_sight_height_and_restore_native_stats() -> void:
@@ -37,7 +37,7 @@ func test_optics_set_zoom_reticle_sight_height_and_restore_native_stats() -> voi
 			assert_almost_eq(computed.ads_fov_degrees, optic.optic_fov_degrees, 0.000001)
 			assert_eq(computed.optic_kind, optic.optic_kind)
 			assert_almost_eq(computed.sight_height_m, optic.optic_sight_height_m, 0.000001)
-			assert_eq(computed.scoped, optic.optic_kind >= 2)
+			assert_eq(computed.scoped, optic.optic_kind >= 2 and optic.optic_kind <= 4)
 			assert_almost_eq(computed.ads_position.y + base.bore_height_m + computed.sight_height_m, 0.0, 0.000001)
 		build.set_attachment(WeaponTypes.Slot.OPTIC, null)
 		assert_eq(build.get_stats().ads_fov_degrees, base.ads_fov_degrees)
