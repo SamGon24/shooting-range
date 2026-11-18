@@ -158,8 +158,8 @@ func _process(delta: float) -> void:
 
 	camera_feel.aim_blend = aim
 	camera_feel.aim_fov_degrees = _current_data.ads_fov_degrees
-	if _current_data.optic_kind == 5:
-		camera_feel.aim_fov_degrees = _current_data.definition().ads_fov_degrees if HybridOptic.uses_lens() else OpticMath.fov_for_zoom(ViewSettings.fov_degrees, _current_data.optic_magnification)
+	if HybridOptic.supports(_current_data):
+		camera_feel.aim_fov_degrees = ViewSettings.fov_degrees
 
 	_update_sway(delta)
 	_update_bob(delta)
@@ -201,7 +201,7 @@ func _process(delta: float) -> void:
 
 ## True when the scoped view should replace the viewmodel on screen.
 func is_scope_view_active() -> bool:
-	if _current_data == null or not _current_data.scoped:
+	if _current_data == null or not _current_data.scoped or HybridOptic.supports(_current_data):
 		return false
 	return camera_feel.aim_blend >= scope_hide_threshold
 
@@ -353,7 +353,7 @@ func _on_shot_fired(data: WeaponData) -> void:
 	# later, and the eject step skips itself while no model is on screen.
 	_queue_casing(data)
 
-	if is_scope_view_active() or (data.optic_kind == 5 and camera_feel.aim_blend >= scope_hide_threshold) or (data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE):
+	if is_scope_view_active() or (HybridOptic.supports(data) and camera_feel.aim_blend >= scope_hide_threshold) or (data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE):
 		return
 	_flash_mesh.rotation.z = randf() * TAU
 	_flash_mesh.scale = Vector3.ONE

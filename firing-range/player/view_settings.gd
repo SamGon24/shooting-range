@@ -89,10 +89,7 @@ var toggle_crouch: bool = false
 var toggle_sprint: bool = false
 var auto_sprint: bool = false
 
-## Experimental picture-in-picture hybrid optic; runtime performance gate applies.
-var hybrid_lens: bool = false
-
-const KEYS: PackedStringArray = ["hybrid_lens", "stick_x", "stick_y", "stick_deadzone", "stick_dynamic", "stick_invert_y", "aim_assist", "rumble_scale", "toggle_ads", "toggle_crouch", "toggle_sprint", "auto_sprint", "fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps", "ttk_from_first_shot"]
+const KEYS: PackedStringArray = ["stick_x", "stick_y", "stick_deadzone", "stick_dynamic", "stick_invert_y", "aim_assist", "rumble_scale", "toggle_ads", "toggle_crouch", "toggle_sprint", "auto_sprint", "fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps", "ttk_from_first_shot"]
 
 
 func _ready() -> void:

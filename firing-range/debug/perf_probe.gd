@@ -46,6 +46,7 @@ var _player: PlayerController
 var _elapsed: float = 0.0
 var _last_ticks_usec: int = 0
 var _frame_times_usec: PackedInt64Array = PackedInt64Array()
+var _probe_optic: AttachmentData
 var _lens_frames: int = 0
 var _focused_frames: int = 0
 var _firing: bool = false
@@ -73,6 +74,10 @@ func _ready() -> void:
 		set_process(false)
 		set_physics_process(false)
 		return
+	if OS.get_cmdline_user_args().has("--perf-4x"):
+		_probe_optic = preload("res://weapons/attachments/data/scope_4x.tres")
+	elif OS.get_cmdline_user_args().has("--perf-hybrid"):
+		_probe_optic = preload("res://weapons/attachments/data/hybrid_35x.tres")
 	_firing = OS.get_cmdline_user_args().has(FIRE_ARGUMENT)
 	_reload_stress = _firing and OS.get_cmdline_user_args().has(RELOAD_ARGUMENT)
 	_cold = _firing and OS.get_cmdline_user_args().has(COLD_ARGUMENT)
@@ -93,10 +98,9 @@ func _count_shots() -> void:
 	_weapons = weapons
 	if weapons != null:
 		_select_weapon()
-		if OS.get_cmdline_user_args().has("--perf-hybrid"):
-			weapons.request_attachment(WeaponTypes.Slot.OPTIC, preload("res://weapons/attachments/data/hybrid_35x.tres"))
+		if _probe_optic != null:
+			weapons.request_attachment(WeaponTypes.Slot.OPTIC, _probe_optic)
 			Input.action_press("aim")
-			ViewSettings.hybrid_lens = OS.get_cmdline_user_args().has("--perf-lens")
 		weapons.shot_fired.connect(func(_data: WeaponData) -> void: _shots += 1)
 		weapons.reload_started.connect(func(_empty: bool, _duration: float) -> void: _reloads += 1)
 	var view := get_tree().get_first_node_in_group(WeaponView.GROUP) as WeaponView
@@ -214,10 +218,10 @@ func _process(delta: float) -> void:
 		_player.yaw = deg_to_rad(SWEEP_DEGREES) * sweep
 		_player.pitch = deg_to_rad(-4.0)
 
-	if OS.get_cmdline_user_args().has("--perf-hybrid") and _weapons != null:
+	if _probe_optic != null and _weapons != null:
 		var data: WeaponData = _weapons.get_current_data()
-		if data != null and data.optic_kind != 5:
-			_weapons.request_attachment(WeaponTypes.Slot.OPTIC, preload("res://weapons/attachments/data/hybrid_35x.tres"))
+		if data != null and data.optic_kind != _probe_optic.optic_kind:
+			_weapons.request_attachment(WeaponTypes.Slot.OPTIC, _probe_optic)
 		# Keep the optic visible through reloads for the worst-case render budget.
 		var overlay := get_tree().get_first_node_in_group(&"hybrid_optic") as HybridOptic
 		if overlay != null and data != null:
@@ -274,8 +278,9 @@ func _report_and_quit() -> void:
 	var viewport_size: Vector2i = get_viewport().get_visible_rect().size
 	print("=== PERF PROBE ===")
 	print("renderer:        %s" % RenderingServer.get_current_rendering_method())
-	if OS.get_cmdline_user_args().has("--perf-hybrid"):
-		print("hybrid mode:     ", "lens" if HybridOptic.uses_lens() else "fullscreen")
+	if _probe_optic != null:
+		print("optic:           ", _probe_optic.display_name)
+		print("optic view:      screen texture lens")
 		print("lens frames:     %d / %d" % [_lens_frames, count])
 	print("adapter:         %s" % RenderingServer.get_video_adapter_name())
 	print("window pixels:   %dx%d" % [window_size.x, window_size.y])
