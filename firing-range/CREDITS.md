@@ -12,3 +12,5 @@ None from third parties.
 ## Tooling (not shipped in the game)
 
 - [GUT 9.7.1](https://github.com/bitwes/Gut) by Butch Wesley, MIT. Unit test framework, vendored in `addons/gut/`.
+
+The 3.5× hybrid optic uses an original shortened primitive tube model and an original procedural etched reticle / edge frame. Its experimental lens mask is an original shader; no external art is used.

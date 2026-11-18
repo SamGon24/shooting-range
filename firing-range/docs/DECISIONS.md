@@ -1386,3 +1386,112 @@ Final clean regression after the assertion correction and binding review:
 passes 9/9 with 56 assertions. Main-menu and range headless boot checks are
 clean. Milestone 13 is implemented and stops here for the physical-controller
 play-test; hardware validation is not marked complete.
+
+
+## Milestone 14: 3.5× hybrid optic
+
+The new `hybrid_35x` attachment is compatible with rifle, SMG and LMG classes
+only. It uses optic kind 5, 3.5× magnification, a 0.07 m sight height, +0.06 s
+ADS time and an original 0.12 m primitive tube model. Its authored FOV is
+20.632087014° at the existing 65° Armory comparison reference. At runtime it
+follows the selected player FOV: `2 atan(tan(hip_fov/2) / 3.5)`. For example,
+71° hip gives 23.03804° ADS. Other optics retain their fixed authored FOVs.
+Hybrid sensitivity is 1/3.5 at full ADS on both input devices, multiplied by the
+existing user ADS multiplier. Transition scaling uses the existing aim progress.
+
+Mode A is the default. `HybridOptic` draws an etched cross/ticks and a thin
+screen-edge frame on a transparent Control beneath HUD feedback and text.
+The scope blackout Control stays hidden: only optic kinds 2–4 use that path.
+The hybrid hides the viewmodel once aimed, using the same remove-from-tree
+workaround as the older scopes. It also skips flash/smoke while that model is
+absent; the first spike exposed an invalid flash-transform access which was
+fixed and covered by firing in the hybrid integration test. The overlay has no
+access to recoil, spread, zero calibration or projectile state. Its center is
+viewport center even while the gameplay camera rotates under recoil.
+
+### Mode B spike and rejection
+
+The prototype shares the main World3D through a 256×256 SubViewport, never a
+second physics simulation. A second camera copies the rendered camera transform
+(including recoil) and a circular mask displays its texture in a 300-pixel lens
+at 720p. The rest of the view retains the weapon's native ADS FOV. To match the
+full-screen 3.5× angular scale, lens vertical FOV is
+`2 atan(tan(hip_fov/2) * (300/720) / 3.5)`; simply using the full-screen FOV in a
+small lens would under-magnify. Aimed sensitivity still follows the lens zoom.
+The viewport is created lazily and stops rendering when hidden.
+
+A normal-transition spike reached 91.8 fps uncapped, but allowed the lens to stop
+during reloads. The stricter worst-case probe keeps the overlay active through
+reloads and reports active lens frame counts. That focused run reached only
+**69.2 fps**, lens active **700/700 measured frames**, with 251 sampled draw calls
+and 5,680 primitives. It fails the 90 fps retention gate. **Mode B is disabled**
+by `HybridOptic.LENS_MODE_AVAILABLE = false`. The setting remains visible but
+disabled with the performance reason. `uses_lens()` checks the gate as well as
+the saved preference, so an existing true preference falls back to Mode A and
+allocates no second viewport. The prototype stays available for a future
+performance investigation, with no override in ordinary gameplay.
+
+### Verification and performance
+
+The first full run found legacy assumptions that every catalogue optic fits all
+primaries/pistols, every magnified optic uses blackout, and every optic has a
+fixed runtime FOV. Those assertions now explicitly account for the hybrid's
+class restrictions, transparent presentation and FOV-relative magnification;
+the existing expectations for older optics are retained.
+
+New deterministic checks cover tangent magnification at 50/65/100° FOV,
+zoom-scaled sensitivity, lens angular scale, compatibility and invalid zoom
+rejection, live HUD blackout inactivity, no viewport allocation in Mode A,
+reticle position while the camera recoils, firing with a detached viewmodel,
+and safe fallback when a saved lens preference is true. The enabled prototype's
+camera-copy/lifecycle test passed before the performance gate was closed.
+Movie Maker frames were inspected for Mode A and the prototype Mode B; both
+leave peripheral scenery visible. Mode A shows only the etched reticle and
+thin frame, while the prototype confines extra magnification to its round lens.
+
+Performance uses the target Iris Plus 655, Compatibility, 1280×720, the existing
+2 s warm-up / 10 s measurement, 54 awake ragdoll parts, eight awake props, three
+driven steel hinges, firing and the full HUD. The probe keeps the hybrid overlay
+active through reloads to measure peak renderer cost. No projectile was dropped.
+All rows below were focused for 100% of measured frames.
+
+| Run | Average | 1% low | Worst frame | Frames >25 ms |
+|---|---|---|---|---|
+| Prototype lens, uncapped, continuous lens | 69.2 fps | 16.2 fps | 244.50 ms | 5 |
+| Mode A rifle, uncapped | 106.1 fps | 25.2 fps | 236.38 ms | 1 |
+| Mode A rifle, capped | 58.3 fps | 11.5 fps | 310.17 ms | 4 |
+| Native rifle ADS baseline, capped | 58.9 fps | 14.7 fps | 229.80 ms | 11 |
+| Mode A SMG, uncapped | 104.8 fps | 61.6 fps | 17.69 ms | 0 |
+| Mode A LMG, uncapped | 166.6 fps | 55.1 fps | 31.53 ms | 2 |
+
+The native ADS baseline reproduces the existing first-use hitch without a
+hybrid attachment, so this is not evidence of a new hybrid-only stall. It also
+does not prove the hybrid's larger capped spike has precisely the same cause.
+**The strict no-frame-over-25-ms budget is not met in these cold runs.** Mode A
+clears the uncapped average requirement with only four extra sampled draw calls
+(191 versus 187 native). Mode B is the costly new feature and is disabled.
+The earlier ~220 ms first-hit issue remains open; no warm-up extension hides
+it in these measurements. An initial lens run with script errors and another
+with only 25% focus were excluded rather than used for the retention decision.
+
+Real-controller testing is still pending under the owner's explicit instruction
+to proceed with Milestone 14 before that play-test. No physical model or connection
+type was tested; input parity here uses the existing Armory/InputMap controls
+and shared sensitivity multiplier. README has the numbered human checklist.
+
+The SMG and LMG Mode A runs also clear 90 fps uncapped. Both sampled 190
+draw calls; the SMG fired 96 shots / three magazine drops and the LMG fired
+100 shots / one drop. The LMG still has two frames above 25 ms, so the table
+does not establish a universal frame-time ceiling. These are class checks with
+the new optic, not a repeat of the full fitted-attachment matrix.
+
+Final verification: **436/436 headless GUT tests, 7,973 assertions, 270.622 s**,
+with clean main-menu and range ten-frame headless boots and a clean final import.
+The 432 Milestone 13 tests remain green; four hybrid tests cover the new behavior.
+Existing scope/input behavior remains covered, including the unchanged mouse-look
+regression. The isolated enabled-prototype run passed 4/4 tests with 39 assertions
+before disabling Mode B; the final suite verifies the disabled fallback instead.
+
+Milestone 14 implementation stops here for the README play-test. The first-use
+hitch and the strict cold-run frame-time budget remain unresolved. No physical
+controller validation or Milestone 15 work is included.
