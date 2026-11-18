@@ -1162,3 +1162,121 @@ Movie Maker frames were inspected for the main menu and shared settings with foc
 Final verification: **389/389 headless GUT tests, 7,615 assertions, 224.464 s**, clean exit with no engine errors or orphan warnings. The main menu, Armory, saved-loadout range entry and direct range scene each passed a separate ten-frame headless boot with zero errors / warnings. New tests cover isolated disk round trips, role / catalog / attachment rejection, safe file fallback, independent drafts and startup builds, actual comparison values, all nine preview models, 720p layout, keyboard / simulated controller navigation, stat scrolling, saving / cancellation, settings reuse and transition input / lifetime boundaries.
 
 Human play-tests remain pending for Milestones **3–11**, including physical controller input, preview readability, comparison usefulness and the full saved-loadout-to-range flow. README contains the Milestone 11 checklist. Stop for that play-test before beginning Milestone 12.
+
+## Milestone 12: polish pass
+
+### Angle-limited ragdoll joints
+
+The five `PinJoint3D`s are now `ConeTwistJoint3D`s. Each joint's local X axis is its twist axis and points along the limb it holds: up for the neck, down for shoulders and hips. The swing limit is therefore how far the limb may leave its hanging pose and the twist limit is how far it may roll about its own length. Joints are re-placed with the dummy's basis at every activation, because a rail carrier can have moved it.
+
+| Joint (part) | Swing | Twist |
+|---|---|---|
+| Neck (head) | 40° | 50° |
+| Left / right shoulder (arm) | 85° | 45° |
+| Left / right hip (leg) | 55° | 30° |
+
+Limits are `swing_limit_degrees` / `twist_limit_degrees` exports on `DummyRagdoll`, in `ATTACHED_PARTS` order. **Jolt enforces them softly and Godot exposes no stiffness for it**, so a hard hit overshoots. The test kicks every part with the same seeded impulses every 25 ticks (3 m/s per kg) with and without limits. Free joints reached 148–174° of swing and 177–180° of twist (limbs completely flipped). Limited joints reached 52 / 87 / 57 / 89 / 60° of swing and 63 / 51 / 40 / 51 / 35° of twist in the order neck, left arm, left leg, right arm, right leg, an overshoot of at most 12° of swing and 13° of twist. Much harder kicks (6 m/s per kg, ten times) overshot by up to 8.5° of swing and 28° of twist. The tests allow 22° and also check that no limb ever folds past 120° of swing.
+
+### Corpses are solid to bullets, and still never score
+
+Active ragdoll parts are `RagdollPart` rigid bodies on layer **4** (`DummyRagdoll.CORPSE_LAYER`); the projectile mask is now `1 | 4 | 8`. They collide with the world and props only (mask 1), as before. `TargetHits` dispatches a hit on one to `RagdollPart.receive_hit`, which applies `momentum() × impulse_scale` at the point of impact. The 24 kg torso gains about 0.1 m/s from a rifle round and 0.4 m/s from a sniper round; the 3–4 kg limbs and head visibly move.
+
+A corpse takes no damage and emits no signal: the killed dummy's zones are off every layer, so a round can never reach its health again. The range statistics see only the shot, so a corpse hit is a **miss**, exactly like a shot through a down dummy. Impact sparks and the tick play; marks do not (a rigid body is not a static surface). A rocket's explosive hit on a corpse detonates normally. Melee casts keep their mask (1 | 8) and do not hit corpses, which keeps the knife unchanged. After the 3 s reset the parts leave every layer, and a test checks that a round then reaches the wall behind.
+
+### Adjustable sniper zero
+
+`WeaponData.zero_options` lists the distances the player may cycle with **Z** (`zero_cycle`, physical key 90). Only the Longwatch sets it: 100, 200, 300 m, with `zero_distance_m` 100 as the default. The choice lives in `WeaponRuntime.selected_zero_m`, per weapon, so it survives switching, the exchange of primaries, and attachment rebuilds (each rebuild replaces the stat snapshot, not the runtime). `get_zero_distance()` is the selection or the Resource value; `_calibrate_zero` uses it. A change runs the existing `SightZeroing.solve` bisection once; nothing recalculates per frame. Only rounds fired afterwards use the new angle. `request_zero` rejects any distance not in the weapon's options, and `cycle_zero` is false for weapons with fewer than two. Cycling picks the option nearest the current zero and wraps.
+
+The HUD shows `ZERO 200 m  [Z]` in a separate label above the weapon name (gold, 14 pt), visible only for adjustable weapons. It is separate so the weapon-name text that Phase 1 tests pin stays unchanged. The zero is session-only: it is not in `user://loadout.cfg`. With the sniper's 900 m/s round, a 100 m zero lands only 6.7 cm low at 200 m, and 300 m is the visible case.
+
+### Time-to-kill clock from the first shot
+
+`ViewSettings.ttk_from_first_shot` (default off, saved with the other view settings) changes only where a dummy's clock starts. Off keeps the original rule: first damaging hit. On: the clock starts at the **launch of the shot that first damaged that dummy**. "The first shot at a target" has no meaning before a hit lands, so a shot's launch is the earliest point that can be tied to a dummy. A one-shot kill therefore reads the bullet's flight time (about 0.4 s at 300 m with a 900 m/s round) instead of 0.000 s. Each dummy keeps its own clock; a later shot never moves it. `RangeFeedback` records each live shot's launch time on its physics clock (so a pause excludes menu time as before) and passes it to `RangeStats` as an optional start time, never later than the hit. A reset clears the recorded times, and a restore still discards an open clock. A shot that only damages steel opens no clock. The setting is a second toggle in the shared settings panel; the panel's refresh now reads each toggle from its own setting, where it had used the FPS setting for every checkbox.
+
+### Muzzle smoke and ejected casings
+
+Both are pooled, built once beside the player outside the camera rig, and cosmetic.
+
+| Pool | Count | Lifetime | Notes |
+|---|---|---|---|
+| `MuzzleSmoke` | 8 one-shot `CPUParticles3D` | 0.9 s | World-space particles; 1–12 per puff (per-weapon); size 0.14 m growing ×3.2 (curve 0.35 → 1); drift 0.45 m/s up; burst 0.3–0.9 m/s, damped; colour (0.78, 0.78, 0.80, 0.30) fading to zero alpha; unshaded, alpha, billboard-particles material |
+| `CasingPool` | 24 `RigidBody3D` | 2.0 s | Box collider and unit mesh scaled to the casing's size; mass 0.27 kg per metre of length; ejection 1.6–2.6 m/s along the port's +X, 1.2 m/s up, ±0.4 m/s scatter, 18 rad/s spin; friction 0.7, bounce 0.35; layer 16, mask 1 |
+
+Both reuse the oldest slot, so nothing is allocated per shot. Casings age in gameplay time. Layer 16 is in no projectile, melee or blast mask, and the player and ragdolls do not scan it. The per-weapon values are in the weapon Resources:
+
+| Weapon | Smoke particles | Casing box, m (X, Y, Z) | Port, model space | Colour | Eject delay |
+|---|---|---|---|---|---|
+| Halberd | 4 | (0.012, 0.012, 0.045) | (0.03, 0.02, 0.03) | brass (0.8, 0.62, 0.25) | 0 |
+| Rill | 3 | (0.010, 0.010, 0.019) | (0.025, 0.02, 0.01) | brass | 0 |
+| Foundry | 3 | (0.012, 0.012, 0.045) | (0.045, 0.02, 0.06) | brass | 0 |
+| Breakwater | 6 | (0.020, 0.020, 0.070) | (0.04, 0.01, 0.06) | red (0.65, 0.12, 0.10) | 0.30 s (pump) |
+| Longwatch | 5 | (0.013, 0.013, 0.065) | (0.04, 0.025, 0.12) | brass | 0.35 s (bolt) |
+| Wayline | 2 | (0.010, 0.010, 0.019) | (0.02, 0.02, 0.0) | brass | 0 |
+| Cairn | 10 | none | — | — | — |
+| Latch, Palisade | 0 | none | — | — | — |
+
+Both manual-action delays are shorter than the weapon's lower time (0.35 s vs 0.45 s, 0.30 s vs 0.35 s), so a casing still leaves while the weapon is being put away; a test pins this and that the delay is shorter than the shot interval. A second shot flushes a casing still waiting for the first. A scoped view has no model in the tree, so a casing thrown while still scoped is skipped, and smoke is skipped like the muzzle flash. The casing is queued before that scoped early return, so the bolt's casing still comes out once the player unscopes.
+
+**A captured frame found a real bug:** the first smoke capture showed one screen-filling black-then-white rectangle. A particle billboard material drops the particle's scale unless `billboard_keep_scale` is set, so every quad drew at its full 1 m mesh size. Setting it fixed the capture, and a test pins the flag. The smoke quads are visibly blocky at the screen edge of each puff; that is accepted greybox quality.
+
+### Particle first-draw stall and the warm-up
+
+The Milestone 10 notes recorded an unexplained ~225 ms frame about 2 s into the Halberd reload probe. Disabling the muzzle-flash path removed it (worst frame 20.3 ms), and pre-emitting every effect once at 0.5 s moved the whole stall to 1.03 s with a measured worst frame of 21.9 / 21.4 ms. So the cause is **the first time each particle material is drawn**: the muzzle sparks, the smoke (added this milestone) and the impact sparks. Together they cost 560–570 ms on the target GPU, a visible freeze on the first shot of a session. Earlier probes hid it: shots began at 0 s, so the cost fell inside the 2 s warm-up.
+
+`ParticleWarmup` fixes it. A few frames after load, a throwaway **twin** of each emitter (sharing the real mesh and material) emits one particle at 0.0001 scale in front of the camera, then frees itself after its lifetime plus 0.25 s. The impact marks are shown once at the same scale. It does nothing under the headless renderer, so the suite and CI see no change. `--no-warmup` turns it off for measurement. The flash *mesh* is not warmed because it is always drawn at negligible size.
+
+`--perf-cold` (new) holds all firing until the 2 s warm-up ends, so first-use costs fall inside the measurement. Cold rifle runs, same code:
+
+| Cold rifle run | Average | 1% low | Worst frame |
+|---|---|---|---|
+| `--no-warmup`, focused 100% | 53.3 fps | 3.7 fps | **707.36 ms** |
+| `--no-warmup`, focused 83% | 49.0 fps | 2.5 fps | **981.93 ms** |
+| warm-up, focused 100% (earliest runs) | 60.0 fps | 52.1 fps | 20.73 ms |
+| warm-up, five consecutive plain cold runs, four focused 100% | 60.0 fps | — | 20.56–29.45 ms |
+
+One of the earliest warm-up runs had a residual 234.64 ms frame (100% focused) and three of four runs in the next trace hit ~230 ms at 2.15 s; they stopped reproducing partway through that session without a code change, then returned on other weapons (below). I could not explain the disappearance.
+
+### Known issue: a ~220 ms stall on the first hit after switching weapons
+
+A residual stall remains in cold-start runs for **weapons the probe switches to**. It is steady and reproducible: always one frame of **212–247 ms at 2.15–2.17 s**, with 3 shots fired and 1–2 hits. The default rifle, with no switch, does not show it (five plain cold runs: 20.56–29.45 ms worst). A macOS stack sample over a run shows the time is **driver shader compilation** (`USC::CompilePixelShaderOpenGL` / `CompileVertexShaderOpenGL` in the Intel graphics driver: about 210 and 120 samples in two events, about 330 ms in all), not script work. The Godot binary has no symbols, so the sample cannot name which material is being compiled.
+
+I bisected it with temporary switches (all removed), each three to five times at 100% focus, and none of these removes the stall: the muzzle flash mesh, flash sparks, impact sparks, impact sound, impact marks, shot sound, casing ejection, the whole HUD, and the stress fixture (it persists with no ragdolls, props or steel at all). Candidates left are the first draw of some other effect on a freshly switched weapon, or something in the first hit on a target. **Impact on play:** one ~0.2 s stall on the first hit after the first switch of a session; steady-state frame times are unaffected (see below). A fix needs a symbolised build or Godot's rendering profiler.
+
+| Cold run (focused), `--perf-stress --perf-cold` | Worst frame | Notes |
+|---|---|---|
+| Halberd (default weapon, no switch) | 20.56–29.45 ms | clean in five plain runs |
+| Rill SMG | 214.6–234.7 ms (12 fully focused runs) | at 2.15–2.17 s; 218.7–224.6 ms in the three of those with no stress fixture; larger (up to 431 ms) when the window was not focused |
+| Foundry LMG | 223.04 ms and 284.1 ms (both 100% focused) | same moment |
+| Breakwater, Longwatch, Halberd reload stress | 222–245 ms | focus 0–45%; not valid rows but the same size |
+
+### Final performance matrix
+
+Measured on the target **Intel i5-8259U, 8 GB RAM, Iris Plus 655**, Compatibility, **1280×720**, 60 Hz physics, the existing 60 fps cap, full HUD and diagnostics, `--perf-fire --perf-stress` (54 / 54 awake ragdoll parts, eight awake props, three driven steel hinges, in every row), 2 s warm-up / 10 s measurement, one row per run. **Every row below was focused for 100% of measured frames.** Runs that were not fully focused were repeated and are not tabled; the first set had several at 0–54% focus, and a version of the run script that re-activated the window every 2 s itself worsened frame pacing, so the window is now brought forward once at 3 s, before measurement.
+
+| Weapon (steady state) | Average | 1% low | Worst frame | Frames >25 ms | Draw calls | Actions since start |
+|---|---|---|---|---|---|---|
+| Halberd | 60.0 fps | 49.8 fps | 22.71 ms | 0 | 186 | 80 shots |
+| Rill | 60.0 fps | 51.0 fps | 21.36 ms | 0 | 185 | 90 shots |
+| Foundry | 60.0 fps | 48.3 fps | 22.36 ms | 0 | 63* | 100 shots |
+| Breakwater | 60.0 fps | 51.5 fps | 21.34 ms | 0 | 186 | 9 shells (73 pellet collisions) |
+| Longwatch | 60.0 fps | 49.9 fps | 21.84 ms | 0 | 190 | 7 shots |
+| Wayline | 60.0 fps | 50.9 fps | 22.45 ms | 0 | 183 | 45 shots |
+| Cairn | 60.0 fps | 38.7 fps | 26.35 ms | 7 | 185 | 3 rockets, 3 armed blasts |
+| Latch | 59.9 fps | 37.5 fps | 35.02 ms | 2 | 181 | 23 swings |
+| Palisade | 60.0 fps | 49.8 fps | 23.91 ms | 0 | 175 | 13 bashes, 45 blocks |
+| Foundry, all five attachments fitted | 60.0 fps | 41.7 fps | 40.52 ms | 1 | 176 | 100 shots, 1 reload |
+| Longwatch, all five attachments fitted | 60.0 fps | 46.5 fps | 24.88 ms | 0 | 191 | 7 shots |
+
+\* Draw calls are those of the last measured frame, which depends on where the view sweep points. The Foundry's 63 is such a frame; the same weapon read 164–176 in other runs.
+
+All averages are 60.0 fps (59.9 for the knife), no projectile was dropped, and the ragdoll and prop counts held (54 min / 54 max, eight props). Compared with the Milestone 10 rows, the 1% lows are within about 1 fps for the Rill, Foundry, Wayline, Breakwater and Palisade, and better for the Longwatch (42.1 to 49.9 fps). **Three rows are lower: the Cairn (52.5 to 38.7 fps), the Latch (49.8 to 37.5 fps) and the fitted Foundry (49.0 to 41.7 fps).** I did not isolate why. The knife uses neither smoke nor casings, so those pools do not explain its row; every row also now runs cone-twist joints and hittable corpses in the stress fixture. Earlier milestones saw the same weapons swing between 35 and 52 fps from run to run (the Palisade in Milestone 9), so run-to-run variance is plausible but is not proven here. The tails to watch in play-testing are the rocket (7 frames over 25 ms), the knife (35.0 ms worst) and the fitted Foundry (40.5 ms worst). The strict 16.67 ms per-frame floor is **not** claimed; every 1% low is above 37 fps.
+
+Draw calls: up to 24 casing meshes plus 8 smoke emitters can be visible in the worst case. The sampled frames show 175–191 draw calls and about 3,500–4,000 primitives for the steady-state rows (the Foundry sky frame aside), against 166–188 in Milestone 10, so the pools add at most a handful of calls.
+
+### Final verification
+
+**423/423 headless GUT tests, 7,854 assertions, 264.8 s**, clean exit with no engine errors or orphan warnings, with a separate 10-frame headless boot. Tests added this milestone cover: the joint limits and axes and a limited-versus-free comparison (`test_ragdoll`); corpse hits, misses in the statistics, no damage and pass-through after reset (`test_corpse_hits`); the sniper zero (`test_sniper_zero`); the TTK start time in `RangeStats`, a live feedback test in both modes and the settings toggle (`test_range_stats`, `test_range_feedback`, `test_settings_pause`); both pools and their weapon integration, including the bolt and pump delays (`test_casings_smoke`); and the warm-up twin (`test_particle_warmup`). Movie Maker frames were inspected for a dummy kill with the new joints, a shotgun kill followed by shots into the corpse, the HUD zero label before and after cycling, and a rifle burst with smoke and casings (before and after the billboard fix). Several captures stalled on one repeated frame again (about one in four this milestone) and were repeated.
+
+### Remaining scope
+
+Human play-tests remain pending for Milestones **3–12**; README's Polish play-test lists this milestone's checks. The first-hit stall above is unresolved. Controller gameplay and the web export are still unvalidated future phases; this milestone adds only GDScript, built-in physics, particles and InputMap actions (`zero_cycle`), with no new runtime filesystem access beyond `user://settings.cfg` for the one new setting.

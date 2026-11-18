@@ -6,7 +6,7 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 **MVP complete (Milestones 1 to 6). Final manual play-test pending.**
 
-**Phase 2: Milestones 7–11 built — all nine weapons, attachments, handling animations, main menu and saved-loadout Armory. Manual play-tests remain pending for Milestones 3–11.** The rifle and sniper keep their exact Milestone 6 stats and behavior with no attachments fitted; a frozen fixture verifies every original exported stat.
+**Phase 2 complete (Milestones 7–12) — all nine weapons, attachments, handling animations, main menu and saved-loadout Armory, and the final polish pass. Manual play-tests remain pending for Milestones 3–12.** The rifle and sniper keep their exact Milestone 6 stats and behavior with no attachments fitted; a frozen fixture verifies every original exported stat.
 
 Movement and range (Milestone 1):
 
@@ -34,7 +34,7 @@ Ballistics and recoil (Milestone 3):
 Targets (Milestone 4):
 
 - Six solid humanoid hit zones: head, torso, two arms and two legs. Head damage is 1.5× (2× for the sniper), torso 1×, limbs 0.8×.
-- 100 health and 0–3 armor plates of 50 each. Armor absorbs damage first, with overflow reaching health. A killed dummy becomes a six-part ragdoll, ignores shots and returns fully restored after 3 seconds.
+- 100 health and 0–3 armor plates of 50 each. Armor absorbs damage first, with overflow reaching health. A killed dummy becomes a six-part ragdoll with angle-limited joints; bullets stop on and push the corpse, but it takes no damage and never scores. It returns fully restored after 3 seconds.
 - Stationary dummies at 25/50/100/200/300 m, staggered from left to right. Their armor counts are 0/1/2/3/0 respectively.
 - Walk (1.5 m/s, left) and sprint (6 m/s, right) movers at both 50 and 100 m on 4 m rails. Movers are unarmored and keep travelling while down.
 - Hinged steel at 100/200/300 m swings from bullet momentum and plays a generated placeholder ring.
@@ -95,6 +95,15 @@ Main menu and Armory (Milestone 11):
 - A single greybox weapon preview includes fitted parts, rotation buttons and Show handling (empty reload or melee). It uses isolated weapon logic and the existing animation profiles, without firing gameplay projectiles or changing the loadout's ammo.
 - Keyboard and controller focus navigation covers selection popups, preview controls, stat scrolling, settings and saving / cancellation. Simulated controller events pass automated tests; a physical-controller play-test is still pending.
 
+Polish (Milestone 12):
+
+- Ragdoll joints are cone-twist joints with per-joint swing and twist limits (neck 40° / 50°, shoulders 85° / 45°, hips 55° / 30°) instead of free pins, so limbs no longer fold through the torso. Jolt enforces them softly: hard hits overshoot by about 12°.
+- Corpses are solid to bullets. A round stops on a part and shoves it with its momentum at the point of impact. A corpse hit is still a miss in the range statistics, like a shot through a down dummy, and parked parts after the 3 s reset are off every layer again. Melee (the knife and the shield bash) does not hit corpses.
+- The Longwatch sniper's zero can be set to 100, 200 or 300 m with **Z**. The choice is per weapon, survives switching and attachment changes, is recalculated once per change and only affects rounds fired afterwards. A label above the weapon name shows it for adjustable weapons only. It is not saved to the loadout file.
+- A new setting, **Time to kill starts at the first shot** (off by default), starts a dummy's clock when the shot that first damaged it was fired instead of when it landed. Flight time then counts, so a one-shot kill at range reads its flight time instead of 0.000 s.
+- Muzzle smoke and ejected casings, both pooled and cosmetic. Self-loaders throw their casing on the shot; the sniper and shotgun throw it as the bolt or pump opens. The rocket launcher smokes and ejects nothing; melee does neither. Casings last 2 s and are invisible to projectiles, melee and blasts.
+- Particle effects are warmed before the first shot (see DECISIONS): the first shot of a session no longer freezes the game for about half a second on the target GPU. A smaller first-hit stall remains and is documented as a known issue.
+
 Later Phase 2 work is listed under [Roadmap](#roadmap) and [Future phases and known limitations](#future-phases-and-known-limitations).
 
 ## Requirements
@@ -148,6 +157,7 @@ You can also open `project.godot` in the editor and press F5.
 | Aim down sights | Right mouse button (hold) |
 | Reload | R |
 | Switch weapon | 1 / 2, or mouse wheel |
+| Cycle the sniper's sight zero: 100 → 200 → 300 m | Z |
 | Cycle primary: rifle → SMG → LMG → shotgun → sniper | P |
 | Cycle secondary: pistol → rocket → knife → shield | O |
 | Incoming shield test round (shield ready only; non-scoring) | B |
@@ -181,6 +191,7 @@ Open the menu with **Esc**. Resume receives focus immediately. Use arrows or Tab
 | FOV kick scale | 1.00 | 0–2; 0 disables sprint / slide FOV kick |
 | Master / effects volume | 1.00 / 1.00 | 0–1 linear gain; 0 mutes |
 | Show gameplay FPS | On | Independent of F3 diagnostics |
+| Time to kill starts at the first shot | Off | Off: clock starts at the first damaging hit. On: at the launch of the shot that first damaged the dummy |
 
 Changes apply live and save when you resume, or choose Save & Back in main-menu Settings. Esc / B in those Settings also saves and returns. Previous view settings, including invert-Y, remain supported in the same config file. Pause freezes simulation, projectile travel, weapon/reload timing, target resets, ragdolls, props and range-stat timestamps. Menu wall time is excluded from TTK. The cursor returns to its prior capture mode on resume; menu activation cannot become a buffered shot or jump.
 
@@ -247,6 +258,10 @@ godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-weapon=lm
 godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-weapon=rocket
 # Reload stress: tactical reload after every shot, with magazine drops:
 godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-reload --perf-weapon=smg
+# Cold start: firing waits until the warm-up ends, so first-use stalls are measured:
+godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-cold --perf-weapon=smg
+# The same without the particle warm-up, to see what it removes:
+godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-cold --no-warmup
 ```
 
 The stress fixture is opt-in: it repeatedly kills all dummies through their normal damage entry point on reset, keeps all ragdoll parts and props awake and drives steel hinges. Those fixture kills do not count as launched shots. The report verifies 54 awake parts throughout the measurement. Do not open the pause menu while benchmarking.
@@ -265,6 +280,7 @@ These go after `--` on the command line and are mainly for Movie Maker captures 
 | `--hold=action[@seconds[-release]],...` | Presses input actions from the given time and keeps them down until the optional release time. A held action is pressed again if the engine releases it (an unfocused window loses its held keys), so give one-off keys such as attachment cycling a release time |
 | `--log-hits` | Prints every projectile hit: what it hit, where, flight time and speed |
 | `--hide-overlay` | Starts with the debug overlay hidden |
+| `--no-warmup` | Skips the particle first-draw warm-up, to measure what it removes |
 | `--bullet-paths` | Starts with the bullet path view on |
 
 For example, switch to the pistol, aim at the unarmored 25 m dummy, fire, and log the hit:
@@ -304,6 +320,10 @@ For Movie Maker captures, add `--always-on-top`. macOS throttles a Godot window 
 | Physics props: cap and placement | `prop_count` and `_build_props()` in `range/range_builder.gd` |
 | Prop mass, dimensions, player push force, recycling distance and damping | `props/physics_prop.gd` |
 | Ragdoll switch, masses, damping, joints, impulse scale | `targets/target_dummy.gd` and `targets/dummy_ragdoll.gd` |
+| Ragdoll joint swing / twist limits (per joint) | `swing_limit_degrees` / `twist_limit_degrees` exports in `targets/dummy_ragdoll.gd` |
+| Sniper zero options and default | `zero_options` and `zero_distance_m` in `weapons/data/longwatch_sniper.tres`; `zero_cycle` (Z) in `project.godot` |
+| Muzzle smoke per weapon; casing size, port, colour and eject delay | `muzzle_smoke_particles`, `casing_*` in each `weapons/data/*.tres`; schema in `weapons/weapon_data.gd` |
+| Smoke emitter count, lifetime, drift, size; casing pool capacity, lifetime, ejection speed | Exports in `weapons/effects/muzzle_smoke.gd` and `weapons/effects/casing_pool.gd` |
 | Pause menu layout, slider increments, focus and input mappings | `ui/pause_menu.gd` and `project.godot` |
 | Audio routing and volume bounds | `default_bus_layout.tres` and `player/view_settings.gd` |
 | Worst-case fixture and benchmark parameters | `debug/range_stress.gd` and `debug/perf_probe.gd` |
@@ -374,7 +394,7 @@ The main scene is `ui/main_menu.tscn`. `range/range.tscn` remains directly runna
 - [x] **9. Secondaries:** pistol with attachments, armed rockets, knife, shield, strict carried slots and pooled feedback. Manual play-test pending.
 - [x] **10. Handling animations:** procedural reload, cycle, equip, holster and melee motion for all nine weapons, pooled physics magazine drops. Manual play-test pending.
 - [x] **11. Main menu and Armory:** controller-navigable menus, shared settings, primary / secondary selection, computed stat comparisons, animated greybox preview and saved loadouts. Manual play-test pending.
-- [ ] **12. Polish:** improved ragdoll joints, hittable corpses, adjustable zero, smoke / casings and final arsenal performance.
+- [x] **12. Polish:** angle-limited ragdoll joints, hittable corpses, adjustable sniper zero, TTK-from-first-shot option, pooled smoke and casings, particle warm-up and final arsenal performance. Manual play-test pending; one first-hit stall remains (see DECISIONS).
 
 ## Main menu and Armory play-test
 
@@ -427,11 +447,11 @@ Fitted optic magnifications use a fixed 65° reference FOV, independently of the
 
 ## Range stats definitions
 
-A shot counts when a single projectile or an entire pellet volley launches, or a melee swing begins (including a whiff). A hit counts once per shot if the attack damages a dummy or rings steel; hitting several zones or targets with one shell still counts once. Walls, ground, props, shields, melee whiffs and shots through a down dummy are misses. A rocket counts as one hit if any dummy receives splash damage; multiple damaged dummies still score once. Splash is torso damage and cannot score a headshot. B training rounds never enter player stats. Accuracy is hits / shots × 100. Headshot percentage is shots with any dummy head hit / all scoring hits × 100, so steel hits remain in the denominator. Both percentages stay within 0–100%; empty percentages read 0.0%.
+A shot counts when a single projectile or an entire pellet volley launches, or a melee swing begins (including a whiff). A hit counts once per shot if the attack damages a dummy or rings steel; hitting several zones or targets with one shell still counts once. Walls, ground, props, shields, corpses, melee whiffs and shots through a down dummy are misses. A rocket counts as one hit if any dummy receives splash damage; multiple damaged dummies still score once. Splash is torso damage and cannot score a headshot. B training rounds never enter player stats. Accuracy is hits / shots × 100. Headshot percentage is shots with any dummy head hit / all scoring hits × 100, so steel hits remain in the denominator. Both percentages stay within 0–100%; empty percentages read 0.0%.
 
 Pellets hitting one dummy on one shot update one damage number with their summed zone-adjusted damage, rounded after summing. Any head pellet makes that target's number amber. Separate targets or shells get separate numbers. Totals update as hits arrive rather than waiting for missed pellets to expire. A target that has already died continues to ignore later hits, as before.
 
-Time to kill is measured in physics time from the first damaging hit on each dummy life to its killing hit. Interleaved targets keep separate timers. One-shot kills read 0.000 s; the panel holds the last completed kill until the next kill or reset. Steel has no TTK. Reset clears active timers and excludes already-flying rounds from the new stats session, while still showing their real damage feedback. It does not refill ammo or restore targets. Counters record immediately; the panel refreshes at 5 Hz, with reset displayed immediately.
+Time to kill is measured in physics time from the first damaging hit on each dummy life to its killing hit. With the **Time to kill starts at the first shot** setting on, the clock instead starts when the shot that first damaged that dummy was fired, so bullet flight time counts and a one-shot kill reads its flight time. Interleaved targets keep separate timers. One-shot kills read 0.000 s; the panel holds the last completed kill until the next kill or reset. Steel has no TTK. Reset clears active timers and excludes already-flying rounds from the new stats session, while still showing their real damage feedback. It does not refill ammo or restore targets. Counters record immediately; the panel refreshes at 5 Hz, with reset displayed immediately.
 
 ## New primaries play-test
 
@@ -471,6 +491,16 @@ Time to kill is measured in physics time from the first damaging hit on each dum
 9. Fit an extended magazine or drum (F9) and reload: the larger part drops with the magazine. Fit a quick magazine: the animation runs faster with the shorter reload time.
 10. Run the reload stress probe above with the window focused. Check about 60 fps, all 54 ragdoll parts and eight props, and no more than six dropped magazines.
 
+## Polish play-test
+
+1. Kill an unarmored dummy with the Halberd, then keep firing at the corpse. Rounds should stop on it and shove it, with sparks and a tick but no hitmarker, damage number or change to accuracy. After 3 s the dummy returns upright and rounds pass through where it was.
+2. Kill several dummies with the sniper and the shotgun and watch the collapse. Limbs should flop but not fold back through the torso or spin more than a quarter turn about their length.
+3. Press P to the Longwatch. Check the HUD shows `ZERO 100 m [Z]`. Press Z: 200, 300, then 100 again. At each distance, aim at a distance sign with the 8× scope (or the iron sights) and check the point of impact moves to your aim point at that range. Switch weapons and back: the zero is remembered. Other weapons show no zero label and Z does nothing.
+4. Open Settings and turn on **Time to kill starts at the first shot**. Kill the 300 m dummy with the sniper: Last TTK should read roughly the flight time (about 0.4 s) instead of 0.000 s. Turn it off again to restore the original reading.
+5. Fire the rifle, SMG, LMG and pistol: a small smoke puff at the muzzle and a brass casing out of the right side, landing and disappearing after about 2 s. The sniper and shotgun throw theirs a moment after the shot. The shotgun's is red. The rocket launcher smokes and ejects nothing; knife and shield do neither.
+6. Fire the very first shot after starting the range, and the first shot after switching to another weapon. Note any stall; the first one should be smooth. Report a freeze of about a fifth of a second on the first hit after switching weapons: that is the known issue.
+7. Run the cold probe above for a few weapons with the window focused and compare with the numbers in DECISIONS.
+
 ## Feedback and HUD play-test
 
 1. Run the game. Confirm the top-right FPS and stats panel, bottom-right weapon and ammo, and hip crosshair. Toggle F3; the gameplay HUD should remain visible.
@@ -507,7 +537,7 @@ Time to kill is measured in physics time from the first damaging hit on each dum
 
 - **Web:** browser export and browser performance are not yet validated. Test pointer-lock gestures, audio unlock, user-config persistence and the selected physics backend in the export templates. Runtime code uses built-in Godot APIs and `user://` storage; no native plugin, subprocess or platform-specific service was added.
 - **Controller:** menus have explicit bindings and focus navigation. Full movement / right-stick aiming, gameplay mappings, dead-zone tuning, remapping and device-specific prompts remain post-MVP. Physical controller validation is still needed.
-- **Physics:** ragdolls are six greybox parts with pin joints, without anatomical angular limits. Corpses collide with the world / props but not other corpses, the player or bullets; this bounds contact cost. Props are capped at eight and recycle after escaping their area.
+- **Physics:** ragdolls are six greybox parts with cone-twist joints. Jolt enforces the limits softly, and Godot exposes no stiffness setting for it, so hard hits overshoot by about 12°. Corpses collide with the world / props and are hit by bullets, but not by other corpses, the player, melee or the knife; this bounds contact cost. Props are capped at eight and recycle after escaping their area.
 - **Display / assets:** OpenGL on the tested Mac uses a 60 fps limiter rather than enforced vsync. Occasional pacing spikes remain possible. Visuals and sounds are placeholders; Movie Maker can still warn about active audio playbacks at capture shutdown.
 
 ## Further reading
