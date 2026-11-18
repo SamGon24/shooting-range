@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://range/range_builder.gd" id="1_builder"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -14,6 +14,11 @@
 [ext_resource type="Script" path="res://ui/pause_menu.gd" id="11_pause"]
 
 [ext_resource type="Script" path="res://debug/range_stress.gd" id="12_stress"]
+
+[ext_resource type="Script" path="res://debug/attachment_debug.gd" id="13_attachments"]
+[ext_resource type="Script" path="res://ballistics/explosion_system.gd" id="14_explosions"]
+[ext_resource type="Script" path="res://debug/guard_probe.gd" id="15_guard_probe"]
+[ext_resource type="Script" path="res://weapons/effects/explosion_effects.gd" id="16_blast_fx"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_material"]
 sky_top_color = Color(0.32, 0.5, 0.74, 1)
@@ -35,9 +40,11 @@ ambient_light_energy = 0.6
 reflected_light_source = 1
 tonemap_mode = 2
 
-[node name="Range" type="Node3D"]
+[node name="Range" type="Node3D" node_paths=PackedStringArray("weapon_controller", "pause_menu")]
 process_mode = 1
 script = ExtResource("1_builder")
+weapon_controller = NodePath("Player/Weapons")
+pause_menu = NodePath("PauseMenu")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("environment")
@@ -54,6 +61,12 @@ script = ExtResource("6_projectiles")
 
 [node name="ImpactEffects" type="Node3D" parent="."]
 script = ExtResource("7_impacts")
+
+[node name="Explosions" type="Node3D" parent="."]
+script = ExtResource("14_explosions")
+
+[node name="ExplosionEffects" type="Node3D" parent="."]
+script = ExtResource("16_blast_fx")
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.5)
@@ -79,3 +92,9 @@ script = ExtResource("11_pause")
 
 [node name="RangeStress" type="Node" parent="."]
 script = ExtResource("12_stress")
+
+[node name="AttachmentDebug" type="CanvasLayer" parent="."]
+script = ExtResource("13_attachments")
+
+[node name="GuardProbe" type="Node" parent="."]
+script = ExtResource("15_guard_probe")

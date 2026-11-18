@@ -1,0 +1,50 @@
+[gd_scene load_steps=7 format=3]
+
+[sub_resource type="StandardMaterial3D" id="metal"]
+albedo_color = Color(0.16, 0.17, 0.19, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="polymer"]
+albedo_color = Color(0.3, 0.31, 0.27, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="box_0"]
+material = SubResource("polymer")
+size = Vector3(0.03, 0.03, 0.12)
+
+[sub_resource type="BoxMesh" id="box_1"]
+material = SubResource("metal")
+size = Vector3(0.07, 0.015, 0.012)
+
+[sub_resource type="BoxMesh" id="box_2"]
+material = SubResource("metal")
+size = Vector3(0.025, 0.008, 0.27)
+
+[sub_resource type="BoxMesh" id="box_3"]
+material = SubResource("metal")
+size = Vector3(0.012, 0.008, 0.04)
+
+[node name="latch_knife" type="Node3D"]
+
+[node name="Grip" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0.04)
+cast_shadow = 0
+mesh = SubResource("box_0")
+
+[node name="Guard" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, -0.025)
+cast_shadow = 0
+mesh = SubResource("box_1")
+
+[node name="Blade" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, -0.17)
+cast_shadow = 0
+mesh = SubResource("box_2")
+
+[node name="Tip" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, -0.325)
+cast_shadow = 0
+mesh = SubResource("box_3")
+
+[node name="Muzzle" type="Marker3D" parent="."]
+position = Vector3(0, 0, -0.345)

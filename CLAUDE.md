@@ -62,3 +62,113 @@ A first-person shooter MVP: a military-style firing range for testing weapons an
 
 - **Web export:** keep the Compatibility renderer and GDScript only; avoid threads, native plugins and file system access in gameplay code.
 - **Controller support:** all input goes through InputMap actions, never hardcoded keys or mouse buttons. Look/aim code takes an input delta that a gamepad stick can feed later.
+
+## Phase 2: Content and polish (post-MVP)
+
+Phase 1 (Milestones 1–6) is complete and tagged `v0.1.0-mvp`. Phase 2 adds a full loadout of weapons, attachments, reload animations, a main menu and a polish pass. Everything from Phase 1 still applies: hard constraints, architecture rules, testing, working style and commit rules.
+
+**No regressions:** every existing test must keep passing, and Phase 1 behaviour stays the same unless a milestone below says otherwise.
+
+### Loadout model
+
+- The player carries **one primary and one secondary**. Switch with 1/2 and the mouse wheel.
+- **Primaries (5):** SMG, assault rifle (existing), sniper rifle (existing), LMG, pump shotgun.
+- **Secondaries (4):** pistol, rocket launcher, tactical knife, riot shield.
+- All weapons get original fictional names. No real or other-game weapon names.
+- Each weapon is a `WeaponData` Resource. Weapons differ through **composition**, not one subclass per gun:
+  - **Fire mode:** full-auto, semi-auto, bolt-action, pump-action.
+  - **Delivery:** ballistic projectile, pellet spread, explosive projectile, melee.
+  - **Reload type:** magazine, one shell at a time (interruptible), single round, none.
+
+### Attachments
+
+- **Slots:** muzzle, barrel, optic, stock, magazine.
+- Each attachment is a Resource that declares:
+  - which weapon classes accept it
+  - its stat modifiers, each explicitly additive or multiplicative
+  - a greybox viewmodel part with a mount point
+- **Final stats** = base stats + modifiers, applied in a fixed, deterministic order. They are computed once on equip or loadout change, never per frame, and clamped to per-stat limits.
+- **Optics** set the ADS zoom and the reticle: iron sights, red dot, 2×, 4×, and an 8× sniper scope.
+- Start with 3–4 attachments per slot. Each must be a **trade-off**, not a strict upgrade. For example, a long barrel adds velocity and range but slows ADS.
+- **Which weapons take attachments:**
+  - Primaries: all five slots where it makes sense.
+  - Pistol: muzzle, optic and magazine only.
+  - Rocket launcher, knife and shield: none.
+
+### Starting stats (tuning lives in the Resources, not here)
+
+| Weapon | Fire mode | Muzzle velocity | Rate | Magazine | Notes |
+|---|---|---|---|---|---|
+| SMG | auto | ~400 m/s | ~900 rpm | 32 | Fast ADS, steep damage falloff past 25 m |
+| LMG | auto | ~850 m/s | ~700 rpm | 100 | Slow ADS and sprint-to-fire, low recoil when ADS |
+| Pump shotgun | pump | ~400 m/s | pump ~0.8 s | 6 | 8 pellets in a cone, each a real projectile; harsh falloff past 15 m |
+| Pistol | semi | ~360 m/s | input-limited, max ~400 rpm | 15 | Fastest switch time |
+| Rocket launcher | single | ~120 m/s, light gravity | — | 1 | Arms after 10 m; blast radius ~6 m with falloff; impulse on props, steel and ragdolls |
+| Tactical knife | melee | — | ~0.5 s swing | — | ~1.8 m reach via a shape cast from the camera |
+| Riot shield | melee | — | ~0.9 s bash | — | Frontal collider stops projectiles; 0.8× move speed while held; bash ~1.5 m |
+
+### Damage sources and stats
+
+- All damage goes through the existing target damage interface. Add a `source` field (`ballistic`, `pellet`, `splash`, `melee`) so the HUD and stats can tell them apart.
+- **Splash damage** hits the torso zone, falls off with distance and still goes to armor first.
+- **Stats rules:**
+  - A shotgun shot counts as one shot, and as one hit if any pellet hits.
+  - A melee swing counts as one shot.
+  - A rocket counts as a hit if it damages any target.
+- **Damage numbers:** pellets that hit the same target on the same shot add up to one number.
+
+### Phase 2 milestones (one at a time; stop for a play-test after each)
+
+7. **Weapon framework and attachments:**
+   - Loadout slots, composition-based fire modes, deliveries and reload types, and the attachment system, all applied to the existing rifle and sniper.
+   - The `source` field on damage.
+   - Debug keys to cycle attachments until the Armory screen exists.
+   - Tests: modifier order and clamping, compatibility rules, stat recomputation only on change, optic zoom.
+8. **New primaries:**
+   - SMG, LMG and pump shotgun, with attachments.
+   - Pellet delivery, and pump/shell reloads that you can interrupt by firing.
+   - Tests:
+     - fire timing for each weapon
+     - pellet count and spread
+     - pellets adding up to one damage number
+     - interrupting a shell reload
+9. **Secondaries:**
+   - Pistol with attachments.
+   - Rocket launcher with explosive delivery: arming distance, splash falloff, physics impulse.
+   - Melee delivery for the knife and riot shield, plus the shield's projectile-blocking collider.
+   - Tests:
+     - splash falloff and armor order
+     - no explosion before the arming distance
+     - melee reach and timing
+     - the shield stopping projectiles
+10. **Reload and handling animations:**
+    - Procedural animation on the greybox viewmodels: magazine out, a physics magazine that drops and despawns, magazine in, and a bolt or charging-handle rack on empty reloads.
+    - One shell at a time for the shotgun, rocket loading, and the LMG box and belt.
+    - Equip and holster motions, and melee swing and bash motions.
+    - Animation timings come from each weapon's reload and handling times, and stay purely cosmetic.
+    - Tests: animation timelines match the Resource timings, and cancelling a reload resets the animation cleanly.
+11. **Main menu and Armory:**
+    - **Main menu:** Play, Armory, Settings (reuse the pause menu's settings), Quit.
+    - **Armory:** pick a primary and a secondary, and an attachment for each slot, with a live stat comparison against the base weapon and a greybox weapon preview.
+    - The loadout saves to `user://loadout.cfg`.
+    - Fully usable with keyboard and controller.
+    - Tests: loadout save/load round trip, invalid attachments rejected, stat comparison values.
+12. **Polish pass:**
+    - Angle-limited ragdoll joints (cone-twist or 6DOF) instead of pins.
+    - Corpses that bullets can hit.
+    - Adjustable sniper zero (100/200/300 m) with a key.
+    - Muzzle smoke and ejected casings (pooled).
+    - An option for the time-to-kill clock to start at the first shot.
+    - A final performance pass with the full arsenal.
+
+### Per-weapon checklist (each new weapon needs all of these)
+
+- A Resource with all stats.
+- Tests for fire timing, magazine and reload, and delivery behaviour.
+- An entry in the README controls and weapons table.
+- A row in the DECISIONS.md tuning reference.
+
+## Future phases (not now, but don't block them)
+
+- **Web export:** keep the Compatibility renderer and GDScript only. Avoid threads, native plugins and file system access outside `user://` in gameplay code.
+- **Controller support:** all input goes through InputMap actions, never hardcoded keys or mouse buttons. Look and aim code takes an input delta that a gamepad stick can feed later.

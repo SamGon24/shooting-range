@@ -25,6 +25,7 @@ func before_each() -> void:
 	projectiles.projectile_hit.connect(func(hit: ProjectileHit) -> void: _hits.append(hit))
 
 	_player = PLAYER_SCENE.instantiate() as PlayerController
+	(_player.get_node("Weapons") as WeaponController).loadout_definition = preload("res://tests/fixtures/mvp_loadout.tres")
 	_world.add_child(_player)
 	_weapons = _player.get_node("Weapons") as WeaponController
 	_view = _player.get_node("Head/CameraFeel/Camera/WeaponView") as WeaponView
@@ -149,3 +150,25 @@ func test_viewmodel_kick_never_changes_where_shots_land() -> void:
 	if without_view.size() == with_view.size():
 		for i: int in with_view.size():
 			assert_almost_eq(without_view[i], with_view[i], Vector3.ONE * 0.0001, "round %d lands in the same place" % i)
+
+
+func test_mounted_optics_and_camera_zoom_follow_computed_stats_and_restore() -> void:
+	var catalog := load("res://weapons/attachments/data/catalog.tres") as AttachmentCatalog
+	var model: Node3D = _view.get_current_model()
+	for optic: AttachmentData in catalog.for_slot(WeaponTypes.Slot.OPTIC, WeaponTypes.Class.RIFLE):
+		Input.action_release("aim")
+		assert_true(_weapons.request_attachment(WeaponTypes.Slot.OPTIC, optic))
+		await wait_physics_frames(3)
+		var mount: Node = model.get_node("Mounts/Optic")
+		assert_eq(mount.get_child_count(), 1)
+		assert_eq(mount.get_child(0).name, StringName(optic.id))
+		Input.action_press("aim")
+		await wait_physics_frames(_seconds(_weapons.get_current_data().ads_time) + 6)
+		assert_almost_eq(_camera.fov, optic.optic_fov_degrees, 0.05)
+		assert_eq(_view.is_scope_view_active(), optic.optic_kind >= 2)
+	Input.action_release("aim")
+	_weapons.request_attachment(WeaponTypes.Slot.OPTIC, null)
+	await wait_physics_frames(30)
+	assert_eq(model.get_node("Mounts/Optic").get_child_count(), 0)
+	assert_not_null(model.get_node_or_null("FrontSightPost"))
+	assert_eq(_weapons.get_current_data().ads_fov_degrees, 45.0)

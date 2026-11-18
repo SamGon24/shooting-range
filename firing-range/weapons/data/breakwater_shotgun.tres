@@ -1,0 +1,76 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2_spec"]
+[ext_resource type="PackedScene" path="res://weapons/viewmodels/breakwater_shotgun_viewmodel.tscn" id="3_viewmodel"]
+[ext_resource type="Resource" path="res://weapons/framework/pump.tres" id="4_fire"]
+[ext_resource type="Resource" path="res://weapons/framework/pellet.tres" id="5_delivery"]
+[ext_resource type="Resource" path="res://weapons/framework/shell.tres" id="6_reload"]
+[ext_resource type="Resource" path="res://weapons/animation/data/shotgun.tres" id="handling"]
+
+[sub_resource type="Resource" id="projectile"]
+script = ExtResource("2_spec")
+source = 1
+muzzle_velocity = 400
+gravity_scale = 1
+max_lifetime = 1.5
+damage = 18
+falloff_start_distance = 15
+falloff_end_distance = 40
+min_damage_fraction = 0.2
+drag_coefficient = 0.45
+mass_grams = 3.5
+diameter_mm = 8.4
+
+[resource]
+script = ExtResource("1_data")
+display_name = "Breakwater P-6"
+fire_mode = ExtResource("4_fire")
+delivery = ExtResource("5_delivery")
+reload_policy = ExtResource("6_reload")
+automatic = false
+projectile = SubResource("projectile")
+weapon_class = 4
+role = 0
+bore_height_m = 0.01
+recoil_scale = 1
+optic_kind = 0
+rounds_per_minute = 75
+bolt_cycle_time = 0.8
+zero_distance_m = 25
+sight_height_m = 0.05
+magazine_size = 6
+reload_tactical_time = 0.55
+reload_empty_time = 0.85
+sprint_to_fire_time = 0.2
+recoil_loop_length = 3
+aimed_recoil_scale = 0.85
+recoil_recovery_delay = 0.2
+recoil_recovery_rate = 10
+recoil_reset_time = 0.6
+hip_spread_degrees = 1.5
+aimed_spread_degrees = 0
+spread_per_shot_degrees = 0.4
+max_bloom_degrees = 0.8
+bloom_recovery_rate = 4
+ads_time = 0.3
+ads_fov_degrees = 55
+ads_sensitivity_scale = 0.75
+raise_time = 0.45
+lower_time = 0.35
+kick_back = 0.08
+kick_pitch_degrees = 4
+shot_sound_pitch_hz = 65
+shot_sound_duration = 0.4
+recoil_pattern = PackedVector2Array(0.15, 2.8, -0.1, 3, 0.05, 2.9)
+recoil_random_degrees = Vector2(0.3, 0.25)
+scoped = false
+hip_position = Vector3(0.17, -0.17, -0.42)
+ads_position = Vector3(0, -0.06, -0.38)
+viewmodel_scene = ExtResource("3_viewmodel")
+handling = ExtResource("handling")
+muzzle_smoke_particles = 6
+casing_size = Vector3(0.02, 0.02, 0.07)
+casing_port = Vector3(0.04, 0.01, 0.06)
+casing_color = Color(0.65, 0.12, 0.1, 1)
+casing_eject_delay_s = 0.3

@@ -20,10 +20,10 @@ func _ready() -> void:
 	if controller == null:
 		push_error("WeaponAudio: `controller` must be assigned.")
 		return
-	for data: WeaponData in controller.loadout:
+	for data: WeaponData in controller.get_available_definitions():
 		var player := AudioStreamPlayer.new()
 		player.bus = &"Effects"
-		player.stream = SfxFactory.gunshot(data.shot_sound_pitch_hz, data.shot_sound_duration)
+		player.stream = SfxFactory.swish(data.shot_sound_pitch_hz, data.shot_sound_duration) if data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE else SfxFactory.gunshot(data.shot_sound_pitch_hz, data.shot_sound_duration)
 		player.volume_db = shot_volume_db
 		player.max_polyphony = shot_polyphony
 		add_child(player)
@@ -42,11 +42,12 @@ func _ready() -> void:
 	controller.dry_fired.connect(_play_handling.bind(_click_high))
 	controller.reload_started.connect(_on_reload_started)
 	controller.reload_finished.connect(_play_handling.bind(_click_mid))
+	controller.shell_inserted.connect(_on_shell_inserted)
 	controller.weapon_changed.connect(_on_weapon_changed)
 
 
 func _on_shot_fired(data: WeaponData) -> void:
-	var player: AudioStreamPlayer = _shot_players.get(data)
+	var player: AudioStreamPlayer = _shot_players.get(data.definition())
 	if player != null:
 		player.play()
 
@@ -57,6 +58,10 @@ func _on_reload_started(_is_empty: bool, _duration: float) -> void:
 
 func _on_weapon_changed(_data: WeaponData) -> void:
 	_play_handling(_click_low)
+
+
+func _on_shell_inserted(_ammo: int) -> void:
+	_play_handling(_click_mid)
 
 
 func _play_handling(stream: AudioStreamWAV) -> void:

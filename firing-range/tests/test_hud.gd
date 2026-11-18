@@ -27,6 +27,7 @@ func before_each() -> void:
 	world.add_child(ProjectileSystem.new())
 
 	_player = PLAYER_SCENE.instantiate() as PlayerController
+	(_player.get_node("Weapons") as WeaponController).loadout_definition = preload("res://tests/fixtures/mvp_loadout.tres")
 	world.add_child(_player)
 	_weapons = _player.get_node("Weapons") as WeaponController
 	_rifle = _weapons.loadout[0]
@@ -158,3 +159,15 @@ func test_stats_record_immediately_and_display_within_refresh_interval() -> void
 	assert_string_contains(readout.text, "Shots  0", "text work is deferred, not the statistics")
 	await wait_physics_frames(15)
 	assert_string_contains(readout.text, "Shots  1")
+
+
+func test_red_dot_reticle_is_visible_without_a_scope_blackout_model_hide() -> void:
+	var optic := load("res://weapons/attachments/data/red_dot.tres") as AttachmentData
+	_weapons.request_attachment(WeaponTypes.Slot.OPTIC, optic)
+	await wait_physics_frames(3)
+	Input.action_press("aim")
+	await wait_physics_frames(30)
+	assert_false(_hud.is_crosshair_visible())
+	assert_true(_hud.is_scope_visible())
+	assert_eq(((_hud.get_node("Scope") as ColorRect).material as ShaderMaterial).get_shader_parameter("reticle_kind"), 1)
+	assert_true((_player.get_node("Head/CameraFeel/Camera/WeaponView") as WeaponView).is_model_shown())

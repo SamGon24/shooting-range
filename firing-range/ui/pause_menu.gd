@@ -4,6 +4,9 @@ extends CanvasLayer
 ## gameplay, audio, physics and the stats clock; this layer alone stays live.
 
 ## Alternate path is used by isolated save/load tests.
+signal return_requested
+
+var return_to_menu_enabled: bool = false
 var settings_path: String = "user://settings.cfg"
 var _shade: ColorRect
 var _panel: PanelContainer
@@ -12,6 +15,7 @@ var _resume: Button
 var _focusables: Array[Control] = []
 var _capture_before: bool = false
 var _status: Label
+var _settings: SettingsPanel
 
 
 func _ready() -> void:
@@ -48,56 +52,19 @@ func _ready() -> void:
 	_resume.pressed.connect(set_paused.bind(false))
 	_rows.add_child(_resume)
 	_focusables.append(_resume)
-	_add_slider("Sensitivity", "mouse_sensitivity", 0.01, 1.0, 0.01)
-	_add_slider("ADS sensitivity multiplier", "ads_sensitivity_multiplier", 0.1, 2.0, 0.05)
-	_add_slider("Vertical FOV", "fov_degrees", 50.0, 100.0, 1.0)
-	_add_slider("Head bob scale", "head_bob_scale", 0.0, 2.0, 0.05)
-	_add_slider("FOV kick scale", "fov_kick_scale", 0.0, 2.0, 0.05)
-	_add_slider("Master volume", "master_volume", 0.0, 1.0, 0.05)
-	_add_slider("Effects volume", "effects_volume", 0.0, 1.0, 0.05)
-	var fps := CheckButton.new()
-	fps.text = "Show gameplay FPS"
-	fps.button_pressed = ViewSettings.show_fps
-	fps.toggled.connect(func(value: bool) -> void: ViewSettings.show_fps = value)
-	_rows.add_child(fps)
-	_focusables.append(fps)
+	_settings = SettingsPanel.new()
+	_rows.add_child(_settings)
+	_focusables.append_array(_settings.focusables)
+	if return_to_menu_enabled:
+		var back: Button = MenuStyle.button("Return to Main Menu", _return_to_menu)
+		_rows.add_child(back)
+		_focusables.append(back)
 	_status = Label.new()
 	_status.text = "Up/Down: select   Left/Right: adjust   Enter/A: activate\nEsc / Start / B: resume. Settings save on resume."
 	_status.add_theme_font_size_override("font_size", 14)
 	_rows.add_child(_status)
-	for index: int in _focusables.size():
-		var control: Control = _focusables[index]
-		control.focus_neighbor_top = control.get_path_to(_focusables[posmod(index - 1, _focusables.size())])
-		control.focus_neighbor_bottom = control.get_path_to(_focusables[(index + 1) % _focusables.size()])
-		control.focus_previous = control.focus_neighbor_top
-		control.focus_next = control.focus_neighbor_bottom
+	SettingsPanel.wire_focus(_focusables)
 	visible = false
-
-
-func _add_slider(title: String, key: String, minimum: float, maximum: float, increment: float) -> void:
-	var row := HBoxContainer.new()
-	_rows.add_child(row)
-	var label := Label.new()
-	label.text = title
-	label.custom_minimum_size.x = 250
-	row.add_child(label)
-	var slider := HSlider.new()
-	slider.name = key
-	slider.min_value = minimum
-	slider.max_value = maximum
-	slider.step = increment
-	slider.value = float(ViewSettings.get(key))
-	slider.custom_minimum_size = Vector2(220, 30)
-	slider.focus_mode = Control.FOCUS_ALL
-	row.add_child(slider)
-	var readout := Label.new()
-	readout.custom_minimum_size.x = 60
-	readout.text = "%.2f" % slider.value
-	row.add_child(readout)
-	slider.value_changed.connect(func(value: float) -> void:
-		ViewSettings.set(key, value)
-		readout.text = "%.2f" % value)
-	_focusables.append(slider)
 
 
 func _input(event: InputEvent) -> void:
@@ -112,11 +79,7 @@ func set_paused(paused: bool) -> void:
 	if paused == visible:
 		return
 	if paused:
-		for control: Control in _focusables:
-			if control is HSlider:
-				(control as HSlider).value = float(ViewSettings.get(control.name))
-			elif control is CheckButton:
-				(control as CheckButton).button_pressed = ViewSettings.show_fps
+		_settings.refresh()
 		_capture_before = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		visible = true
@@ -138,3 +101,8 @@ func set_paused(paused: bool) -> void:
 func _exit_tree() -> void:
 	if get_tree() != null and visible:
 		get_tree().paused = false
+
+
+func _return_to_menu() -> void:
+	set_paused(false)
+	return_requested.emit()

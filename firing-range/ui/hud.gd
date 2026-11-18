@@ -5,6 +5,7 @@ extends CanvasLayer
 
 ## The crosshair is hidden once the weapon is aimed further than this.
 @export_range(0.0, 1.0, 0.05) var crosshair_hide_aim_blend: float = 0.5
+@export_range(0.0, 1.0, 0.05) var red_dot_show_aim_blend: float = 0.85
 
 @export var fps_update_seconds: float = 0.25
 ## Stats are recorded immediately; throttle expensive text shaping.
@@ -27,12 +28,14 @@ var _view: WeaponView
 @onready var _scope: ColorRect = $Scope
 @onready var _ammo: Label = $Ammo
 @onready var _weapon_name: Label = $WeaponName
+@onready var _zero: Label = $Zero
 
 
 func _ready() -> void:
 	ViewSettings.changed.connect(_refresh_preferences)
 	_refresh_preferences()
 	feedback.feedback.connect(feedback_view.show_feedback)
+	feedback.damage_total.connect(feedback_view.show_damage_total)
 	feedback.stats_changed.connect(_mark_stats_dirty)
 	_refresh_stats()
 	_scope.visible = false
@@ -68,13 +71,17 @@ func _process(delta: float) -> void:
 		return
 	var scoped: bool = _view != null and _view.is_scope_view_active()
 	var aim: float = _controller.get_aim_blend(Engine.get_physics_interpolation_fraction())
-	_scope.visible = scoped
+	var data: WeaponData = _controller.get_current_data()
+	_scope.visible = scoped or (data != null and data.optic_kind == 1 and aim >= red_dot_show_aim_blend)
 	_crosshair.visible = not scoped and aim < crosshair_hide_aim_blend
 	var camera: Camera3D = get_viewport().get_camera_3d()
 	var recoil: RecoilLogic = _controller.get_current_recoil()
 	var logic: WeaponLogic = _controller.get_current_logic()
 	if camera != null and recoil != null and logic != null:
-		_crosshair.set_spread(recoil.spread_degrees(logic.aim_progress), camera.fov, get_viewport().get_visible_rect().size.y)
+		var spread: float = recoil.spread_degrees(logic.aim_progress)
+		if data.delivery != null and data.delivery.kind == DeliveryData.Kind.PELLET:
+			spread += data.delivery.pellet_spread_degrees
+		_crosshair.set_spread(spread, camera.fov, get_viewport().get_visible_rect().size.y)
 
 
 ## Connects the HUD to a weapon controller and view. Called automatically
@@ -83,6 +90,7 @@ func bind(controller: WeaponController, view: WeaponView) -> void:
 	_controller = controller
 	_view = view
 	controller.weapon_changed.connect(_on_weapon_changed)
+	controller.zero_changed.connect(_refresh_weapon_name.unbind(1))
 	controller.ammo_changed.connect(_on_ammo_changed)
 	controller.reload_started.connect(_on_reload_started)
 	controller.reload_finished.connect(_refresh_ammo)
@@ -118,14 +126,37 @@ func _bind_from_tree() -> void:
 
 
 func _on_weapon_changed(data: WeaponData) -> void:
+	(_scope.material as ShaderMaterial).set_shader_parameter(&"reticle_kind", data.optic_kind)
+	_refresh_weapon_name()
+
+
+## The weapon's name, and its sight zero when the player can change it.
+func _refresh_weapon_name() -> void:
+	var data: WeaponData = _controller.get_current_data()
+	if data == null:
+		return
 	_weapon_name.text = data.display_name
+	_zero.visible = data.zero_options.size() > 1
+	_zero.text = "ZERO %d m  [Z]" % roundi(_controller.get_zero_distance())
+
+
+func get_zero_text() -> String:
+	return _zero.text if _zero.visible else ""
 
 
 func _on_ammo_changed(ammo: int, magazine_size: int) -> void:
-	_ammo.text = "%d / %d" % [ammo, magazine_size]
+	var logic: WeaponLogic = _controller.get_current_logic()
+	if not logic.data.uses_ammo:
+		_ammo.text = "MELEE"
+		return
+	var shell_loading: bool = logic.is_reloading() and logic.reload_phase != WeaponLogic.ReloadPhase.NONE and logic.data.reload_policy != null and logic.data.reload_policy.kind == ReloadData.Kind.SHELL
+	_ammo.text = ("LOADING " if shell_loading else "") + "%d / %d" % [ammo, magazine_size]
 
 
 func _on_reload_started(_is_empty: bool, _duration: float) -> void:
+	if _controller.get_current_data().reload_policy != null and _controller.get_current_data().reload_policy.kind == ReloadData.Kind.SHELL:
+		_refresh_ammo()
+		return
 	_ammo.text = "RELOADING"
 
 

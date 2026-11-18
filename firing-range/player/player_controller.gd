@@ -22,6 +22,15 @@ const MAX_PITCH: float = deg_to_rad(89.0)
 
 ## Multiplies mouse sensitivity. Weapons will lower this while aiming.
 var look_sensitivity_scale: float = 1.0
+## Held equipment scales horizontal movement; equipping it cannot preserve
+## an unscaled airborne or sliding speed. Removing it grants no free boost.
+var weapon_speed_scale: float = 1.0:
+	set(value):
+		if is_equal_approx(value, weapon_speed_scale):
+			return
+		if value < weapon_speed_scale:
+			velocity = MovementMath.with_horizontal_speed(velocity, get_horizontal_speed() * value / weapon_speed_scale)
+		weapon_speed_scale = value
 
 ## When false the player ignores mouse look and gives the cursor back to the
 ## OS. Automated runs (tests, Movie Maker captures, the perf probe) turn this
@@ -135,7 +144,7 @@ func _physics_process(delta: float) -> void:
 
 	var wish_dir: Vector3 = Basis(Vector3.UP, yaw) * Vector3(move_input.x, 0.0, move_input.y)
 	var input_strength: float = minf(move_input.length(), 1.0)
-	var wish_speed: float = settings.target_speed(stance != Stance.STAND, is_sprinting) * input_strength
+	var wish_speed: float = settings.target_speed(stance != Stance.STAND, is_sprinting) * input_strength * weapon_speed_scale
 
 	_update_horizontal_velocity(delta, on_floor, wish_dir, wish_speed)
 	var jumped_this_tick: bool = _try_jump(on_floor)
@@ -294,13 +303,13 @@ func _update_stance(on_floor: bool, crouch_held: bool, crouch_pressed: bool) -> 
 	var speed: float = get_horizontal_speed()
 
 	if stance == Stance.SLIDE:
-		if not crouch_held or not on_floor or speed <= settings.slide_end_speed:
+		if not crouch_held or not on_floor or speed <= settings.slide_end_speed * weapon_speed_scale:
 			_end_slide(crouch_held)
 		return
 
 	if crouch_held:
 		var wants_slide: bool = crouch_pressed or _just_landed
-		if on_floor and wants_slide and speed >= settings.slide_min_entry_speed:
+		if on_floor and wants_slide and speed >= settings.slide_min_entry_speed * weapon_speed_scale:
 			_start_slide()
 		else:
 			_set_stance(Stance.CROUCH)
@@ -310,7 +319,7 @@ func _update_stance(on_floor: bool, crouch_held: bool, crouch_pressed: bool) -> 
 
 func _start_slide() -> void:
 	var boost: float = settings.slide_boost if _slide_boost_cooldown <= 0.0 else 0.0
-	velocity = MovementMath.slide_entry_velocity(velocity, boost, settings.slide_max_speed)
+	velocity = MovementMath.slide_entry_velocity(velocity, boost * weapon_speed_scale, settings.slide_max_speed * weapon_speed_scale)
 	_slide_boost_cooldown = settings.slide_boost_cooldown
 	_set_stance(Stance.SLIDE)
 	slide_started.emit()
@@ -335,7 +344,7 @@ func _update_horizontal_velocity(delta: float, on_floor: bool, wish_dir: Vector3
 	if not on_floor:
 		velocity = MovementMath.accelerate_capped(velocity, wish_dir, wish_speed, settings.air_accel, delta)
 	elif stance == Stance.SLIDE:
-		velocity = MovementMath.slide_decay(velocity, settings.slide_deceleration, delta)
+		velocity = MovementMath.slide_decay(velocity, settings.slide_deceleration * weapon_speed_scale, delta)
 		# Steering only: the wish speed equals the current speed, so this can
 		# turn the slide but never speed it up.
 		var slide_speed: float = get_horizontal_speed()

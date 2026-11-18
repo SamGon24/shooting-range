@@ -1,8 +1,13 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://weapons/weapon_data.gd" id="1_data"]
 [ext_resource type="Script" path="res://ballistics/projectile_spec.gd" id="2_spec"]
 [ext_resource type="PackedScene" path="res://weapons/viewmodels/halberd_rifle_viewmodel.tscn" id="3_viewmodel"]
+
+[ext_resource type="Resource" path="res://weapons/framework/auto.tres" id="4_fire"]
+[ext_resource type="Resource" path="res://weapons/framework/ballistic.tres" id="5_delivery"]
+[ext_resource type="Resource" path="res://weapons/framework/magazine.tres" id="6_reload"]
+[ext_resource type="Resource" path="res://weapons/animation/data/magazine.tres" id="handling"]
 
 [sub_resource type="Resource" id="projectile"]
 script = ExtResource("2_spec")
@@ -19,6 +24,11 @@ diameter_mm = 5.7
 
 [resource]
 script = ExtResource("1_data")
+weapon_class = 1
+bore_height_m = 0.01
+fire_mode = ExtResource("4_fire")
+delivery = ExtResource("5_delivery")
+reload_policy = ExtResource("6_reload")
 display_name = "Halberd R-5"
 automatic = true
 rounds_per_minute = 700.0
@@ -48,6 +58,12 @@ scoped = false
 raise_time = 0.4
 lower_time = 0.3
 viewmodel_scene = ExtResource("3_viewmodel")
+handling = ExtResource("handling")
+muzzle_smoke_particles = 4
+casing_size = Vector3(0.012, 0.012, 0.045)
+casing_port = Vector3(0.03, 0.02, 0.03)
+casing_color = Color(0.8, 0.62, 0.25, 1)
+casing_eject_delay_s = 0.0
 hip_position = Vector3(0.17, -0.17, -0.42)
 ads_position = Vector3(0, -0.064, -0.4)
 kick_back = 0.035

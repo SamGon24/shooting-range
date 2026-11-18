@@ -65,10 +65,10 @@ func test_mark_lies_on_the_surface_facing_out() -> void:
 
 
 func test_no_mark_on_a_moving_body() -> void:
-	var mover := RigidBody3D.new()
-	add_child_autofree(mover)
-	_effects.show_impact(_hit(Vector3.ZERO, Vector3.UP, mover))
-	assert_eq(_effects.get_mark_count(), 0, "marks only stick to static geometry")
+	for mover: PhysicsBody3D in [RigidBody3D.new(), AnimatableBody3D.new()]:
+		add_child_autofree(mover)
+		_effects.show_impact(_hit(Vector3.ZERO, Vector3.UP, mover))
+		assert_eq(_effects.get_mark_count(), 0, "marks only stick to static geometry")
 
 
 func test_listens_to_the_projectile_system() -> void:

@@ -46,17 +46,43 @@ func _ready() -> void:
 	_build_sparks()
 	_build_sounds()
 	_connect_to_projectiles.call_deferred()
+	_warm_up.call_deferred()
 
 
 ## Shows the effects for one hit. Connected to the projectile system; also
 ## callable directly.
 func show_impact(hit: ProjectileHit) -> void:
+	if hit.source == DamageSource.Kind.MELEE:
+		_play_sound(hit.position)
+		return
 	_play_sparks(hit.position, hit.normal)
 	_play_sound(hit.position)
 	# Marks only stick to the static world; a mark on something that moves
 	# would be left hanging in the air.
-	if hit.collider is StaticBody3D:
+	if hit.collider is StaticBody3D and not hit.collider is AnimatableBody3D:
 		_place_mark(hit.position, hit.normal)
+
+
+## Pays the first-draw cost of the sparks and the mark quads before the first
+## hit: a twin spark emitter and one mark shown at negligible size for a moment.
+func _warm_up() -> void:
+	if not ParticleWarmup.is_needed():
+		return
+	await ParticleWarmup.settle(self)
+	var camera: Camera3D = get_viewport().get_camera_3d() if is_inside_tree() else null
+	if camera == null:
+		return
+	var anchor: Vector3 = camera.global_position - camera.global_basis.z * 2.0
+	ParticleWarmup.warm(_sparks[0], anchor)
+	var transform := Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * ParticleWarmup.TINY_SCALE), anchor)
+	var count: int = _marks.visible_instance_count
+	_marks.set_instance_transform(_next_mark, transform)
+	_marks.reset_instance_physics_interpolation(_next_mark)
+	_marks.visible_instance_count = maxi(count, 1)
+	await get_tree().create_timer(0.1).timeout
+	# Put back exactly what was there: the warm-up mark was only ever shown
+	# in the slot the next real mark overwrites.
+	_marks.visible_instance_count = count
 
 
 ## Marks currently drawn.

@@ -6,19 +6,24 @@ extends Node
 ## `--pose=x,y,z,yaw_deg,pitch_deg` places the player. Position is in metres;
 ## yaw 0 looks downrange (-Z), 180 looks back at the movement test area.
 ##
-## `--hold=action[@seconds],...` presses input actions and keeps them down,
-## each from the given time after start (default 0). For example, switch to
-## the second weapon, aim after 1.5 s and fire at 2.5 s:
+## `--hold=action[@seconds[-release]],...` presses input actions and keeps
+## them down, each from the given time after start (default 0) until the
+## optional release time. For example, switch to the second weapon, aim after
+## 1.5 s, and fire from 2.5 s to 3 s:
 ##
 ##   godot --path . --write-movie /tmp/frames/frame.png --quit-after 240 \
-##       -- --pose=0,0,0,0,-1 --hold=weapon_2,aim@1.5,fire@2.5
+##       -- --pose=0,0,0,0,-1 --hold=weapon_2,aim@1.5,fire@2.5-3
+##
+## A held action is pressed again if the engine lets go of it, as it does
+## when an unfocused capture window loses focus.
 
 const POSE_PREFIX: String = "--pose="
 const HOLD_PREFIX: String = "--hold="
 const PLAYER_GROUP: StringName = &"player"
 
 var _elapsed: float = 0.0
-## Actions still waiting for their press time: [action, seconds] pairs.
+## Actions not yet released: [action, press seconds, release seconds or
+## INF] triples.
 var _pending_holds: Array[Array] = []
 
 
@@ -41,9 +46,12 @@ func _physics_process(delta: float) -> void:
 	for index: int in range(_pending_holds.size() - 1, -1, -1):
 		var action: StringName = _pending_holds[index][0]
 		var at_seconds: float = _pending_holds[index][1]
-		if _elapsed >= at_seconds:
-			Input.action_press(action)
+		var release_seconds: float = _pending_holds[index][2]
+		if _elapsed >= release_seconds:
+			Input.action_release(action)
 			_pending_holds.remove_at(index)
+		elif _elapsed >= at_seconds and not Input.is_action_pressed(action):
+			Input.action_press(action)
 	if _pending_holds.is_empty():
 		set_physics_process(false)
 
@@ -55,8 +63,10 @@ func _parse_holds(value: String) -> void:
 		if not InputMap.has_action(action):
 			push_warning("DebugPose: unknown action '%s' in --hold" % action)
 			continue
-		var at_seconds: float = parts[1].to_float() if parts.size() > 1 else 0.0
-		_pending_holds.append([action, at_seconds])
+		var times: PackedStringArray = parts[1].split("-") if parts.size() > 1 else PackedStringArray(["0"])
+		var at_seconds: float = times[0].to_float()
+		var release_seconds: float = times[1].to_float() if times.size() > 1 else INF
+		_pending_holds.append([action, at_seconds, release_seconds])
 
 
 func _apply_pose(value: String) -> void:

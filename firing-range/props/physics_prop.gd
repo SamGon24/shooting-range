@@ -55,7 +55,7 @@ func _ready() -> void:
 
 
 func receive_hit(hit: ProjectileHit) -> void:
-	apply_impulse(hit.velocity * (hit.spec.mass_grams * 0.001), hit.position - global_position)
+	apply_impulse(hit.momentum(), hit.position - global_position)
 
 
 func push(direction: Vector3, player_velocity: Vector3, contact: Vector3, delta: float) -> void:

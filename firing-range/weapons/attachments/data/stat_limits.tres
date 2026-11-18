@@ -1,0 +1,5 @@
+[gd_resource type="Resource" script_class="StatLimits" load_steps=2 format=3]
+[ext_resource type="Script" path="res://weapons/attachments/stat_limits.gd" id="1"]
+[resource]
+script = ExtResource("1")
+bounds = {&"ads_time": Vector2(0.05, 1.5), &"rounds_per_minute": Vector2(30, 1500), &"bolt_cycle_time": Vector2(0, 3), &"sprint_to_fire_time": Vector2(0, 2), &"magazine_size": Vector2(1, 200), &"reload_tactical_time": Vector2(0.1, 6), &"reload_empty_time": Vector2(0.1, 6), &"recoil_scale": Vector2(0.25, 2), &"hip_spread_degrees": Vector2(0, 15), &"aimed_spread_degrees": Vector2(0, 15), &"spread_per_shot_degrees": Vector2(0, 5), &"max_bloom_degrees": Vector2(0, 15), &"recoil_recovery_rate": Vector2(0, 90), &"raise_time": Vector2(0.05, 2), &"lower_time": Vector2(0.05, 2), &"ads_fov_degrees": Vector2(2, 90), &"ads_sensitivity_scale": Vector2(0.05, 1), &"sight_height_m": Vector2(0, 0.5), &"projectile.muzzle_velocity": Vector2(50, 1500), &"projectile.damage": Vector2(0, 500), &"projectile.falloff_start_distance": Vector2(0, 1000), &"projectile.falloff_end_distance": Vector2(0, 1000), &"projectile.min_damage_fraction": Vector2(0, 1)}

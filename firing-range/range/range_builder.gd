@@ -14,6 +14,10 @@ const GRID_SHADER: Shader = preload("res://range/greybox_grid.gdshader")
 const MARKER_GROUP: StringName = &"distance_marker"
 const WORLD_LAYER: int = 1
 
+## Explicit session boundary; direct range launches retain authored defaults.
+@export var weapon_controller: WeaponController
+@export var pause_menu: PauseMenu
+
 @export_group("Lanes")
 @export_range(1, 12) var lane_count: int = 5
 @export_range(2.0, 12.0, 0.5, "suffix:m") var lane_width: float = 6.0

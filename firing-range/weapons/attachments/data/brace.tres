@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="AttachmentData" load_steps=6 format=3]
+[ext_resource type="Script" path="res://weapons/attachments/attachment_data.gd" id="1"]
+[ext_resource type="Script" path="res://weapons/attachments/stat_modifier.gd" id="2"]
+[ext_resource type="PackedScene" path="res://weapons/attachments/parts/brace.tscn" id="3"]
+
+[sub_resource type="Resource" id="m0"]
+script = ExtResource("2")
+stat = &"recoil_scale"
+operation = 1
+value = 0.8
+
+[sub_resource type="Resource" id="m1"]
+script = ExtResource("2")
+stat = &"ads_time"
+operation = 0
+value = 0.05
+
+[resource]
+script = ExtResource("1")
+id = &"brace"
+display_name = "Braced stock"
+slot = 3
+compatible_classes = PackedInt32Array(0, 1, 2, 3, 4)
+modifiers = Array[ExtResource("2")]([SubResource("m0"), SubResource("m1")])
+part_scene = ExtResource("3")

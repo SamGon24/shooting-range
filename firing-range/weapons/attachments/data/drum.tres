@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="AttachmentData" load_steps=8 format=3]
+[ext_resource type="Script" path="res://weapons/attachments/attachment_data.gd" id="1"]
+[ext_resource type="Script" path="res://weapons/attachments/stat_modifier.gd" id="2"]
+[ext_resource type="PackedScene" path="res://weapons/attachments/parts/drum.tscn" id="3"]
+
+[sub_resource type="Resource" id="m0"]
+script = ExtResource("2")
+stat = &"magazine_size"
+operation = 1
+value = 1.6
+
+[sub_resource type="Resource" id="m1"]
+script = ExtResource("2")
+stat = &"reload_tactical_time"
+operation = 1
+value = 1.3
+
+[sub_resource type="Resource" id="m2"]
+script = ExtResource("2")
+stat = &"reload_empty_time"
+operation = 1
+value = 1.3
+
+[sub_resource type="Resource" id="m3"]
+script = ExtResource("2")
+stat = &"raise_time"
+operation = 0
+value = 0.1
+
+[resource]
+script = ExtResource("1")
+id = &"drum"
+display_name = "Drum magazine"
+slot = 4
+compatible_classes = PackedInt32Array(0, 1, 2, 3, 4, 5)
+modifiers = Array[ExtResource("2")]([SubResource("m0"), SubResource("m1"), SubResource("m2"), SubResource("m3")])
+part_scene = ExtResource("3")

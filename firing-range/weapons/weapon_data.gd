@@ -3,16 +3,41 @@ extends Resource
 ## Every stat for one weapon. Weapon code reads these and holds no numbers of
 ## its own. The weapons live in `weapons/data/*.tres`.
 
+@export var weapon_class: WeaponTypes.Class = WeaponTypes.Class.RIFLE
+@export var role: WeaponTypes.Role = WeaponTypes.Role.PRIMARY
+@export var fire_mode: FireModeData
+@export var delivery: DeliveryData
+@export var reload_policy: ReloadData
+@export var uses_ammo: bool = true
+@export var can_aim: bool = true
+@export_range(0.1, 1.0, 0.05) var movement_speed_scale: float = 1.0
+@export var guard: GuardData
+## Computed snapshots point to the original definition, never the reverse.
+var base_definition: WeaponData
+@export var bore_height_m: float = 0.01
+@export var recoil_scale: float = 1.0
+@export_enum("Iron:0", "Red dot:1", "2x:2", "4x:3", "8x:4") var optic_kind: int = 0
+var _legacy_automatic: bool = true
+
 @export var display_name: String = "Weapon"
 
 @export_group("Fire")
 ## True fires for as long as the trigger is held; false needs a press per shot.
-@export var automatic: bool = true
+@export var automatic: bool = true:
+	get:
+		return fire_mode.kind == FireModeData.Kind.FULL_AUTO if fire_mode != null else _legacy_automatic
+	set(value):
+		_legacy_automatic = value
+		if fire_mode != null and value != (fire_mode.kind == FireModeData.Kind.FULL_AUTO):
+			fire_mode = fire_mode.duplicate() as FireModeData
+			fire_mode.kind = FireModeData.Kind.FULL_AUTO if value else FireModeData.Kind.SEMI_AUTO
 ## Cyclic rate of fire, rounds per minute.
 @export_range(30.0, 1500.0, 1.0, "suffix:rpm") var rounds_per_minute: float = 700.0
 ## Time to work the bolt after a shot. 0 for weapons without one. The next
 ## shot waits for whichever is longer: this or the cyclic rate.
 @export_range(0.0, 3.0, 0.01, "suffix:s") var bolt_cycle_time: float = 0.0
+## Recovery after sprint ends; zero preserves the original MVP handling.
+@export_range(0.0, 2.0, 0.01, "suffix:s") var sprint_to_fire_time: float = 0.0
 ## What the weapon fires (muzzle velocity and, later, drag and damage).
 @export var projectile: ProjectileSpec
 
@@ -20,6 +45,9 @@ extends Resource
 ## Horizontal distance where a level sight line meets the calibrated path.
 ## 0 disables angular calibration (the bore offset still applies).
 @export_range(0.0, 1000.0, 1.0, "suffix:m") var zero_distance_m: float = 100.0
+## Distances the player may cycle the zero through with the zero key. Empty
+## means the zero is fixed. `zero_distance_m` is the starting choice.
+@export var zero_options: PackedFloat32Array = PackedFloat32Array()
 ## Sight line above the bore, measured from the reference viewmodel geometry.
 ## Gameplay uses this fixed value, never the animated viewmodel transform.
 @export_range(0.0, 0.5, 0.001, "suffix:m") var sight_height_m: float = 0.0
@@ -80,6 +108,9 @@ extends Resource
 
 @export_group("Viewmodel (cosmetic)")
 @export var viewmodel_scene: PackedScene
+## Procedural reload / cycle / equip / melee animation for the viewmodel.
+## Its timings are fractions of this weapon's own Resource times.
+@export var handling: HandlingProfile
 ## Viewmodel position relative to the camera when firing from the hip.
 @export var hip_position: Vector3 = Vector3(0.17, -0.17, -0.42)
 ## Viewmodel position when fully aimed, so the sights sit on the screen centre.
@@ -89,6 +120,19 @@ extends Resource
 ## How far the viewmodel muzzle climbs per shot, degrees.
 @export_range(0.0, 20.0, 0.1, "suffix:°") var kick_pitch_degrees: float = 2.0
 
+@export_group("Smoke and casings (cosmetic)")
+## Smoke particles puffed from the muzzle per shot. 0 for none.
+@export_range(0, 12) var muzzle_smoke_particles: int = 0
+## Ejected casing box: thickness X and Y, length Z, metres. Zero size means
+## the weapon ejects nothing.
+@export var casing_size: Vector3 = Vector3.ZERO
+## Ejection port in the viewmodel's own space; +X is out of the weapon's side.
+@export var casing_port: Vector3 = Vector3(0.03, 0.02, 0.05)
+@export var casing_color: Color = Color(0.8, 0.62, 0.25)
+## Seconds after the shot the casing is thrown: 0 for self-loaders, and the
+## time the bolt or pump takes to open for manual actions.
+@export_range(0.0, 1.0, 0.01, "suffix:s") var casing_eject_delay_s: float = 0.0
+
 @export_group("Sound (placeholder)")
 ## Base pitch of the generated shot sound, Hz. Lower sounds heavier.
 @export_range(30.0, 400.0, 1.0, "suffix:Hz") var shot_sound_pitch_hz: float = 110.0
@@ -97,9 +141,17 @@ extends Resource
 
 ## Seconds between shots.
 func shot_interval() -> float:
-	return maxf(60.0 / rounds_per_minute, bolt_cycle_time)
+	return fire_mode.interval(rounds_per_minute, bolt_cycle_time) if fire_mode != null else maxf(60.0 / rounds_per_minute, bolt_cycle_time)
 
 
 ## Reload duration for a magazine holding `ammo_in_magazine` rounds.
 func reload_time(ammo_in_magazine: int) -> float:
 	return reload_empty_time if ammo_in_magazine <= 0 else reload_tactical_time
+
+
+func definition() -> WeaponData:
+	return base_definition if base_definition != null else self
+
+
+func wants_shot(held: bool, pressed: bool) -> bool:
+	return fire_mode.wants_shot(held, pressed) if fire_mode != null else (held if automatic else pressed)

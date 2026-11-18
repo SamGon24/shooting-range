@@ -108,6 +108,24 @@ static func confirmation(start_hz: float, end_hz: float, duration: float) -> Aud
 	return _store(key, samples)
 
 
+## A smooth, filtered noise sweep for a blade swing or shield bash.
+static func swish(pitch_hz: float, duration: float) -> AudioStreamWAV:
+	var key: String = "swish:%.1f:%.3f" % [pitch_hz, duration]
+	if _cache.has(key):
+		return _cache[key]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(key)
+	var samples := PackedFloat32Array()
+	samples.resize(int(duration * MIX_RATE))
+	var filtered: float = 0.0
+	for index: int in samples.size():
+		var time: float = float(index) / MIX_RATE
+		var envelope: float = pow(sin(PI * time / duration), 2.0)
+		filtered = lerpf(filtered, rng.randf_range(-1.0, 1.0), 0.1)
+		samples[index] = (filtered * 0.7 + sin(TAU * pitch_hz * time) * 0.1) * envelope
+	return _store(key, samples)
+
+
 static func _store(key: String, samples: PackedFloat32Array) -> AudioStreamWAV:
 	var data := PackedByteArray()
 	data.resize(samples.size() * 2)

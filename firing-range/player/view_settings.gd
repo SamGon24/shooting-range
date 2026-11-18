@@ -69,7 +69,15 @@ var show_fps: bool = true:
 		show_fps = value
 		changed.emit()
 
-const KEYS: PackedStringArray = ["fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps"]
+## False starts the range's time-to-kill clock at the first damaging hit on a
+## dummy (the original behaviour). True starts it when the shot that first
+## damaged the dummy was fired, so bullet flight time counts.
+var ttk_from_first_shot: bool = false:
+	set(value):
+		ttk_from_first_shot = value
+		changed.emit()
+
+const KEYS: PackedStringArray = ["fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps", "ttk_from_first_shot"]
 
 
 func _ready() -> void:

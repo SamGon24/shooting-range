@@ -5,7 +5,9 @@ extends Node3D
 ## Shows the current weapon's greybox model in front of the camera and moves
 ## it: hip and aimed poses, sway that trails the mouse, bob while walking,
 ## inertia from jumping and strafing, a recoil kick per shot, and raise,
-## lower, reload and sprint poses. It also tells `CameraFeel` how far to zoom.
+## lower and sprint poses. Reload, action-cycle, equip and melee motions of
+## individual parts come from each weapon's `HandlingProfile` through
+## `WeaponAnimator`. It also tells `CameraFeel` how far to zoom.
 ##
 ## Everything here reads from the player and the weapon controller. Bullets
 ## leave from the player's gameplay eye, so nothing in this file can change
@@ -61,10 +63,6 @@ const FLASH_HIDDEN_SCALE: Vector3 = Vector3(0.0001, 0.0001, 0.0001)
 @export var sprint_offset: Vector3 = Vector3(-0.05, -0.05, 0.05)
 @export var sprint_rotation_degrees: Vector3 = Vector3(-12.0, 32.0, 8.0)
 @export_range(1.0, 30.0, 0.5, "suffix:1/s") var sprint_blend_rate: float = 9.0
-## How far the weapon dips and rolls at the middle of a reload.
-@export_range(0.0, 0.4, 0.01, "suffix:m") var reload_dip: float = 0.11
-@export_range(0.0, 90.0, 1.0, "suffix:°") var reload_roll_degrees: float = 28.0
-@export_range(1.0, 30.0, 0.5, "suffix:1/s") var reload_blend_rate: float = 10.0
 ## A scoped weapon's model is hidden above this aim blend (the HUD draws the
 ## scope instead).
 @export_range(0.5, 1.0, 0.01) var scope_hide_threshold: float = 0.85
@@ -76,6 +74,8 @@ const FLASH_HIDDEN_SCALE: Vector3 = Vector3(0.0001, 0.0001, 0.0001)
 var _pivot: Node3D
 var _models: Dictionary[WeaponData, Node3D] = {}
 var _muzzles: Dictionary[WeaponData, Node3D] = {}
+var _attachment_parts: Dictionary[WeaponData, Array] = {}
+var _native_optics: Dictionary[WeaponData, Array] = {}
 var _current_data: WeaponData
 var _flash_mesh: MeshInstance3D
 var _flash_particles: CPUParticles3D
@@ -91,7 +91,15 @@ var _inertia_roll: float = 0.0
 var _kick: float = 0.0
 var _kick_velocity: float = 0.0
 var _sprint_blend: float = 0.0
-var _reload_blend: float = 0.0
+var _animator: WeaponAnimator = WeaponAnimator.new()
+## Lives beside the player in the world, outside the camera rig, so the
+## dropped copies are ordinary interpolated physics bodies.
+var _drop_pool: MagazineDropPool
+var _casings: CasingPool
+var _smoke: MuzzleSmoke
+## A casing waiting for its bolt or pump to open: the weapon and seconds left.
+var _casing_pending: WeaponData
+var _casing_time_left: float = 0.0
 
 
 func _ready() -> void:
@@ -105,15 +113,33 @@ func _ready() -> void:
 	_pivot.name = "Pivot"
 	add_child(_pivot)
 
-	for data: WeaponData in controller.loadout:
+	for data: WeaponData in controller.get_available_definitions():
 		if data.viewmodel_scene == null:
 			continue
 		# Models wait outside the tree until they are the current weapon.
 		var model := data.viewmodel_scene.instantiate() as Node3D
 		_models[data] = model
+		_native_optics[data] = []
+		for part_name: String in ["RearSight", "FrontSightPost", "Scope", "ScopeBell", "ScopeMountFront", "ScopeMountRear"]:
+			var native: Node3D = model.get_node_or_null(part_name) as Node3D
+			if native != null:
+				_native_optics[data].append(native)
 		_muzzles[data] = model.get_node_or_null("Muzzle") as Node3D
+		_animator.bind(data, model)
 
 	_build_muzzle_flash()
+	_warm_up_flash.call_deferred()
+	if player.get_parent() != null:
+		_drop_pool = MagazineDropPool.new()
+		_drop_pool.name = "MagazineDrops"
+		player.add_sibling.call_deferred(_drop_pool)
+		_casings = CasingPool.new()
+		_casings.name = "Casings"
+		player.add_sibling.call_deferred(_casings)
+		_smoke = MuzzleSmoke.new()
+		_smoke.name = "MuzzleSmoke"
+		player.add_sibling.call_deferred(_smoke)
+		_animator.copy_released.connect(_on_copy_released)
 	_last_yaw = player.yaw
 	_last_pitch = player.pitch
 	controller.weapon_changed.connect(_on_weapon_changed)
@@ -139,10 +165,6 @@ func _process(delta: float) -> void:
 	_step_kick_spring(delta)
 	_sprint_blend = lerpf(_sprint_blend, 1.0 if player.is_sprinting else 0.0, _blend(sprint_blend_rate, delta))
 
-	var logic: WeaponLogic = controller.get_current_logic()
-	var reload_target: float = sin(logic.get_reload_progress() * PI) if logic.is_reloading() else 0.0
-	_reload_blend = lerpf(_reload_blend, reload_target, _blend(reload_blend_rate, delta))
-
 	var bob_scale: float = ViewSettings.head_bob_scale * motion_scale
 	var offset: Vector3 = _current_data.hip_position.lerp(_current_data.ads_position, aim)
 	offset.x += sin(_bob_phase) * bob_horizontal_amplitude * _bob_weight * bob_scale
@@ -151,7 +173,6 @@ func _process(delta: float) -> void:
 	offset.z += _kick * _current_data.kick_back
 	offset += lowered_offset * (1.0 - raise)
 	offset += sprint_offset * _sprint_blend
-	offset.y -= reload_dip * _reload_blend
 
 	var angles := Vector3.ZERO
 	angles.x = _sway.y * motion_scale + deg_to_rad(_current_data.kick_pitch_degrees) * _kick
@@ -159,12 +180,16 @@ func _process(delta: float) -> void:
 	angles.z = deg_to_rad(_inertia_roll) * motion_scale
 	angles.x -= deg_to_rad(lowered_pitch_degrees) * (1.0 - raise)
 	angles += sprint_rotation_degrees * (PI / 180.0) * _sprint_blend
-	angles.z += deg_to_rad(reload_roll_degrees) * _reload_blend
 
+	# Parts must be posed before the pivot is written. Under the camera rig
+	# (interpolation off), the renderer only picked up model-part transforms
+	# that changed before the pivot's transform propagated down to them.
+	_animator.apply(_current_data.definition(), controller.get_current_logic(), controller.get_raise_blend(fraction))
+	_tick_pending_casing(delta)
 	_pivot.position = offset
 	_pivot.rotation = angles
 
-	_set_model_shown(_current_data, not (_current_data.scoped and aim >= scope_hide_threshold))
+	_set_model_shown(_current_data.definition(), not (_current_data.scoped and aim >= scope_hide_threshold))
 
 	if _flash_time_left > 0.0:
 		_flash_time_left -= delta
@@ -180,7 +205,7 @@ func is_scope_view_active() -> bool:
 
 
 func get_current_model() -> Node3D:
-	return _models.get(_current_data) if _current_data != null else null
+	return _models.get(_current_data.definition()) if _current_data != null else null
 
 
 ## True if the current weapon's model is on screen (false while scoped in).
@@ -193,9 +218,39 @@ func _notification(what: int) -> void:
 	# Models that are not the current weapon live outside the tree, so they
 	# are not freed with it.
 	if what == NOTIFICATION_PREDELETE:
+		# A view freed before its deferred add leaves the pool orphaned.
+		_free_if_orphaned(_drop_pool)
+		_free_if_orphaned(_casings)
+		_free_if_orphaned(_smoke)
+		for nodes: Array in _native_optics.values():
+			for native: Node3D in nodes:
+				if is_instance_valid(native) and native.get_parent() == null:
+					native.free()
 		for model: Node3D in _models.values():
 			if is_instance_valid(model) and not model.is_inside_tree():
 				model.free()
+
+
+func get_animator() -> WeaponAnimator:
+	return _animator
+
+
+func get_drop_pool() -> MagazineDropPool:
+	return _drop_pool
+
+
+func get_casing_pool() -> CasingPool:
+	return _casings
+
+
+func get_muzzle_smoke() -> MuzzleSmoke:
+	return _smoke
+
+
+## Frees an effects pool that was never added to the world.
+func _free_if_orphaned(pool: Variant) -> void:
+	if is_instance_valid(pool) and (pool as Node).get_parent() == null:
+		(pool as Node).free()
 
 
 ## Current visual recoil, 0 at rest. For tests and debugging.
@@ -263,8 +318,11 @@ func _blend(rate: float, delta: float) -> float:
 
 
 func _on_weapon_changed(data: WeaponData) -> void:
+	if _current_data != null:
+		_animator.reset(_current_data.definition())
+	_rebuild_attachments(data)
 	for other: WeaponData in _models:
-		_set_model_shown(other, other == data)
+		_set_model_shown(other, other == data.definition())
 	_current_data = data
 	_kick = 0.0
 	_kick_velocity = 0.0
@@ -272,10 +330,15 @@ func _on_weapon_changed(data: WeaponData) -> void:
 	_flash_time_left = 0.0
 
 	# The flash rides on the current weapon's muzzle.
-	var muzzle: Node3D = _muzzles.get(data)
+	var muzzle: Node3D = _muzzles.get(data.definition())
 	if muzzle != null and _flash_mesh.get_parent() != muzzle:
 		_flash_mesh.reparent(muzzle, false)
 		_flash_particles.reparent(muzzle, false)
+
+
+func _on_copy_released(part: Node3D, follower: Node3D) -> void:
+	if _drop_pool != null and _drop_pool.is_inside_tree():
+		_drop_pool.release(part, follower, player.velocity)
 
 
 func _on_shot_fired(data: WeaponData) -> void:
@@ -284,8 +347,11 @@ func _on_shot_fired(data: WeaponData) -> void:
 	# Jump straight to the kicked pose; the spring brings it back.
 	_kick = 1.0
 	_kick_velocity = 0.0
+	# Queued even when scoped: a bolt or pump throws its casing a moment
+	# later, and the eject step skips itself while no model is on screen.
+	_queue_casing(data)
 
-	if is_scope_view_active():
+	if is_scope_view_active() or (data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE):
 		return
 	_flash_mesh.rotation.z = randf() * TAU
 	_flash_mesh.scale = Vector3.ONE
@@ -293,6 +359,63 @@ func _on_shot_fired(data: WeaponData) -> void:
 	_flash_particles.restart()
 	_flash_particles.emitting = true
 	muzzle_flashed.emit(_flash_mesh.global_position)
+	_puff_smoke(data)
+
+
+## Pays the muzzle sparks' first-draw cost before the first shot. The flash
+## mesh itself is always drawn (at negligible size), so only the sparks need it.
+func _warm_up_flash() -> void:
+	if not ParticleWarmup.is_needed():
+		return
+	await ParticleWarmup.settle(self)
+	ParticleWarmup.warm(_flash_particles, Vector3.ZERO)
+
+
+## Smoke from the muzzle: a pooled emitter restarted where the barrel is now.
+func _puff_smoke(data: WeaponData) -> void:
+	if _smoke == null or not _smoke.is_inside_tree() or data.muzzle_smoke_particles <= 0:
+		return
+	var muzzle: Node3D = _muzzles.get(data.definition())
+	if muzzle == null or not muzzle.is_inside_tree():
+		return
+	_smoke.puff(muzzle.global_position, -muzzle.global_basis.z, data.muzzle_smoke_particles)
+
+
+## Throws the casing now, or after the bolt or pump has had time to open. A
+## second shot flushes a casing still waiting for the first.
+func _queue_casing(data: WeaponData) -> void:
+	if _casings == null or data.casing_size == Vector3.ZERO:
+		return
+	if _casing_pending != null:
+		_eject_casing(_casing_pending)
+		_casing_pending = null
+	if data.casing_eject_delay_s <= 0.0:
+		_eject_casing(data)
+	else:
+		_casing_pending = data
+		_casing_time_left = data.casing_eject_delay_s
+
+
+func _tick_pending_casing(delta: float) -> void:
+	if _casing_pending == null:
+		return
+	_casing_time_left -= delta
+	if _casing_time_left <= 0.0:
+		var data: WeaponData = _casing_pending
+		_casing_pending = null
+		_eject_casing(data)
+
+
+## The casing leaves the port of the model as it is on screen now. A scoped
+## view has no model in the tree, so nothing is thrown then.
+func _eject_casing(data: WeaponData) -> void:
+	if _casings == null or not _casings.is_inside_tree() or data.definition() != _current_data.definition():
+		return
+	var model: Node3D = _models.get(data.definition())
+	if model == null or not model.is_inside_tree():
+		return
+	var port := Transform3D(Basis.IDENTITY, data.casing_port)
+	_casings.eject(model.global_transform * port, data.casing_size, data.casing_color, player.velocity)
 
 
 ## Adds or removes a weapon's model from the tree.
@@ -352,3 +475,40 @@ func _build_muzzle_flash() -> void:
 	_flash_particles.initial_velocity_max = 5.0
 	_flash_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_pivot.add_child(_flash_particles)
+
+
+func _rebuild_attachments(data: WeaponData) -> void:
+	var definition: WeaponData = data.definition()
+	var model: Node3D = _models.get(definition)
+	if model == null:
+		return
+	# Detach flash nodes before freeing a previous muzzle attachment.
+	if _flash_mesh.get_parent() != _pivot:
+		_flash_mesh.reparent(_pivot, false)
+		_flash_particles.reparent(_pivot, false)
+	for part: Node3D in _attachment_parts.get(definition, []):
+		part.free()
+	_attachment_parts[definition] = []
+	_muzzles[definition] = model.get_node_or_null("Muzzle") as Node3D
+	var build: WeaponBuild = controller.get_build(controller.get_current_slot())
+	if build == null:
+		return
+	var has_optic: bool = build.get_attachment(WeaponTypes.Slot.OPTIC) != null
+	for native: Node3D in _native_optics.get(definition, []):
+		if has_optic and native.get_parent() != null:
+			native.get_parent().remove_child(native)
+		elif not has_optic and native.get_parent() == null:
+			model.add_child(native)
+	for attachment: AttachmentData in build.get_attachments():
+		if attachment.part_scene == null:
+			continue
+		var mount := model.get_node_or_null("Mounts/" + WeaponTypes.SLOT_NAMES[attachment.slot]) as Node3D
+		if mount == null:
+			continue
+		var part := attachment.part_scene.instantiate() as Node3D
+		mount.add_child(part)
+		var point := part.get_node(attachment.part_mount) as Node3D
+		part.transform = point.transform.affine_inverse()
+		_attachment_parts[definition].append(part)
+		if attachment.slot == WeaponTypes.Slot.MUZZLE:
+			_muzzles[definition] = part.get_node_or_null("Exit") as Node3D

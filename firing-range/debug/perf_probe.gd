@@ -10,10 +10,20 @@ extends Node
 ##   godot --path . -- --perf-probe                              (as played)
 ##   godot --path . --disable-vsync --max-fps 0 -- --perf-probe  (uncapped)
 ##   godot --path . -- --perf-probe --perf-fire                  (firing)
+##   godot --path . -- --perf-probe --perf-fire --perf-weapon=shotgun
 ##
 ## With `--perf-fire` the player walks instead of sprinting (sprinting blocks
-## firing) and holds the trigger, so the rifle fires full-auto and reloads
-## for the whole run.
+## firing). Automatic guns hold the trigger; pump guns receive press/release
+## edges and interrupt shell loading once a round is ready.
+##
+## Adding `--perf-cold` holds all firing back until the warm-up ends, so the
+## first shot, first impact and first reload of a session land inside the
+## measurement. Without it they happen during the warm-up and a first-use
+## stall can hide there; the report's worst frame then shows it.
+##
+## Adding `--perf-reload` presses reload whenever the gun has fired at least
+## one round, so the run is dominated by tactical reloads: handling
+## animation, magazine release and the pooled physics drops.
 ##
 ## The report includes the real vsync mode and how much of the run the window
 ## was focused. Keep the window in front while it runs: an unfocused or
@@ -21,11 +31,16 @@ extends Node
 
 const ARGUMENT: String = "--perf-probe"
 const FIRE_ARGUMENT: String = "--perf-fire"
+const RELOAD_ARGUMENT: String = "--perf-reload"
+const COLD_ARGUMENT: String = "--perf-cold"
 const PLAYER_GROUP: StringName = &"player"
 const WARMUP_SECONDS: float = 2.0
 const MEASURE_SECONDS: float = 10.0
 const SWEEP_DEGREES: float = 50.0
 const SWEEP_PERIOD_SECONDS: float = 4.0
+const GUARD_INTERVAL_TICKS: int = 15
+const GUARD_TEST_DISTANCE_M: float = 2.0
+const GUARD_ROUND: ProjectileSpec = preload("res://debug/data/guard_probe_round.tres")
 
 var _player: PlayerController
 var _elapsed: float = 0.0
@@ -34,20 +49,38 @@ var _frame_times_usec: PackedInt64Array = PackedInt64Array()
 var _focused_frames: int = 0
 var _firing: bool = false
 var _shots: int = 0
+var _weapons: WeaponController
+var _system: ProjectileSystem
+var _peak_projectiles: int = 0
 var _hits: int = 0
 var _stress: Node
 var _min_ragdoll_parts: int = 1000000
 var _max_ragdoll_parts: int = 0
+var _guard_ticks: int = 0
+var _blasts: int = 0
+var _guard_hits: int = 0
+var _reload_stress: bool = false
+var _cold: bool = false
+var _reloads: int = 0
+var _drops: int = 0
+var _drop_pool: MagazineDropPool
+var _peak_drops: int = 0
 
 
 func _ready() -> void:
 	if not OS.get_cmdline_user_args().has(ARGUMENT):
 		set_process(false)
+		set_physics_process(false)
 		return
 	_firing = OS.get_cmdline_user_args().has(FIRE_ARGUMENT)
+	_reload_stress = _firing and OS.get_cmdline_user_args().has(RELOAD_ARGUMENT)
+	_cold = _firing and OS.get_cmdline_user_args().has(COLD_ARGUMENT)
+	process_physics_priority = -20
+	set_physics_process(_firing)
 	Input.action_press("move_forward")
 	if _firing:
-		Input.action_press("fire")
+		if not _cold:
+			Input.action_press("fire")
 		_count_shots.call_deferred()
 	else:
 		Input.action_press("sprint")
@@ -56,11 +89,104 @@ func _ready() -> void:
 
 func _count_shots() -> void:
 	var weapons := get_tree().get_first_node_in_group(WeaponController.GROUP) as WeaponController
+	_weapons = weapons
 	if weapons != null:
+		_select_weapon()
 		weapons.shot_fired.connect(func(_data: WeaponData) -> void: _shots += 1)
+		weapons.reload_started.connect(func(_empty: bool, _duration: float) -> void: _reloads += 1)
+	var view := get_tree().get_first_node_in_group(WeaponView.GROUP) as WeaponView
+	if view != null:
+		_drop_pool = view.get_drop_pool()
+		view.get_animator().copy_released.connect(func(_part: Node3D, _follower: Node3D) -> void: _drops += 1)
 	var projectiles := get_tree().get_first_node_in_group(ProjectileSystem.GROUP) as ProjectileSystem
+	_system = projectiles
 	if projectiles != null:
-		projectiles.projectile_hit.connect(func(_hit: ProjectileHit) -> void: _hits += 1)
+		projectiles.projectile_fired.connect(_on_projectile_fired)
+		projectiles.projectile_hit.connect(_on_projectile_hit)
+	var explosions := get_tree().get_first_node_in_group(ExplosionSystem.GROUP) as ExplosionSystem
+	if explosions != null:
+		explosions.exploded.connect(func(_point: Vector3, _data: ExplosionData) -> void: _blasts += 1)
+
+
+func _select_weapon() -> void:
+	var prefix: String = "--perf-weapon="
+	for argument: String in OS.get_cmdline_user_args():
+		if not argument.begins_with(prefix):
+			continue
+		var classes: Dictionary[String, WeaponTypes.Class] = {
+			"rifle": WeaponTypes.Class.RIFLE, "smg": WeaponTypes.Class.SMG,
+			"lmg": WeaponTypes.Class.LMG, "shotgun": WeaponTypes.Class.SHOTGUN,
+			"sniper": WeaponTypes.Class.SNIPER, "pistol": WeaponTypes.Class.PISTOL,
+			"rocket": WeaponTypes.Class.ROCKET, "knife": WeaponTypes.Class.KNIFE,
+			"shield": WeaponTypes.Class.SHIELD,
+		}
+		var weapon_key: String = argument.trim_prefix(prefix)
+		if not classes.has(weapon_key):
+			push_warning("PerfProbe: unknown weapon '%s'" % weapon_key)
+			return
+		var secondary: bool = classes[weapon_key] >= WeaponTypes.Class.PISTOL
+		var choices: Array[WeaponData] = _weapons.get_secondary_choices() if secondary else _weapons.get_primary_choices()
+		for definition: WeaponData in choices:
+			if definition.weapon_class == classes[weapon_key]:
+				if secondary:
+					_weapons.request_secondary(definition)
+				else:
+					_weapons.request_primary(definition)
+				return
+
+
+func _physics_process(_delta: float) -> void:
+	if _weapons == null or _weapons.get_current_data() == null:
+		return
+	if _cold and _elapsed < WARMUP_SECONDS:
+		return
+	if _drop_pool != null:
+		_peak_drops = maxi(_peak_drops, _drop_pool.active_count())
+	if _reload_stress:
+		_press_reload_when_possible()
+	if _weapons.get_current_data().guard != null:
+		_guard_ticks = (_guard_ticks + 1) % GUARD_INTERVAL_TICKS
+		if _guard_ticks == 0 and _system != null:
+			# One-tick incoming flight exercises real blocks while walking /
+			# sweeping. A 15 m test round can be dodged during its flight.
+			var player: PlayerController = _weapons.player
+			var aim: Basis = player.get_aim_basis()
+			_system.fire(player.get_eye_position() - aim.z * GUARD_TEST_DISTANCE_M, aim.z, GUARD_ROUND)
+	if _weapons.get_current_data().automatic:
+		if not Input.is_action_pressed("fire"):
+			Input.action_press("fire")
+		return
+	# Pump / bolt weapons need real press/release edges, including a fresh
+	# pull after reload. Keep enlarged shell capacities from spending the
+	# whole measurement loading: close and fire as soon as a shell is ready.
+	if Input.is_action_pressed("fire"):
+		Input.action_release("fire")
+		return
+	var logic: WeaponLogic = _weapons.get_current_logic()
+	if logic.is_reloading() and logic.ammo > 0 and logic.data.reload_policy != null and logic.data.reload_policy.kind == ReloadData.Kind.SHELL:
+		Input.action_press("fire")
+		return
+	if logic.state in [WeaponLogic.State.READY, WeaponLogic.State.FIRING] and logic.get_time_to_next_shot() <= WeaponLogic.TIME_EPSILON:
+		Input.action_press("fire")
+
+
+func _press_reload_when_possible() -> void:
+	if Input.is_action_pressed("reload"):
+		Input.action_release("reload")
+		return
+	var logic: WeaponLogic = _weapons.get_current_logic()
+	if logic.data.uses_ammo and logic.ammo > 0 and logic.ammo < logic.data.magazine_size and logic.can_reload():
+		Input.action_press("reload")
+
+
+func _on_projectile_fired(_slot: int, _origin: Vector3, _velocity: Vector3, _spec: ProjectileSpec) -> void:
+	_peak_projectiles = maxi(_peak_projectiles, _system.get_active_count())
+
+
+func _on_projectile_hit(hit: ProjectileHit) -> void:
+	_hits += 1
+	if hit.collider is WeaponGuard and not hit.spec.stats_eligible:
+		_guard_hits += 1
 
 
 func _process(delta: float) -> void:
@@ -101,6 +227,7 @@ func _report_and_quit() -> void:
 	Input.action_release("move_forward")
 	Input.action_release("sprint")
 	Input.action_release("fire")
+	Input.action_release("reload")
 
 	var sorted: PackedInt64Array = _frame_times_usec.duplicate()
 	sorted.sort()
@@ -149,7 +276,16 @@ func _report_and_quit() -> void:
 	if _player != null:
 		print("player speed:    %.2f m/s" % _player.get_horizontal_speed())
 	if _firing:
+		if _weapons != null:
+			print("weapon:          %s" % _weapons.get_current_data().display_name)
+		if _system != null:
+			print("projectiles:     %d peak / %d capacity, %d dropped" % [_peak_projectiles, _system.capacity, _system.get_dropped_count()])
 		print("shots fired:     %d (%d hits) since start" % [_shots, _hits])
+		print("armed blasts:    %d since start" % _blasts)
+		print("shield blocks:   %d non-scoring rounds since start" % _guard_hits)
+		print("reloads:         %d started, %d magazines dropped since start" % [_reloads, _drops])
+		if _drop_pool != null:
+			print("dropped bodies:  %d peak active / %d pooled" % [_peak_drops, _drop_pool.capacity])
 	if _stress != null:
 		print("stress props:    %d (awake throughout)" % int(_stress.call("get_prop_count")))
 		print("ragdoll parts:   %d min / %d max during measurement" % [_min_ragdoll_parts, _max_ragdoll_parts])

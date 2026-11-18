@@ -1,0 +1,135 @@
+[gd_resource type="Resource" script_class="HandlingProfile" load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://weapons/animation/handling_profile.gd" id="1"]
+[ext_resource type="Script" path="res://weapons/animation/handling_track.gd" id="2"]
+
+[sub_resource type="Resource" id="track_0"]
+script = ExtResource("2")
+event = 0
+part = &""
+offset = Vector3(-0.05, -0.01, 0.02)
+rotation_degrees = Vector3(8.0, 14.0, -24.0)
+out_start = 0.0
+out_end = 0.08
+back_start = 0.9
+back_end = 1.0
+
+[sub_resource type="Resource" id="track_1"]
+script = ExtResource("2")
+event = 0
+part = &"Lid"
+offset = Vector3(0.0, 0.0, 0.0)
+rotation_degrees = Vector3(-75.0, 0.0, 0.0)
+out_start = 0.06
+out_end = 0.14
+back_start = 0.8
+back_end = 0.88
+
+[sub_resource type="Resource" id="track_2"]
+script = ExtResource("2")
+event = 0
+part = &"Magazine"
+offset = Vector3(0.02, -0.3, 0.03)
+rotation_degrees = Vector3(0.0, 0.0, -10.0)
+out_start = 0.16
+out_end = 0.32
+back_start = 0.46
+back_end = 0.62
+visibility = 2
+window_start = 0.2
+window_end = 0.46
+releases_copy = true
+
+[sub_resource type="Resource" id="track_3"]
+script = ExtResource("2")
+event = 0
+part = &"Belt"
+offset = Vector3(0.0, -0.03, 0.0)
+rotation_degrees = Vector3(0.0, 0.0, 0.0)
+out_start = 0.64
+out_end = 0.64
+back_start = 0.66
+back_end = 0.76
+visibility = 2
+window_start = 0.16
+window_end = 0.64
+releases_copy = false
+
+[sub_resource type="Resource" id="track_4"]
+script = ExtResource("2")
+event = 1
+part = &""
+offset = Vector3(-0.05, -0.01, 0.02)
+rotation_degrees = Vector3(8.0, 14.0, -24.0)
+out_start = 0.0
+out_end = 0.07
+back_start = 0.92
+back_end = 1.0
+
+[sub_resource type="Resource" id="track_5"]
+script = ExtResource("2")
+event = 1
+part = &"Lid"
+offset = Vector3(0.0, 0.0, 0.0)
+rotation_degrees = Vector3(-75.0, 0.0, 0.0)
+out_start = 0.05
+out_end = 0.12
+back_start = 0.74
+back_end = 0.81
+
+[sub_resource type="Resource" id="track_6"]
+script = ExtResource("2")
+event = 1
+part = &"Magazine"
+offset = Vector3(0.02, -0.3, 0.03)
+rotation_degrees = Vector3(0.0, 0.0, -10.0)
+out_start = 0.14
+out_end = 0.28
+back_start = 0.4
+back_end = 0.55
+visibility = 2
+window_start = 0.18
+window_end = 0.4
+releases_copy = true
+
+[sub_resource type="Resource" id="track_7"]
+script = ExtResource("2")
+event = 1
+part = &"Belt"
+offset = Vector3(0.0, -0.03, 0.0)
+rotation_degrees = Vector3(0.0, 0.0, 0.0)
+out_start = 0.57
+out_end = 0.57
+back_start = 0.59
+back_end = 0.7
+visibility = 1
+window_start = 0.57
+window_end = 1.0
+releases_copy = false
+
+[sub_resource type="Resource" id="track_8"]
+script = ExtResource("2")
+event = 1
+part = &"ChargingHandle"
+offset = Vector3(0.0, 0.0, 0.08)
+rotation_degrees = Vector3(0.0, 0.0, 0.0)
+out_start = 0.84
+out_end = 0.88
+back_start = 0.9
+back_end = 0.95
+
+[sub_resource type="Resource" id="track_9"]
+script = ExtResource("2")
+event = 6
+part = &""
+offset = Vector3(0.0, 0.0, 0.0)
+rotation_degrees = Vector3(0.0, 0.0, -10.0)
+out_start = 0.0
+out_end = 1.0
+back_start = 1.0
+back_end = 1.0
+
+[resource]
+script = ExtResource("1")
+tracks = Array[ExtResource("2")]([SubResource("track_0"), SubResource("track_1"), SubResource("track_2"), SubResource("track_3"), SubResource("track_4"), SubResource("track_5"), SubResource("track_6"), SubResource("track_7"), SubResource("track_8"), SubResource("track_9")])
+empty_hidden_parts = Array[StringName]([&"Belt"])
