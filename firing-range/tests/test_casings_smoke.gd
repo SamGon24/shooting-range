@@ -100,7 +100,9 @@ func test_a_casing_takes_the_weapons_size_mass_and_port_direction() -> void:
 	assert_gt(rifle.linear_velocity.x, 1.0, "thrown out of the +X side")
 	assert_gt(rifle.linear_velocity.y, 0.5, "and upward")
 	var moving := _pool.eject(_port(Vector3(0.0, 1.0, 0.0)), Vector3(0.012, 0.012, 0.045), BRASS, Vector3(0.0, 0.0, -5.0))
-	assert_almost_eq(moving.linear_velocity.z, -5.0, _pool.eject_scatter + 0.001, "keeps the shooter's velocity")
+	# Port back and up.cross(outward) are collinear: both scatter draws
+	# contribute to Z. Their sum is bounded by twice the per-draw range.
+	assert_almost_eq(moving.linear_velocity.z, -5.0, 2.0 * _pool.eject_scatter + 0.001, "keeps the shooter's velocity plus both scatter terms")
 
 
 func test_a_casing_falls_lands_and_is_put_away_in_gameplay_time() -> void:
