@@ -21,6 +21,8 @@ const GROUP: StringName = &"weapon_controller"
 
 ## Weapons carried, in slot order (slot 1, slot 2, ...).
 @export var loadout: Array[WeaponData] = []
+## Optional startup snapshot supplied before entering the tree.
+var initial_builds: Array[WeaponBuild] = []
 @export var loadout_definition: WeaponLoadout
 @export var primary_catalog: WeaponCatalog
 @export var secondary_catalog: WeaponCatalog
@@ -72,6 +74,13 @@ func _ready() -> void:
 	var definitions: Array[WeaponData] = get_definitions()
 	for definition: WeaponData in get_available_definitions():
 		var runtime := WeaponRuntime.new(definition, _rng)
+		for prepared: WeaponBuild in initial_builds:
+			if prepared.base == definition:
+				for attachment: AttachmentData in prepared.get_attachments():
+					runtime.build.set_attachment(attachment.slot, attachment)
+				runtime.logic.data = runtime.build.get_stats()
+				runtime.logic.ammo = runtime.logic.data.magazine_size
+				runtime.recoil.data = runtime.logic.data
 		_inventory[definition] = runtime
 		var logic: WeaponLogic = runtime.logic
 		logic.fired.connect(_on_logic_fired.bind(logic))
@@ -354,6 +363,8 @@ func get_definitions() -> Array[WeaponData]:
 		for data: WeaponData in loadout:
 			active.append(data.definition())
 		return active
+	if initial_builds.size() == 2:
+		return [initial_builds[0].base, initial_builds[1].base]
 	if loadout_definition != null:
 		return loadout_definition.weapons()
 	var definitions: Array[WeaponData] = []
