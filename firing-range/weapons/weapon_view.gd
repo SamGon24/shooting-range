@@ -95,6 +95,11 @@ var _animator: WeaponAnimator = WeaponAnimator.new()
 ## Lives beside the player in the world, outside the camera rig, so the
 ## dropped copies are ordinary interpolated physics bodies.
 var _drop_pool: MagazineDropPool
+var _casings: CasingPool
+var _smoke: MuzzleSmoke
+## A casing waiting for its bolt or pump to open: the weapon and seconds left.
+var _casing_pending: WeaponData
+var _casing_time_left: float = 0.0
 
 
 func _ready() -> void:
@@ -127,6 +132,12 @@ func _ready() -> void:
 		_drop_pool = MagazineDropPool.new()
 		_drop_pool.name = "MagazineDrops"
 		player.add_sibling.call_deferred(_drop_pool)
+		_casings = CasingPool.new()
+		_casings.name = "Casings"
+		player.add_sibling.call_deferred(_casings)
+		_smoke = MuzzleSmoke.new()
+		_smoke.name = "MuzzleSmoke"
+		player.add_sibling.call_deferred(_smoke)
 		_animator.copy_released.connect(_on_copy_released)
 	_last_yaw = player.yaw
 	_last_pitch = player.pitch
@@ -173,6 +184,7 @@ func _process(delta: float) -> void:
 	# (interpolation off), the renderer only picked up model-part transforms
 	# that changed before the pivot's transform propagated down to them.
 	_animator.apply(_current_data.definition(), controller.get_current_logic(), controller.get_raise_blend(fraction))
+	_tick_pending_casing(delta)
 	_pivot.position = offset
 	_pivot.rotation = angles
 
@@ -206,8 +218,9 @@ func _notification(what: int) -> void:
 	# are not freed with it.
 	if what == NOTIFICATION_PREDELETE:
 		# A view freed before its deferred add leaves the pool orphaned.
-		if is_instance_valid(_drop_pool) and _drop_pool.get_parent() == null:
-			_drop_pool.free()
+		_free_if_orphaned(_drop_pool)
+		_free_if_orphaned(_casings)
+		_free_if_orphaned(_smoke)
 		for nodes: Array in _native_optics.values():
 			for native: Node3D in nodes:
 				if is_instance_valid(native) and native.get_parent() == null:
@@ -223,6 +236,20 @@ func get_animator() -> WeaponAnimator:
 
 func get_drop_pool() -> MagazineDropPool:
 	return _drop_pool
+
+
+func get_casing_pool() -> CasingPool:
+	return _casings
+
+
+func get_muzzle_smoke() -> MuzzleSmoke:
+	return _smoke
+
+
+## Frees an effects pool that was never added to the world.
+func _free_if_orphaned(pool: Variant) -> void:
+	if is_instance_valid(pool) and (pool as Node).get_parent() == null:
+		(pool as Node).free()
 
 
 ## Current visual recoil, 0 at rest. For tests and debugging.
@@ -319,6 +346,9 @@ func _on_shot_fired(data: WeaponData) -> void:
 	# Jump straight to the kicked pose; the spring brings it back.
 	_kick = 1.0
 	_kick_velocity = 0.0
+	# Queued even when scoped: a bolt or pump throws its casing a moment
+	# later, and the eject step skips itself while no model is on screen.
+	_queue_casing(data)
 
 	if is_scope_view_active() or (data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE):
 		return
@@ -328,6 +358,54 @@ func _on_shot_fired(data: WeaponData) -> void:
 	_flash_particles.restart()
 	_flash_particles.emitting = true
 	muzzle_flashed.emit(_flash_mesh.global_position)
+	_puff_smoke(data)
+
+
+## Smoke from the muzzle: a pooled emitter restarted where the barrel is now.
+func _puff_smoke(data: WeaponData) -> void:
+	if _smoke == null or not _smoke.is_inside_tree() or data.muzzle_smoke_particles <= 0:
+		return
+	var muzzle: Node3D = _muzzles.get(data.definition())
+	if muzzle == null or not muzzle.is_inside_tree():
+		return
+	_smoke.puff(muzzle.global_position, -muzzle.global_basis.z, data.muzzle_smoke_particles)
+
+
+## Throws the casing now, or after the bolt or pump has had time to open. A
+## second shot flushes a casing still waiting for the first.
+func _queue_casing(data: WeaponData) -> void:
+	if _casings == null or data.casing_size == Vector3.ZERO:
+		return
+	if _casing_pending != null:
+		_eject_casing(_casing_pending)
+		_casing_pending = null
+	if data.casing_eject_delay_s <= 0.0:
+		_eject_casing(data)
+	else:
+		_casing_pending = data
+		_casing_time_left = data.casing_eject_delay_s
+
+
+func _tick_pending_casing(delta: float) -> void:
+	if _casing_pending == null:
+		return
+	_casing_time_left -= delta
+	if _casing_time_left <= 0.0:
+		var data: WeaponData = _casing_pending
+		_casing_pending = null
+		_eject_casing(data)
+
+
+## The casing leaves the port of the model as it is on screen now. A scoped
+## view has no model in the tree, so nothing is thrown then.
+func _eject_casing(data: WeaponData) -> void:
+	if _casings == null or not _casings.is_inside_tree() or data.definition() != _current_data.definition():
+		return
+	var model: Node3D = _models.get(data.definition())
+	if model == null or not model.is_inside_tree():
+		return
+	var port := Transform3D(Basis.IDENTITY, data.casing_port)
+	_casings.eject(model.global_transform * port, data.casing_size, data.casing_color, player.velocity)
 
 
 ## Adds or removes a weapon's model from the tree.

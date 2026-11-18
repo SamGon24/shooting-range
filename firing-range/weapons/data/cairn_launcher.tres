@@ -46,6 +46,7 @@ automatic = false
 projectile = SubResource("projectile")
 viewmodel_scene = ExtResource("3")
 handling = ExtResource("handling")
+muzzle_smoke_particles = 10
 uses_ammo = true
 can_aim = true
 movement_speed_scale = 1.0

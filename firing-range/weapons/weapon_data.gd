@@ -120,6 +120,19 @@ var _legacy_automatic: bool = true
 ## How far the viewmodel muzzle climbs per shot, degrees.
 @export_range(0.0, 20.0, 0.1, "suffix:°") var kick_pitch_degrees: float = 2.0
 
+@export_group("Smoke and casings (cosmetic)")
+## Smoke particles puffed from the muzzle per shot. 0 for none.
+@export_range(0, 12) var muzzle_smoke_particles: int = 0
+## Ejected casing box: thickness X and Y, length Z, metres. Zero size means
+## the weapon ejects nothing.
+@export var casing_size: Vector3 = Vector3.ZERO
+## Ejection port in the viewmodel's own space; +X is out of the weapon's side.
+@export var casing_port: Vector3 = Vector3(0.03, 0.02, 0.05)
+@export var casing_color: Color = Color(0.8, 0.62, 0.25)
+## Seconds after the shot the casing is thrown: 0 for self-loaders, and the
+## time the bolt or pump takes to open for manual actions.
+@export_range(0.0, 1.0, 0.01, "suffix:s") var casing_eject_delay_s: float = 0.0
+
 @export_group("Sound (placeholder)")
 ## Base pitch of the generated shot sound, Hz. Lower sounds heavier.
 @export_range(30.0, 400.0, 1.0, "suffix:Hz") var shot_sound_pitch_hz: float = 110.0
