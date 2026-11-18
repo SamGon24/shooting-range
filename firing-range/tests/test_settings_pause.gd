@@ -103,3 +103,19 @@ func test_menu_actions_have_controller_bindings() -> void:
 	assert_true(InputMap.event_is_action(event, &"ui_accept"))
 	event.button_index = JOY_BUTTON_B
 	assert_true(InputMap.event_is_action(event, &"ui_cancel"))
+
+
+func test_shared_settings_panels_edit_and_refresh_the_same_live_values() -> void:
+	var original: float = ViewSettings.fov_degrees
+	var first := SettingsPanel.new()
+	var second := SettingsPanel.new()
+	add_child_autofree(first)
+	add_child_autofree(second)
+	assert_eq(first.focusables.size(), 8)
+	var slider := first.find_child("fov_degrees", true, false) as HSlider
+	slider.value = 81.0
+	assert_eq(ViewSettings.fov_degrees, 81.0)
+	second.refresh()
+	var other := second.find_child("fov_degrees", true, false) as HSlider
+	assert_eq(other.value, 81.0)
+	ViewSettings.fov_degrees = original
