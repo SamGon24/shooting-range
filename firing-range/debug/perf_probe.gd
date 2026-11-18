@@ -16,6 +16,11 @@ extends Node
 ## firing). Automatic guns hold the trigger; pump guns receive press/release
 ## edges and interrupt shell loading once a round is ready.
 ##
+## Adding `--perf-cold` holds all firing back until the warm-up ends, so the
+## first shot, first impact and first reload of a session land inside the
+## measurement. Without it they happen during the warm-up and a first-use
+## stall can hide there; the report's worst frame then shows it.
+##
 ## Adding `--perf-reload` presses reload whenever the gun has fired at least
 ## one round, so the run is dominated by tactical reloads: handling
 ## animation, magazine release and the pooled physics drops.
@@ -27,6 +32,7 @@ extends Node
 const ARGUMENT: String = "--perf-probe"
 const FIRE_ARGUMENT: String = "--perf-fire"
 const RELOAD_ARGUMENT: String = "--perf-reload"
+const COLD_ARGUMENT: String = "--perf-cold"
 const PLAYER_GROUP: StringName = &"player"
 const WARMUP_SECONDS: float = 2.0
 const MEASURE_SECONDS: float = 10.0
@@ -54,6 +60,7 @@ var _guard_ticks: int = 0
 var _blasts: int = 0
 var _guard_hits: int = 0
 var _reload_stress: bool = false
+var _cold: bool = false
 var _reloads: int = 0
 var _drops: int = 0
 var _drop_pool: MagazineDropPool
@@ -67,11 +74,13 @@ func _ready() -> void:
 		return
 	_firing = OS.get_cmdline_user_args().has(FIRE_ARGUMENT)
 	_reload_stress = _firing and OS.get_cmdline_user_args().has(RELOAD_ARGUMENT)
+	_cold = _firing and OS.get_cmdline_user_args().has(COLD_ARGUMENT)
 	process_physics_priority = -20
 	set_physics_process(_firing)
 	Input.action_press("move_forward")
 	if _firing:
-		Input.action_press("fire")
+		if not _cold:
+			Input.action_press("fire")
 		_count_shots.call_deferred()
 	else:
 		Input.action_press("sprint")
@@ -128,6 +137,8 @@ func _select_weapon() -> void:
 
 func _physics_process(_delta: float) -> void:
 	if _weapons == null or _weapons.get_current_data() == null:
+		return
+	if _cold and _elapsed < WARMUP_SECONDS:
 		return
 	if _drop_pool != null:
 		_peak_drops = maxi(_peak_drops, _drop_pool.active_count())
