@@ -128,6 +128,7 @@ func _ready() -> void:
 		_animator.bind(data, model)
 
 	_build_muzzle_flash()
+	_warm_up_flash.call_deferred()
 	if player.get_parent() != null:
 		_drop_pool = MagazineDropPool.new()
 		_drop_pool.name = "MagazineDrops"
@@ -359,6 +360,15 @@ func _on_shot_fired(data: WeaponData) -> void:
 	_flash_particles.emitting = true
 	muzzle_flashed.emit(_flash_mesh.global_position)
 	_puff_smoke(data)
+
+
+## Pays the muzzle sparks' first-draw cost before the first shot. The flash
+## mesh itself is always drawn (at negligible size), so only the sparks need it.
+func _warm_up_flash() -> void:
+	if not ParticleWarmup.is_needed():
+		return
+	await ParticleWarmup.settle(self)
+	ParticleWarmup.warm(_flash_particles, Vector3.ZERO)
 
 
 ## Smoke from the muzzle: a pooled emitter restarted where the barrel is now.

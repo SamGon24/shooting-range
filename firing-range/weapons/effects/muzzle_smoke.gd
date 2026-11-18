@@ -69,6 +69,7 @@ func _ready() -> void:
 		puff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(puff)
 		_emitters.append(puff)
+	_warm_up.call_deferred()
 
 
 ## Puffs `particles` of smoke from `position`, flying roughly along
@@ -85,6 +86,16 @@ func puff(position: Vector3, direction: Vector3, particles: int) -> CPUParticles
 	emitter.restart()
 	emitter.emitting = true
 	return emitter
+
+
+## Pays the smoke's first-draw cost before the first shot.
+func _warm_up() -> void:
+	if not ParticleWarmup.is_needed():
+		return
+	await ParticleWarmup.settle(self)
+	var camera: Camera3D = get_viewport().get_camera_3d() if is_inside_tree() else null
+	if camera != null:
+		ParticleWarmup.warm(_emitters[0], camera.global_position - camera.global_basis.z * 2.0)
 
 
 func get_emitters() -> Array[CPUParticles3D]:
