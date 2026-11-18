@@ -3,18 +3,37 @@ extends RefCounted
 ## Catalog-only persistence. File contents never become load() paths.
 
 const SAVE_PATH: String = "user://loadout.cfg"
-const PRIMARIES: WeaponCatalog = preload("res://weapons/data/primary_catalog.tres")
-const SECONDARIES: WeaponCatalog = preload("res://weapons/data/secondary_catalog.tres")
-const ATTACHMENTS: AttachmentCatalog = preload("res://weapons/attachments/data/catalog.tres")
-const DEFAULT: WeaponLoadout = preload("res://weapons/data/range_loadout.tres")
+const PRIMARY_PATH: String = "res://weapons/data/primary_catalog.tres"
+const SECONDARY_PATH: String = "res://weapons/data/secondary_catalog.tres"
+const ATTACHMENT_PATH: String = "res://weapons/attachments/data/catalog.tres"
+const DEFAULT_PATH: String = "res://weapons/data/range_loadout.tres"
 
-var primary: WeaponData = DEFAULT.primary
-var secondary: WeaponData = DEFAULT.secondary
+var primary: WeaponData
+var secondary: WeaponData
+var _primaries: WeaponCatalog
+var _secondaries: WeaponCatalog
+var _attachments: AttachmentCatalog
+var _default: WeaponLoadout
 var _builds: Dictionary[WeaponData, WeaponBuild] = {}
 
 
+func _init() -> void:
+	# Load authored data when a configuration is created, after scripts and
+	# autoloads are ready. Never load a path read from the save file.
+	_primaries = load(PRIMARY_PATH) as WeaponCatalog
+	_secondaries = load(SECONDARY_PATH) as WeaponCatalog
+	_attachments = load(ATTACHMENT_PATH) as AttachmentCatalog
+	_default = load(DEFAULT_PATH) as WeaponLoadout
+	primary = _default.primary
+	secondary = _default.secondary
+
+
+func attachment_catalog() -> AttachmentCatalog:
+	return _attachments
+
+
 func choices(role: WeaponTypes.Role) -> Array[WeaponData]:
-	return PRIMARIES.primaries if role == WeaponTypes.Role.PRIMARY else SECONDARIES.secondaries
+	return _primaries.primaries if role == WeaponTypes.Role.PRIMARY else _secondaries.secondaries
 
 
 func select(role: WeaponTypes.Role, definition: WeaponData) -> bool:
@@ -25,6 +44,12 @@ func select(role: WeaponTypes.Role, definition: WeaponData) -> bool:
 	else:
 		secondary = definition
 	return true
+
+
+func selection(role: WeaponTypes.Role) -> WeaponData:
+	if role == WeaponTypes.Role.PRIMARY:
+		return primary
+	return secondary
 
 
 func get_build(definition: WeaponData) -> WeaponBuild:
@@ -39,7 +64,7 @@ func set_attachment(definition: WeaponData, slot: WeaponTypes.Slot, attachment: 
 	var build: WeaponBuild = get_build(definition)
 	if build == null or slot < 0 or slot >= WeaponTypes.SLOT_NAMES.size():
 		return false
-	if attachment != null and not ATTACHMENTS.choices.has(attachment):
+	if attachment != null and not _attachments.choices.has(attachment):
 		return false
 	return build.set_attachment(slot, attachment)
 
@@ -66,8 +91,8 @@ func save_to_disk(path: String = SAVE_PATH) -> Error:
 
 
 func load_from_disk(path: String = SAVE_PATH) -> Error:
-	primary = DEFAULT.primary
-	secondary = DEFAULT.secondary
+	primary = _default.primary
+	secondary = _default.secondary
 	_builds.clear()
 	var file := ConfigFile.new()
 	var error: Error = file.load(path)
@@ -86,7 +111,7 @@ func load_from_disk(path: String = SAVE_PATH) -> Error:
 				var id: Variant = file.get_value(definition.resource_path, WeaponTypes.SLOT_NAMES[slot], "")
 				if not id is String:
 					continue
-				for attachment: AttachmentData in ATTACHMENTS.choices:
+				for attachment: AttachmentData in _attachments.choices:
 					if id == String(attachment.id):
 						set_attachment(definition, slot as WeaponTypes.Slot, attachment)
 	return OK

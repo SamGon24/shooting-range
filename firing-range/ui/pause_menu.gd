@@ -4,6 +4,9 @@ extends CanvasLayer
 ## gameplay, audio, physics and the stats clock; this layer alone stays live.
 
 ## Alternate path is used by isolated save/load tests.
+signal return_requested
+
+var return_to_menu_enabled: bool = false
 var settings_path: String = "user://settings.cfg"
 var _shade: ColorRect
 var _panel: PanelContainer
@@ -52,6 +55,10 @@ func _ready() -> void:
 	_settings = SettingsPanel.new()
 	_rows.add_child(_settings)
 	_focusables.append_array(_settings.focusables)
+	if return_to_menu_enabled:
+		var back: Button = MenuStyle.button("Return to Main Menu", _return_to_menu)
+		_rows.add_child(back)
+		_focusables.append(back)
 	_status = Label.new()
 	_status.text = "Up/Down: select   Left/Right: adjust   Enter/A: activate\nEsc / Start / B: resume. Settings save on resume."
 	_status.add_theme_font_size_override("font_size", 14)
@@ -94,3 +101,8 @@ func set_paused(paused: bool) -> void:
 func _exit_tree() -> void:
 	if get_tree() != null and visible:
 		get_tree().paused = false
+
+
+func _return_to_menu() -> void:
+	set_paused(false)
+	return_requested.emit()

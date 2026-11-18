@@ -40,9 +40,11 @@ ambient_light_energy = 0.6
 reflected_light_source = 1
 tonemap_mode = 2
 
-[node name="Range" type="Node3D"]
+[node name="Range" type="Node3D" node_paths=PackedStringArray("weapon_controller", "pause_menu")]
 process_mode = 1
 script = ExtResource("1_builder")
+weapon_controller = NodePath("Player/Weapons")
+pause_menu = NodePath("PauseMenu")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("environment")

@@ -17,7 +17,7 @@ func test_all_weapons_and_attachments_survive_round_trip_without_loading_paths()
 		for definition: WeaponData in source.choices(role):
 			assert_true(source.select(role, definition))
 			for slot: int in WeaponTypes.SLOT_NAMES.size():
-				var choices: Array[AttachmentData] = LoadoutConfig.ATTACHMENTS.for_slot(slot as WeaponTypes.Slot, definition.weapon_class)
+				var choices: Array[AttachmentData] = source.attachment_catalog().for_slot(slot as WeaponTypes.Slot, definition.weapon_class)
 				if not choices.is_empty():
 					assert_true(source.set_attachment(definition, slot as WeaponTypes.Slot, choices.back()))
 	assert_eq(source.save_to_disk(PATH), OK)
