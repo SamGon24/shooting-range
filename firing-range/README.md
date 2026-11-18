@@ -4,9 +4,9 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 ## Status
 
-**MVP complete (Milestones 1 to 6). Final manual play-test pending.**
+**MVP complete (Milestones 1 to 6), play-tested.**
 
-**Phase 2 complete (Milestones 7–12) — all nine weapons, attachments, handling animations, main menu and saved-loadout Armory, and the final polish pass. Manual play-tests remain pending for Milestones 3–12.** The rifle and sniper keep their exact Milestone 6 stats and behavior with no attachments fitted; a frozen fixture verifies every original exported stat.
+**Phase 2 complete (Milestones 7–12) — all nine weapons, attachments, handling animations, main menu and saved-loadout Armory, and the final polish pass. Play-tested by the project owner (see DECISIONS, Play-test record).** The rifle and sniper keep their exact Milestone 6 stats and behavior with no attachments fitted; a frozen fixture verifies every original exported stat.
 
 Movement and range (Milestone 1):
 
@@ -385,16 +385,16 @@ The main scene is `ui/main_menu.tscn`. `range/range.tscn` remains directly runna
 
 - [x] **1. Movement:** FPS controller (walk, sprint, crouch, jump, slide), head bob, FOV and sensitivity settings, greybox range with distance markers.
 - [x] **2. Shooting core:** assault rifle and scoped bolt-action sniper, hip fire and ADS, reloads, weapon switching, viewmodel sway and bob, muzzle flash and impact effects.
-- [x] **3. Ballistics and recoil:** simulated projectiles with gravity and drag, damage falloff, recoil patterns and recovery, a debug view of bullet paths. Built; play-test pending.
-- [x] **4. Targets:** humanoid dummies with hit zones and armor plates, pop-down and reset, moving targets on rails, swinging steel plates. Built; play-test pending.
-- [x] **5. Feedback and HUD:** hitmarkers, damage numbers, dynamic crosshair, ammo counter and FPS, resettable range stats, placeholder sounds. Built; play-test pending.
-- [x] **6. Polish:** capped physics props, pooled ragdolls, navigable pause/settings menu, persisted preferences and worst-case performance pass. MVP complete; manual play-test pending.
-- [x] **7. Weapon framework and attachments:** composed policies and loadout slots, cached modifiers, damage source, mounted parts, five optic types and debug cycling. Manual play-test pending.
-- [x] **8. New primaries:** SMG, LMG, pump shotgun with attachments, pellet delivery, summed damage numbers and interruptible shell reloads. Manual play-test pending.
-- [x] **9. Secondaries:** pistol with attachments, armed rockets, knife, shield, strict carried slots and pooled feedback. Manual play-test pending.
-- [x] **10. Handling animations:** procedural reload, cycle, equip, holster and melee motion for all nine weapons, pooled physics magazine drops. Manual play-test pending.
-- [x] **11. Main menu and Armory:** controller-navigable menus, shared settings, primary / secondary selection, computed stat comparisons, animated greybox preview and saved loadouts. Manual play-test pending.
-- [x] **12. Polish:** angle-limited ragdoll joints, hittable corpses, adjustable sniper zero, TTK-from-first-shot option, pooled smoke and casings, particle warm-up and final arsenal performance. Manual play-test pending; one first-hit stall remains (see DECISIONS).
+- [x] **3. Ballistics and recoil:** simulated projectiles with gravity and drag, damage falloff, recoil patterns and recovery, a debug view of bullet paths. Play-tested.
+- [x] **4. Targets:** humanoid dummies with hit zones and armor plates, pop-down and reset, moving targets on rails, swinging steel plates. Play-tested.
+- [x] **5. Feedback and HUD:** hitmarkers, damage numbers, dynamic crosshair, ammo counter and FPS, resettable range stats, placeholder sounds. Play-tested.
+- [x] **6. Polish:** capped physics props, pooled ragdolls, navigable pause/settings menu, persisted preferences and worst-case performance pass. MVP complete. Play-tested.
+- [x] **7. Weapon framework and attachments:** composed policies and loadout slots, cached modifiers, damage source, mounted parts, five optic types and debug cycling. Play-tested.
+- [x] **8. New primaries:** SMG, LMG, pump shotgun with attachments, pellet delivery, summed damage numbers and interruptible shell reloads. Play-tested.
+- [x] **9. Secondaries:** pistol with attachments, armed rockets, knife, shield, strict carried slots and pooled feedback. Play-tested.
+- [x] **10. Handling animations:** procedural reload, cycle, equip, holster and melee motion for all nine weapons, pooled physics magazine drops. Play-tested.
+- [x] **11. Main menu and Armory:** controller-navigable menus, shared settings, primary / secondary selection, computed stat comparisons, animated greybox preview and saved loadouts. Play-tested.
+- [x] **12. Polish:** angle-limited ragdoll joints, hittable corpses, adjustable sniper zero, TTK-from-first-shot option, pooled smoke and casings, particle warm-up and final arsenal performance. Play-tested; one first-hit stall remains (see DECISIONS).
 
 ## Main menu and Armory play-test
 

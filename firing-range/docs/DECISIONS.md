@@ -1280,3 +1280,15 @@ Draw calls: up to 24 casing meshes plus 8 smoke emitters can be visible in the w
 ### Remaining scope
 
 Human play-tests remain pending for Milestones **3–12**; README's Polish play-test lists this milestone's checks. The first-hit stall above is unresolved. Controller gameplay and the web export are still unvalidated future phases; this milestone adds only GDScript, built-in physics, particles and InputMap actions (`zero_cycle`), with no new runtime filesystem access beyond `user://settings.cfg` for the one new setting.
+
+## Play-test record
+
+On 2026-11-18 the project owner play-tested Milestones 3 to 12 and gave an overall verdict: the game feels right and the direction is good. All of those milestones are marked as play-tested in the README roadmap.
+
+This is one overall verdict. **No per-item results from the README checklists were recorded**, so nothing here claims that an individual check (a specific recoil value, the reload roll direction, the knife strike timing, a particular sound level) was measured or confirmed on its own, and no tuning value was changed as a result.
+
+Still open after this play-test, unchanged by it:
+
+- The ~220 ms stall on the first hit after switching weapons (Milestone 12, known issue above). It was not reported either way, so whether it is noticeable in play is unknown.
+- The lower 1% lows for the Cairn, Latch and fitted Foundry compared with Milestone 10, not isolated.
+- Physical controller input and the web export remain unvalidated; menus were only tested with simulated controller events.
