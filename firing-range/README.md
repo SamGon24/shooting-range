@@ -6,7 +6,7 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 **MVP complete (Milestones 1 to 6). Final manual play-test pending.**
 
-**Phase 2: Milestones 7–10 built — weapon framework, attachments, all nine weapons and procedural handling animations. Manual play-test pending.** The rifle and sniper keep their exact Milestone 6 stats and behavior with no attachments fitted; a frozen fixture verifies every original exported stat.
+**Phase 2: Milestones 7–11 built — all nine weapons, attachments, handling animations, main menu and saved-loadout Armory. Manual play-tests remain pending for Milestones 3–11.** The rifle and sniper keep their exact Milestone 6 stats and behavior with no attachments fitted; a frozen fixture verifies every original exported stat.
 
 Movement and range (Milestone 1):
 
@@ -61,7 +61,7 @@ Weapon framework and attachments (Milestone 7):
 - Composed fire-mode, delivery and reload Resources, named loadout slots, independent cached stat builds and explicit damage-source metadata. Ballistic delivery still uses the original projectile system and target interface.
 - Seventeen trade-off attachments: three each for muzzle, barrel, stock and magazine, plus all five optic types. Parts mount on the existing greybox viewmodels; optics change zoom, reticle and authored sight height, and recalibrate the numerical zero.
 - F5–F9 cycle attachments on the equipped weapon; F10 restores its native setup. F3 shows the current choices. Changes wait for reload / handling / cooldown boundaries, preserve ammo and recoil, and never modify already-flying rounds.
-- The range now uses a strict primary / secondary loadout, initially Halberd / Wayline. All five primaries and four secondaries are available through the debug selectors. Choices are session-only until the Milestone 11 Armory.
+- The range now uses a strict primary / secondary loadout, initially Halberd / Wayline. All five primaries and four secondaries are available through the debug selectors. Range debug changes are session-only; the Armory saves the startup loadout.
 
 New primaries (Milestone 8):
 
@@ -86,6 +86,14 @@ Handling animations (Milestone 10):
 - LMG: cover up, box out, box in, belt laid, cover down; the belt is hidden while the gun is empty. Shotgun: one visible shell goes into the port per insert, and the forend pumps after every shot. Rocket: the fired round disappears and a new one slides into the muzzle. Sniper: the bolt lifts, pulls, pushes and locks after each shot.
 - Equip and holster roll each model in and out over its raise / lower time. The knife slashes across the view and the shield pushes forward over their melee cooldowns.
 - Dropped magazines come from a fixed pool of six bodies, inherit the player's velocity, settle on the ground and disappear after 4 s. They are on a debris layer that projectiles, melee, blasts, the player and ragdolls ignore.
+
+Main menu and Armory (Milestone 11):
+
+- Startup opens Play, Armory, Settings and Quit. Settings uses the same live controls as the pause menu; the pause menu now also offers Return to Main Menu.
+- Armory chooses one primary and one secondary, with compatible attachments for each slot and a native option. Choices stay with each weapon while editing. Save & Back writes `user://loadout.cfg`; Cancel or B / Esc discards the draft.
+- Numeric base / fitted / change columns show actual computed stats with units. Shotgun insert and full-reload times, rocket blast values and melee reach / timing use their delivery-specific values. Optic magnification uses the fixed 65° reference.
+- A single greybox weapon preview includes fitted parts, rotation buttons and Show handling (empty reload or melee). It uses isolated weapon logic and the existing animation profiles, without firing gameplay projectiles or changing the loadout's ammo.
+- Keyboard and controller focus navigation covers selection popups, preview controls, stat scrolling, settings and saving / cancellation. Simulated controller events pass automated tests; a physical-controller play-test is still pending.
 
 Later Phase 2 work is listed under [Roadmap](#roadmap) and [Future phases and known limitations](#future-phases-and-known-limitations).
 
@@ -151,10 +159,12 @@ You can also open `project.godot` in the editor and press F5.
 | Clear all attachments on the equipped weapon | F10 |
 | Reset range stats, hitmarkers and damage numbers | T |
 | Pause / resume; release / restore mouse | Esc or controller Start |
-| Navigate menu | Up/Down, Tab/Shift+Tab; controller D-pad or left stick |
+| Navigate menus and Armory | Up/Down, Tab/Shift+Tab; controller D-pad or left stick |
 | Adjust focused slider | Left/Right; controller D-pad or left stick |
 | Activate focused menu control | Enter / Space; controller A |
-| Close menu / resume | Esc, controller Start or B, or Resume |
+| Close settings / resume; cancel Armory draft | Esc, controller Start or B; Resume in the pause menu |
+| Open a weapon / attachment picker | Enter / Space or controller A; Up/Down to choose, A to confirm |
+| Scroll the focused Armory stat panel | Left/Right or controller D-pad / left stick |
 
 ## Settings and pause
 
@@ -172,13 +182,13 @@ Open the menu with **Esc**. Resume receives focus immediately. Use arrows or Tab
 | Master / effects volume | 1.00 / 1.00 | 0–1 linear gain; 0 mutes |
 | Show gameplay FPS | On | Independent of F3 diagnostics |
 
-Changes apply live and save when you resume. Previous view settings, including invert-Y, remain supported in the same config file. Pause freezes simulation, projectile travel, weapon/reload timing, target resets, ragdolls, props and range-stat timestamps. Menu wall time is excluded from TTK. The cursor returns to its prior capture mode on resume; menu activation cannot become a buffered shot or jump.
+Changes apply live and save when you resume, or choose Save & Back in main-menu Settings. Esc / B in those Settings also saves and returns. Previous view settings, including invert-Y, remain supported in the same config file. Pause freezes simulation, projectile travel, weapon/reload timing, target resets, ragdolls, props and range-stat timestamps. Menu wall time is excluded from TTK. The cursor returns to its prior capture mode on resume; menu activation cannot become a buffered shot or jump.
 
 ## Weapons and selection
 
-Press **P** to cycle Halberd → Rill → Foundry → Breakwater → Longwatch → Halberd. Press **O** to cycle Wayline → Cairn → Latch → Palisade → Wayline. **1** equips the selected primary and **2** equips the selected secondary; the wheel switches those two carried slots. Startup is Halberd / Wayline. Longwatch is a primary, selected with P.
+Press **P** to cycle Halberd → Rill → Foundry → Breakwater → Longwatch → Halberd. Press **O** to cycle Wayline → Cairn → Latch → Palisade → Wayline. **1** equips the selected primary and **2** equips the selected secondary; the wheel switches those two carried slots. Startup uses the saved Armory loadout, falling back to Halberd / Wayline. Longwatch is a primary, available in Armory or through P.
 
-Changes use normal lower / raise timing and equip the requested selection. Ammo and attachment choices stay with each weapon for the session; exchanging a weapon never refills it. The current / requested choices appear in the F3 list. These temporary range selectors will be replaced by the Armory.
+Changes use normal lower / raise timing and equip the requested selection. Ammo and attachment choices stay with each weapon for the session; exchanging a weapon never refills it. The current / requested choices appear in the F3 list. P / O and F5–F10 remain session-only debug controls. They never write the Armory file. Returning to the menu and pressing Play starts a fresh range with the saved selection, full magazines and reset targets / stats.
 
 Bare weapon values, before attachments:
 
@@ -324,19 +334,19 @@ firing-range/
 ├── player/           FPS controller, movement math, camera feel, view settings
 │   └── data/         Movement tuning resource (.tres)
 ├── props/            Bounded pushable crates and barrels
-├── range/            Greybox range builder, grid shader, main scene
+├── range/            Greybox range builder, grid shader and directly runnable range scene
 ├── targets/          Dummy health, hit zones, rail carriers, hinged steel and tuning
 ├── tests/            GUT tests
-├── ui/               HUD, pooled feedback, confirmation audio, range stats, crosshair and scope overlay
+├── ui/               Main menu, Armory / preview, shared settings, HUD and pooled feedback
 └── weapons/          Weapon stats, state machine, recoil and spread, controller and viewmodel
     ├── data/         One stat resource per weapon (.tres)
     ├── effects/      Impact effects, generated sounds, weapon audio
-    ├── framework/    Composed policies, loadout rules and cached stat builds
+    ├── framework/    Composed policies, loadout persistence and cached stat builds
     ├── attachments/  Modifier schemas, catalog, tuning Resources and mounted parts
     └── viewmodels/   Greybox first-person weapon models
 ```
 
-The main scene is `range/range.tscn`. Every scene and resource is text-based (`.tscn`, `.tres`, `.gd`).
+The main scene is `ui/main_menu.tscn`. `range/range.tscn` remains directly runnable with the authored Halberd / Wayline defaults, independent of saved loadouts. Every scene and resource is text-based (`.tscn`, `.tres`, `.gd`).
 
 ## Architecture in brief
 
@@ -348,6 +358,7 @@ The main scene is `range/range.tscn`. Every scene and resource is text-based (`.
 - **Data-driven tuning.** Numbers live in `Resource` files and exported properties, not in code. Each weapon is one `.tres` in `weapons/data/`.
 - **Composed weapon builds.** `WeaponData` references `FireModeData`, `DeliveryData` and `ReloadData`. `WeaponBuild` copies base stats and the projectile spec; attachments add first, then multiply, in muzzle → barrel → optic → stock → magazine order. Results clamp once, magazine size rounds once and falloff end cannot precede start. Unchanged builds return the same cached snapshot. All four deliveries and reload types are implemented. Rockets use the same integrated projectile sweep; contact-triggered explosions deduplicate torso damage and apply radial impulses. Melee uses one reused camera ShapeCast and the shared hit / logical-shot signals. Shield geometry follows fixed-tick aim independently of its cosmetic model.
 - **One trigger event across multiple projectiles.** Every launch has a unique logical shot ID; volleys share it while each pellet keeps its own pool slot and sweep. Stats deduplicate per shot, timers remain per target, and keyed damage labels accumulate per shot / target. Group metadata releases after the last impact or expiry.
+- **Saved selections are separate from runtime state.** Armory edits independent `LoadoutConfig` / `WeaponBuild` snapshots. Only catalog weapon references and attachment IDs are persisted; stats are recomputed from authored Resources, and the controller copies prepared builds before play.
 - **Signals over node paths.** The player, weapon controller and projectile system emit signals (`landed`, `shot_fired`, `projectile_hit` and so on), and effects, audio and the HUD listen to them.
 
 ## Roadmap
@@ -362,8 +373,21 @@ The main scene is `range/range.tscn`. Every scene and resource is text-based (`.
 - [x] **8. New primaries:** SMG, LMG, pump shotgun with attachments, pellet delivery, summed damage numbers and interruptible shell reloads. Manual play-test pending.
 - [x] **9. Secondaries:** pistol with attachments, armed rockets, knife, shield, strict carried slots and pooled feedback. Manual play-test pending.
 - [x] **10. Handling animations:** procedural reload, cycle, equip, holster and melee motion for all nine weapons, pooled physics magazine drops. Manual play-test pending.
-- [ ] **11. Main menu and Armory:** primary / secondary selection, attachment comparison and saved loadouts.
+- [x] **11. Main menu and Armory:** controller-navigable menus, shared settings, primary / secondary selection, computed stat comparisons, animated greybox preview and saved loadouts. Manual play-test pending.
 - [ ] **12. Polish:** improved ragdoll joints, hittable corpses, adjustable zero, smoke / casings and final arsenal performance.
+
+## Main menu and Armory play-test
+
+1. Start normally. Navigate Play, Armory, Settings and Quit using arrows / Tab and Enter, then a controller's D-pad / left stick and A. Check visible focus. Quit should close the application.
+2. Open Armory. Select every primary and secondary, and fit / clear parts. The pistol offers muzzle, optic and magazine; rocket, knife and shield offer no attachments. A popup consumes B / Esc to close; pressing again cancels the draft.
+3. Check base / fitted values and signed changes as you fit a long barrel, quick magazine, stock and optic. Focus the stats panel and use Left/Right to reach the lower rows. Judge readability at 1280×720.
+4. Rotate the preview and choose Show handling. Check fitted parts, rifle / pistol magazines, LMG cover / box / belt, shotgun shells, rocket loading and melee motion. The preview should stay centred and must not play range shots or change gameplay stats.
+5. Save & Back, then Play. Confirm both selected weapons, fitted parts and ammo capacities. Return to Main Menu through pause, restart the app, and confirm the saved loadout returns. Play starts a fresh range; unsaved range debug choices are not persisted.
+6. Make a different draft and Cancel / B. Confirm Play still uses the saved selection. Changes to another weapon's attachments should remain in the draft when switching away and back.
+7. Change Settings from the main menu, save, enter the range and open pause. Check the same values, live effects and persistence across restart. Resume / Play must not produce an unwanted shot or jump.
+8. Check about 60 fps in the menu and while inspecting fully fitted weapons. Physical controller behaviour and subjective preview / comparison readability remain human checks. The pre-existing rifle reload-stress hitch remains a Milestone 12 issue.
+
+For direct entry, `godot -- --range` uses the saved loadout and `godot -- --armory` opens Armory. Existing `--perf-probe`, `--pose` and `--hold` arguments skip the menu. To benchmark authored defaults regardless of the saved file, specify `res://range/range.tscn` explicitly before `--`.
 
 ## Attachment tuning and play-test
 

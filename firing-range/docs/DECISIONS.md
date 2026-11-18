@@ -1090,3 +1090,75 @@ Final verification: **373/373 headless GUT tests, 7,009 assertions, 221.7 s**, c
 ### Remaining Phase 2 scope
 
 Human judgment is still needed for reload readability, roll direction and amount, pump / bolt / slide feel, the knife strike timing and the magazine drop. README's numbered handling checklist describes each check. Animations are greybox part motions without hands or arms. A dropped magazine falls from the well and leaves the frame quickly; it is visible on the ground only when looking around. Milestone 11 can show these profiles unchanged in the Armory preview by calling `WeaponAnimator.apply` with a logic in any state.
+
+## Milestone 11: main menu and Armory
+
+### Front end, settings and range lifetime
+
+`ui/main_menu.tscn` is the application entry point. `GameFlow` owns one active screen: MainMenu, Armory or the range. Play creates a fresh range; Return to Main Menu removes it, so old projectiles, targets, timers, audio and magazine pools cannot continue behind the menus. Entering Play again restores full magazines and fresh stats, using the saved selection. Debug P / O and F5–F10 changes remain session-only.
+
+The menu offers Play, Armory, Settings and Quit. `SettingsPanel` contains the existing seven sliders and FPS toggle; both front-end Settings and PauseMenu use it. Values still apply live through ViewSettings. Save & Back, or Esc / B from front-end Settings, saves `user://settings.cfg`; pause saves on Resume as before. No second settings schema or tuning source was introduced.
+
+Menu activation must not become a shot or jump. `Input.action_release` does not erase `just_pressed` within the current physics tick: the first integration test entered with 41 instead of 42 SMG rounds. GameFlow releases actions and waits across **two physics boundaries** before creating the player. A transition generation counter prevents an intervening screen change from later reopening the range. Tests deliberately hold fire and jump across Play, and cancel a pending transition.
+
+RangeBuilder exposes explicit controller and pause-menu references in its scene; GameFlow connects the pause return signal and supplies startup builds through those references. Tests and probes can still instantiate `range/range.tscn` directly, retaining its authored defaults without reading a loadout file. `--range` uses the saved configuration; `--armory` opens the editor. Existing `--perf-probe`, `--pose` and `--hold` commands bypass the menu. For repeatable authored-default benchmarks, explicitly launch `res://range/range.tscn`.
+
+### Persistence and draft boundaries
+
+`LoadoutConfig` owns role-validated primary / secondary definitions and lazy, weapon-keyed WeaponBuilds. It uses the existing five-primary, four-secondary and seventeen-attachment catalogs. Switching the edited weapon retains its draft attachments. Armory operates on a copy; Save & Back writes the file before emitting an independent saved snapshot, and Cancel discards the draft. Save failures keep the editor open with a message.
+
+`user://loadout.cfg` is a version-1 ConfigFile. The loadout section stores the selected weapons' authored Resource paths; per-weapon sections store attachment IDs under the five slot names. These are **lookup keys only**: no file value is ever passed to `load`. Weapon keys must match the correct role's catalog, and parts must match a catalog ID, slot, class and WeaponBuild validation. Unknown entries fall back independently to the default selection or native part. Missing / unreadable files and unsupported versions retain Halberd / Wayline defaults. Stats, ammo, recoil and animation state are never serialized.
+
+Catalogs are loaded from fixed authored paths when a configuration is constructed, after script initialization. Preloading the catalog Resources as class constants exposed shutdown reference-retention warnings when GUT imported the Armory, even in an import-only test without UI instances. Moving the same catalog loads into `_init` removed those warnings across isolated tests and the full suite. No GUT/vendor modification or warning suppression was needed; a deeper engine cause is not claimed.
+
+Before entering the tree, the controller receives the two prepared builds. It copies their attachments into independent WeaponRuntime builds, computes the final stats and initializes ammo to the final capacity. Range changes cannot mutate the saved selection or draft. The original fixture-based rifle / sniper tests remain unchanged and green.
+
+### Comparisons and preview
+
+StatComparison reads the actual cached WeaponBuild snapshot rather than duplicating modifier arithmetic. Rows show base, fitted and signed difference, with units. The scrollable panel includes rate / interval, capacity, ADS / reload / handling times, falloff, recoil, spread and sight values. Shotguns distinguish first-empty insert, later insert and complete empty reload; pellets show per-pellet damage and cone. Rockets show blast damage, radius and arming distance; melee shows damage, reach, attack interval and movement scale. Magnification is `tan(65° / 2) / tan(ADS FOV / 2)`, preserving the fixed reference used to author the optics.
+
+The preview uses **one SubViewport, one world, one camera, one light and one weapon model**, only while Armory is open. It instantiates the existing viewmodel and compatible attachment parts, removes displaced native sights, fits the actual mesh bounds and recentres before binding WeaponAnimator. It renders at the panel's full pixel size; halving it made the small geometry visibly coarse in the first capture.
+
+Show handling runs an isolated WeaponLogic with the build's real timings: empty reload for ammo weapons, attack cooldown for melee. WeaponAnimator samples that logic every frame. There are no gameplay projectile, damage, sound or magazine-drop connections. Part posing happens before the pivot is written, preserving the camera-rig ordering from Milestone 10. No `visible` toggles are used for model parts. Rotation buttons change yaw by **30°** per activation; bounds fitting uses the same scale at every angle.
+
+Presentation reference at **1280×720**:
+
+| Value | Choice |
+|---|---|
+| Outer margin / column gap | 28 / 18 px |
+| Selection / comparison column minimum widths | 285 / 360 px |
+| Preview minimum size | 300×280 px; expands into the remaining space |
+| Main menu / Armory title sizes | 42 / 30 px |
+| Armory controls / comparison rows | 14 px; 5 px vertical button padding |
+| Preview camera | 48° FOV; near 0.01 m; position (0, 0.12, 1.65) |
+| Preview light / ambient energy | 1.5 / 0.65; no shadow map |
+| Preview rotation / fit | initial yaw 0.9 rad; pitch 0.12 rad; bounds diagonal scaled to 1.15 |
+| Stat scrolling | 80 px per Left/Right press while the panel has focus |
+
+The initial layout clipped Save & Back below the window. Compact Armory controls fixed it, and a GUT test now instantiates the screen in an explicit 1280×720 viewport and checks the footer and final selector bounds. Focus rings are amber. Up/Down and Tab cycle an explicit list; disabled attachment slots are omitted. Native Godot popups handle controller A / D-pad selection and B cancellation; the screen only consumes cancellation after a popup closes. A focusable stats panel exposes Left/Right scrolling. Full controller gameplay remains a later phase.
+
+### Performance and validation
+
+Measured on the target **Intel i5-8259U, 8 GB RAM, Iris Plus 655**, Compatibility, **1280×720**, 60 Hz physics, the existing 60 fps cap. Runs were sequential, separate from tests, imports, captures and commits. A temporary external scene exercised the actual GameFlow / Armory and restored foreground focus without changing normal application focus handling. Each row uses a **2 s warmup / 10 s measurement**. Every accepted row below was focused for **100%** of measured frames.
+
+| Capped run | Average | 1% low | Worst frame | Frames >25 ms | Draw calls / primitives |
+|---|---|---|---|---|---|
+| Main menu | 60.0 fps | 56.4 fps | 17.81 ms | 0 | 16 / 374 |
+| Front-end Settings | 60.0 fps | 47.2 fps | 38.45 ms | 1 | 37 / 1,604 |
+| Fully fitted Halberd preview, repeated reloads | 60.0 fps | 56.2 fps | 17.85 ms | 0 | 65 / 2,090 |
+| Fully fitted Foundry preview, repeated reloads | 60.0 fps | 56.2 fps | 17.90 ms | 0 | 67 / 2,126 |
+| Palisade preview, repeated bashes | 60.0 fps | 56.1 fps | 17.94 ms | 0 | 58 / 1,058 |
+| Fully fitted Foundry range stress | 60.0 fps | 43.0 fps | 31.55 ms | 1 | 172 / 3,606 |
+| Halberd reload-stress regression | 58.9 fps | 16.5 fps | 223.81 ms | 1 | 186 / 3,768 |
+
+Preview fittings used compact cap, heavy barrel, 8× scope, balanced stock and drum magazine. Range Foundry used the existing first-choice-per-slot stress fixture, fired 100 shots and released one magazine. Both range rows kept **54 min / 54 max awake ragdoll parts**, **eight awake props**, three driven steel hinges and the full HUD; no projectiles were dropped.
+
+The first home-menu run was only **99.2% focused** (59.8 fps average, 49.00 ms worst, ten frames over 25 ms). It was excluded and repeated without a code change; the accepted fully focused row is above. Settings retained one pacing spike despite its 60.0 fps average. These measurements establish the capped average and visible tail, not a strict 16.67 ms floor or a controlled optimization claim.
+
+The Halberd row retains the Milestone 10 issue: one **223.81 ms** frame, six reloads / drops and two peak active drops. Its average is still 58.9 fps, matching the earlier 225.34 ms / 58.9 fps result. The pre-existing hitch remains unresolved for Milestone 12; no warmup extension or animation removal hides it.
+
+Movie Maker frames were inspected for the main menu and shared settings with focus changes, fitted Halberd at rest / magazine-out / insertion, fitted Foundry cover / box motion, and the Palisade preview / disabled slots. Captures used `--always-on-top`. Changing focus and animation frames distinguish the captures from a repeated-frame stall.
+
+Final verification: **389/389 headless GUT tests, 7,615 assertions, 224.464 s**, clean exit with no engine errors or orphan warnings. The main menu, Armory, saved-loadout range entry and direct range scene each passed a separate ten-frame headless boot with zero errors / warnings. New tests cover isolated disk round trips, role / catalog / attachment rejection, safe file fallback, independent drafts and startup builds, actual comparison values, all nine preview models, 720p layout, keyboard / simulated controller navigation, stat scrolling, saving / cancellation, settings reuse and transition input / lifetime boundaries.
+
+Human play-tests remain pending for Milestones **3–11**, including physical controller input, preview readability, comparison usefulness and the full saved-loadout-to-range flow. README contains the Milestone 11 checklist. Stop for that play-test before beginning Milestone 12.
