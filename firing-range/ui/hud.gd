@@ -28,6 +28,7 @@ var _view: WeaponView
 @onready var _scope: ColorRect = $Scope
 @onready var _ammo: Label = $Ammo
 @onready var _weapon_name: Label = $WeaponName
+@onready var _zero: Label = $Zero
 
 
 func _ready() -> void:
@@ -89,6 +90,7 @@ func bind(controller: WeaponController, view: WeaponView) -> void:
 	_controller = controller
 	_view = view
 	controller.weapon_changed.connect(_on_weapon_changed)
+	controller.zero_changed.connect(_refresh_weapon_name.unbind(1))
 	controller.ammo_changed.connect(_on_ammo_changed)
 	controller.reload_started.connect(_on_reload_started)
 	controller.reload_finished.connect(_refresh_ammo)
@@ -125,7 +127,21 @@ func _bind_from_tree() -> void:
 
 func _on_weapon_changed(data: WeaponData) -> void:
 	(_scope.material as ShaderMaterial).set_shader_parameter(&"reticle_kind", data.optic_kind)
+	_refresh_weapon_name()
+
+
+## The weapon's name, and its sight zero when the player can change it.
+func _refresh_weapon_name() -> void:
+	var data: WeaponData = _controller.get_current_data()
+	if data == null:
+		return
 	_weapon_name.text = data.display_name
+	_zero.visible = data.zero_options.size() > 1
+	_zero.text = "ZERO %d m  [Z]" % roundi(_controller.get_zero_distance())
+
+
+func get_zero_text() -> String:
+	return _zero.text if _zero.visible else ""
 
 
 func _on_ammo_changed(ammo: int, magazine_size: int) -> void:

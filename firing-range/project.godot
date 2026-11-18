@@ -209,6 +209,11 @@ primary_next={
 "events": [Object(InputEventKey,"physical_keycode":80)]
 }
 
+zero_cycle={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":90)]
+}
+
 secondary_next={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"physical_keycode":79)]

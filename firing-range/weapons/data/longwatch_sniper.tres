@@ -37,6 +37,7 @@ rounds_per_minute = 60.0
 bolt_cycle_time = 1.1
 projectile = SubResource("projectile")
 zero_distance_m = 100.0
+zero_options = PackedFloat32Array(100, 200, 300)
 sight_height_m = 0.073
 magazine_size = 5
 recoil_pattern = PackedVector2Array(0.3, 4)

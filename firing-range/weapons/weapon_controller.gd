@@ -16,6 +16,8 @@ signal reload_started(is_empty: bool, duration: float)
 signal reload_finished
 signal reload_cancelled
 signal shell_inserted(ammo: int)
+## The player picked a different sight zero for the current weapon.
+signal zero_changed(distance_m: float)
 
 const GROUP: StringName = &"weapon_controller"
 
@@ -53,6 +55,7 @@ var _warned_no_system: bool = false
 ## Fire and reload presses seen since the last physics tick.
 var _fire_latched: bool = false
 var _reload_latched: bool = false
+var _zero_latched: bool = false
 var _melee: MeleeSystem
 var _guard: WeaponGuard
 
@@ -114,6 +117,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_fire_latched = true
 	elif event.is_action_pressed("reload"):
 		_reload_latched = true
+	elif event.is_action_pressed("zero_cycle") and not event.is_echo():
+		_zero_latched = true
 
 
 func _physics_process(delta: float) -> void:
@@ -126,6 +131,10 @@ func _physics_process(delta: float) -> void:
 
 	_update_switch()
 	_apply_pending_attachments()
+	if _zero_latched or Input.is_action_just_pressed("zero_cycle"):
+		_zero_latched = false
+		if _controls_live():
+			cycle_zero()
 
 	var logic: WeaponLogic = _logics[_current]
 	var controls_live: bool = _controls_live()
@@ -188,6 +197,42 @@ func request_switch_relative(step: int) -> void:
 ## Cached upward bore angle in radians, calibrated on equip for level aim.
 func get_zero_angle() -> float:
 	return _zero_angle
+
+
+## The distance the current weapon's sights are zeroed for, metres.
+func get_zero_distance() -> float:
+	var data: WeaponData = get_current_data()
+	var runtime: WeaponRuntime = _inventory.get(data.definition())
+	if runtime != null and runtime.selected_zero_m > 0.0:
+		return runtime.selected_zero_m
+	return data.zero_distance_m
+
+
+## Steps the current weapon to its next zero option, wrapping around. False
+## when the weapon has fewer than two options. The zero is recalculated once
+## here, never per frame, and only rounds fired afterwards use it.
+func cycle_zero() -> bool:
+	var options: PackedFloat32Array = get_current_data().zero_options
+	if options.size() < 2:
+		return false
+	var current: float = get_zero_distance()
+	var index: int = 0
+	for candidate: int in options.size():
+		if absf(options[candidate] - current) < absf(options[index] - current):
+			index = candidate
+	return request_zero(options[(index + 1) % options.size()])
+
+
+## Selects a specific zero. Only the weapon's own options are accepted.
+func request_zero(distance_m: float) -> bool:
+	var data: WeaponData = get_current_data()
+	var runtime: WeaponRuntime = _inventory.get(data.definition())
+	if runtime == null or not data.zero_options.has(distance_m):
+		return false
+	runtime.selected_zero_m = distance_m
+	_calibrate_zero()
+	zero_changed.emit(distance_m)
+	return true
 
 
 func get_current_slot() -> int:
@@ -297,7 +342,7 @@ func _calibrate_zero() -> void:
 		_zero_angle = 0.0
 		return
 	var gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
-	_zero_angle = SightZeroing.solve(data.projectile, data.zero_distance_m, data.sight_height_m, gravity, density, 1.0 / float(Engine.physics_ticks_per_second))
+	_zero_angle = SightZeroing.solve(data.projectile, get_zero_distance(), data.sight_height_m, gravity, density, 1.0 / float(Engine.physics_ticks_per_second))
 	if is_nan(_zero_angle):
 		_zero_angle = 0.0
 		push_warning("WeaponController: sight zero is unreachable; using the uncalibrated bore.")

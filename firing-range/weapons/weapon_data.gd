@@ -45,6 +45,9 @@ var _legacy_automatic: bool = true
 ## Horizontal distance where a level sight line meets the calibrated path.
 ## 0 disables angular calibration (the bore offset still applies).
 @export_range(0.0, 1000.0, 1.0, "suffix:m") var zero_distance_m: float = 100.0
+## Distances the player may cycle the zero through with the zero key. Empty
+## means the zero is fixed. `zero_distance_m` is the starting choice.
+@export var zero_options: PackedFloat32Array = PackedFloat32Array()
 ## Sight line above the bore, measured from the reference viewmodel geometry.
 ## Gameplay uses this fixed value, never the animated viewmodel transform.
 @export_range(0.0, 0.5, 0.001, "suffix:m") var sight_height_m: float = 0.0

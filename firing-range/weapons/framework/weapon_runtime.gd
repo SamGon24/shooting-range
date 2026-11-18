@@ -4,6 +4,9 @@ extends RefCounted
 var build: WeaponBuild
 var logic: WeaponLogic
 var recoil: RecoilLogic
+## Zero distance the player picked for this weapon, metres. 0 keeps the
+## Resource's `zero_distance_m`.
+var selected_zero_m: float = 0.0
 
 
 func _init(definition: WeaponData, rng: RandomNumberGenerator) -> void:
