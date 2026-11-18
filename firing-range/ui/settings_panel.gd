@@ -13,12 +13,8 @@ func _ready() -> void:
 	_add_slider("FOV kick scale", "fov_kick_scale", 0.0, 2.0, 0.05)
 	_add_slider("Master volume", "master_volume", 0.0, 1.0, 0.05)
 	_add_slider("Effects volume", "effects_volume", 0.0, 1.0, 0.05)
-	var fps := CheckButton.new()
-	fps.text = "Show gameplay FPS"
-	fps.button_pressed = ViewSettings.show_fps
-	fps.toggled.connect(func(value: bool) -> void: ViewSettings.show_fps = value)
-	add_child(fps)
-	focusables.append(fps)
+	_add_toggle("Show gameplay FPS", "show_fps")
+	_add_toggle("Time to kill starts at the first shot", "ttk_from_first_shot")
 
 
 func refresh() -> void:
@@ -26,7 +22,17 @@ func refresh() -> void:
 		if control is HSlider:
 			(control as HSlider).value = float(ViewSettings.get(control.name))
 		elif control is CheckButton:
-			(control as CheckButton).button_pressed = ViewSettings.show_fps
+			(control as CheckButton).button_pressed = bool(ViewSettings.get(control.name))
+
+
+func _add_toggle(title: String, key: String) -> void:
+	var toggle := CheckButton.new()
+	toggle.name = key
+	toggle.text = title
+	toggle.button_pressed = bool(ViewSettings.get(key))
+	toggle.toggled.connect(func(value: bool) -> void: ViewSettings.set(key, value))
+	add_child(toggle)
+	focusables.append(toggle)
 
 
 func _add_slider(title: String, key: String, minimum: float, maximum: float, increment: float) -> void:

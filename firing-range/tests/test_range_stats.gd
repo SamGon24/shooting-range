@@ -56,3 +56,17 @@ func test_restoring_a_target_discards_its_open_timer() -> void:
 	stats.end_life(1)
 	stats.record_hit(1, false, true, 5.0)
 	assert_eq(stats.last_time_to_kill, 0.0)
+
+
+func test_a_start_time_before_the_first_hit_starts_the_clock_early() -> void:
+	var stats := RangeStats.new()
+	stats.record_hit(1, false, true, 5.0, true, 4.6)
+	assert_almost_eq(stats.last_time_to_kill, 0.4, 0.0001, "a one-shot kill counts its flight time")
+	stats.record_hit(2, false, false, 10.0, true, 9.0)
+	stats.record_hit(2, false, true, 12.0, true, 11.5)
+	assert_almost_eq(stats.last_time_to_kill, 3.0, 0.0001, "only the first damage sets the start")
+	stats.record_hit(3, false, true, 20.0, true, 25.0)
+	assert_eq(stats.last_time_to_kill, 0.0, "a start in the future never makes a negative time")
+	stats.record_hit(4, false, false, 30.0, false, 1.0)
+	stats.record_hit(4, false, true, 31.0)
+	assert_eq(stats.last_time_to_kill, 0.0, "steel-style hits without a life do not open a clock")

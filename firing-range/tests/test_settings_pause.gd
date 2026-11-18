@@ -22,7 +22,7 @@ func test_every_setting_survives_an_isolated_disk_round_trip() -> void:
 	var restored: Node = SETTINGS_SCRIPT.new()
 	autofree(source)
 	autofree(restored)
-	var values: Dictionary[String, Variant] = {"fov_degrees":82.0,"mouse_sensitivity":0.23,"invert_y":true,"head_bob_scale":0.2,"fov_kick_scale":1.5,"ads_sensitivity_multiplier":0.65,"master_volume":0.4,"effects_volume":0.7,"show_fps":false}
+	var values: Dictionary[String, Variant] = {"fov_degrees":82.0,"mouse_sensitivity":0.23,"invert_y":true,"head_bob_scale":0.2,"fov_kick_scale":1.5,"ads_sensitivity_multiplier":0.65,"master_volume":0.4,"effects_volume":0.7,"show_fps":false,"ttk_from_first_shot":true}
 	for key: String in values:
 		source.set(key, values[key])
 	var path: String = "user://gut_m6_settings.cfg"
@@ -111,7 +111,7 @@ func test_shared_settings_panels_edit_and_refresh_the_same_live_values() -> void
 	var second := SettingsPanel.new()
 	add_child_autofree(first)
 	add_child_autofree(second)
-	assert_eq(first.focusables.size(), 8)
+	assert_eq(first.focusables.size(), 9)
 	var slider := first.find_child("fov_degrees", true, false) as HSlider
 	slider.value = 81.0
 	assert_eq(ViewSettings.fov_degrees, 81.0)
@@ -119,3 +119,21 @@ func test_shared_settings_panels_edit_and_refresh_the_same_live_values() -> void
 	var other := second.find_child("fov_degrees", true, false) as HSlider
 	assert_eq(other.value, 81.0)
 	ViewSettings.fov_degrees = original
+
+
+func test_the_ttk_toggle_edits_and_refreshes_the_shared_preference() -> void:
+	var original: bool = ViewSettings.ttk_from_first_shot
+	var first := SettingsPanel.new()
+	var second := SettingsPanel.new()
+	add_child_autofree(first)
+	add_child_autofree(second)
+	var toggle := first.find_child("ttk_from_first_shot", true, false) as CheckButton
+	var fps := first.find_child("show_fps", true, false) as CheckButton
+	assert_not_null(toggle)
+	assert_ne(toggle, fps)
+	toggle.button_pressed = not original
+	assert_eq(ViewSettings.ttk_from_first_shot, not original)
+	second.refresh()
+	assert_eq((second.find_child("ttk_from_first_shot", true, false) as CheckButton).button_pressed, not original)
+	assert_eq((second.find_child("show_fps", true, false) as CheckButton).button_pressed, ViewSettings.show_fps, "each toggle refreshes from its own setting")
+	ViewSettings.ttk_from_first_shot = original

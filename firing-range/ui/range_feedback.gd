@@ -13,6 +13,9 @@ var _clock: float = 0.0
 ## Hit/headshot bits per live shot since reset; pool-slot reuse is irrelevant.
 var _eligible_shots: Dictionary[int, int] = {}
 var _pellet_totals: Dictionary[int, Dictionary] = {}
+## Physics-clock time each live shot was fired, for the optional
+## time-to-kill clock that starts at the first shot.
+var _shot_times: Dictionary[int, float] = {}
 
 class TargetTotal extends RefCounted:
 	var amount: float = 0.0
@@ -33,6 +36,7 @@ func _physics_process(delta: float) -> void:
 func reset_stats() -> void:
 	stats.reset()
 	_eligible_shots.clear()
+	_shot_times.clear()
 	stats_changed.emit()
 
 
@@ -73,6 +77,7 @@ func _on_shot_started(shot_id: int, system: ProjectileSystem) -> void:
 	if not system.is_scoring_shot(shot_id):
 		return
 	_eligible_shots[shot_id] = 0
+	_shot_times[shot_id] = _clock
 	stats.record_shot()
 	stats_changed.emit()
 
@@ -80,6 +85,7 @@ func _on_shot_started(shot_id: int, system: ProjectileSystem) -> void:
 func _on_shot_finished(shot_id: int) -> void:
 	_eligible_shots.erase(shot_id)
 	_pellet_totals.erase(shot_id)
+	_shot_times.erase(shot_id)
 
 
 func _on_dummy_damaged(hit: ProjectileHit, zone: TargetSettings.Zone, amount: float, dummy: TargetDummy) -> void:
@@ -114,10 +120,11 @@ func _record_hit(shot_id: int, target_id: int, headshot: bool, killed: bool, tra
 	if not _eligible_shots.has(shot_id):
 		return
 	var flags: int = _eligible_shots[shot_id]
+	var started_at: float = _shot_times.get(shot_id, -1.0) if ViewSettings.ttk_from_first_shot else -1.0
 	if flags == 0:
-		stats.record_hit(target_id, headshot, killed, _clock, tracks_life)
+		stats.record_hit(target_id, headshot, killed, _clock, tracks_life, started_at)
 	elif tracks_life:
-		stats.record_target_damage(target_id, killed, _clock)
+		stats.record_target_damage(target_id, killed, _clock, started_at)
 	if headshot and flags != 0 and (flags & 2) == 0:
 		stats.headshots += 1
 	_eligible_shots[shot_id] = flags | 1 | (2 if headshot else 0)
