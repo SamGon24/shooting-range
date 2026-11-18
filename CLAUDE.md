@@ -168,6 +168,88 @@ Phase 1 (Milestones 1–6) is complete and tagged `v0.1.0-mvp`. Phase 2 adds a f
 - An entry in the README controls and weapons table.
 - A row in the DECISIONS.md tuning reference.
 
+## Phase 3: Gameplay (after Phase 2)
+
+Phase 1 (movement, ballistics, targets, HUD) and Phase 2 (loadout, attachments, animations, menus) are done. Phase 3 turns the range into a game. Every earlier rule still applies: hard constraints, architecture, testing, working style and commit rules. **No regressions:** all existing tests keep passing, and existing behaviour stays the same unless a milestone below says otherwise.
+
+### Rule changes for Phase 3
+
+- **Binary assets are now allowed** for meshes and textures only: glTF/GLB models and PNG textures under `assets/`. They must be CC0 or self-made, each credited in `CREDITS.md` with source and license. Scenes, resources and scripts stay text-based.
+- **Visuals never change gameplay shapes.** Colliders, hit zones, ragdoll bodies and navigation shapes stay defined by the existing code and Resources. Models are visual children that follow them. Swapping a model must never change a hit result.
+- **Input parity:** every new feature must work with keyboard and mouse and with a controller, through InputMap actions only.
+- **Performance budgets** (target machine, Compatibility renderer, 1280x720). These are starting values; adjust them in `docs/DECISIONS.md` after the first measurements.
+  - Worst-case scene (everything active, firing): 60 fps capped with no frame over 25 ms, and at least 90 fps uncapped. Fix or scale back a feature that breaks this before committing it.
+  - Triangles: weapon viewmodel with attachments 6k or fewer; humanoid 3k or fewer; prop 1k or fewer; visible map 150k or fewer.
+  - Textures 1024x1024 or smaller, atlases preferred, normal maps 512x512 or smaller, about 300 draw calls maximum.
+  - Bots: at most 8 active, AI thinking at 10 Hz and staggered across frames, line-of-sight raycasts budgeted per frame.
+
+### Milestones (one at a time; stop for a play-test after each)
+
+13. **Controller support** (the first Phase 3 work):
+    - **Device handling:** detect connect and disconnect, switch on-screen prompts between keyboard/mouse and controller automatically (Xbox-style labels, generic fallback). Pause or warn on disconnect during play.
+    - **Look:** right-stick look in degrees per second, scaled by delta time and never frame-rate dependent. Radial dead zone (default 0.15), selectable response curve (linear and a dynamic ramp), separate X and Y sensitivity, invert Y, and the existing ADS sensitivity scaling.
+    - **Aim assist, controller only:** slowdown when the crosshair is over a target, strength 0 to 1 (default 0.5), adjustable and can be turned off. It changes look input only. It must never touch bullet paths, recoil or spread. Always off for mouse.
+    - **Default mapping:** right trigger fires, left trigger aims, bumpers switch weapons, face buttons for jump, crouch/slide, reload and swap, stick clicks for sprint and melee. The exact layout goes in the README.
+    - **Options:** hold or toggle for ADS, crouch and sprint, and an auto-sprint option.
+    - **Rumble:** on fire, hit, reload and damage, scaled by a setting and switchable off. Use Godot's joypad vibration and check it actually works on macOS.
+    - **Remapping:** rebindable keyboard, mouse and controller actions in the settings menu, saved to `user://`. Conflicts are detected and reported.
+    - Main menu, pause menu, Armory and challenge screens fully navigable with a controller.
+    - **Tests:** dead zone and curve math, delta-time independence, aim assist never changing a bullet path, prompt switching, binding save/load and conflict detection, no stuck input after disconnect.
+    - **Human validation:** a real controller must be tested by the user. Report which controller and connection type were tested, and mark anything only tested with synthetic events as unverified.
+14. **3.5x hybrid optic (no blackout):**
+    - A new optic, 3.5x, for rifles, SMGs and the LMG. Unlike the 8x sniper scope, it never blacks out or vignettes the screen.
+    - **Mode A (default, cheap):** full-screen zoom equivalent to 3.5x, with an etched reticle and a thin housing frame at the screen edge. Sensitivity scales with zoom. Zoom is computed with the tangent-correct FOV formula.
+    - **Mode B (spike, behind a setting):** a reduced-resolution lens viewport that magnifies inside the optic while the rest of the view stays at normal ADS zoom. Keep it only if worst-case performance stays at or above 90 fps uncapped. Otherwise leave it disabled and record the measurements in `docs/DECISIONS.md`.
+    - Tests: zoom factor maths, sensitivity scaling, reticle stays centred under recoil, no blackout node active.
+15. **Player health and damage:**
+    - Health 100 plus 3 armor plates (the same armor-first rules as dummies), health regeneration after a delay, and a damage-direction indicator.
+    - Player hit zones (head, torso, limbs) so bots can headshot you. Death shows a death screen, then respawns.
+    - **Range mode is invulnerable by default,** with a toggle. All damage goes through the existing damage interface with a `source` field.
+    - Tests: armor order, regeneration timing, damage direction maths, respawn state reset.
+16. **Range challenges:**
+    - Timed target drill, accuracy run, long-range steel challenge, and a moving-target gauntlet.
+    - Medal thresholds (bronze, silver, gold) in Resources, best scores saved to `user://scores.cfg`, quick retry key.
+    - Tests: scoring maths, medal thresholds, score save/load.
+17. **Enemy bots:**
+    - Humanoid bot built on the existing hit-zone, armor and ragdoll code. Navigation with a baked navigation mesh.
+    - States: patrol, engage, take cover, reposition, reload. Perception through a vision cone, line-of-sight raycast, and hearing gunshots.
+    - Bots fire real projectiles using weapon Resources. Aim error shrinks while a target stays visible. Reaction time and accuracy come from a difficulty Resource (easy, normal, hard).
+    - Tests: perception, state transitions, bot damage reaching the player, bot cap enforced, seeded determinism.
+18. **Game modes:**
+    - A mode framework built on Resources.
+    - Survival waves (escalating bot count with health and ammo resupply between waves), bot arena team deathmatch with a score limit, and gun game (each kill advances through a weapon list).
+    - Scoreboard and end-of-match screen, then back to the menu.
+    - Tests: wave scaling, scoring, win conditions, gun game progression.
+19. **Equipment:**
+    - Frag grenade (cook time, thrown arc, splash damage reusing the rocket's) and flash grenade (screen whiteout, bots blinded).
+    - A lethal and a tactical slot, and ammo resupply crates. Works with a controller.
+    - Tests: throw arc, fuse timing, flash effect on bots.
+20. **Movement depth:**
+    - Mantling over ledges, with ledge detection tested in the movement test area.
+    - Lean left and right.
+    - Prone only if it fits without destabilising existing movement.
+    - Existing movement tuning does not change.
+21. **Progression:**
+    - XP from kills and challenges, weapon levels that unlock attachments, saved to `user://progress.cfg`.
+    - The Armory shows locks. An "unlock all" option exists for testing.
+22. **Second map:**
+    - A small arena with cover and sightlines for the bots, with its own navigation mesh and spawn points.
+    - A map select in the main menu. Greybox first.
+23. **Visual upgrade:**
+    - First a spike: measure the cost of one upgraded weapon, one humanoid and one prop at the budgets above, and record the results.
+    - Then upgrade weapon viewmodels, the humanoid dummy and bot, props and the range. Sources are CC0 asset packs or models built from primitives in code. Credit everything in `CREDITS.md`.
+    - Keep a low-detail fallback setting. Colliders, hit zones and ragdoll shapes stay unchanged.
+
+### Per-milestone requirements
+
+- Update the README (status, controls, controller mapping) and the `docs/DECISIONS.md` tuning reference.
+- Run the worst-case performance probe and record the numbers.
+- Finish with a numbered play-test checklist, and say which checks only a human can do.
+
+## Future phases (not now, but don't block them)
+
+- **Web export:** keep the Compatibility renderer and GDScript only. Avoid threads, native plugins and file system access outside `user://` in gameplay code. Keep the navigation mesh and any new nodes web-compatible.
+
 ## Future phases (not now, but don't block them)
 
 - **Web export:** keep the Compatibility renderer and GDScript only. Avoid threads, native plugins and file system access outside `user://` in gameplay code.
