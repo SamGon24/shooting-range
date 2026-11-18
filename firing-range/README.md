@@ -4,6 +4,8 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 ## Status
 
+**Milestone 13 implemented; awaiting a real-controller play-test.** See the controller mapping and numbered checklist below.
+
 **MVP complete (Milestones 1 to 6), play-tested.**
 
 **Phase 2 complete (Milestones 7–12) — all nine weapons, attachments, handling animations, main menu and saved-loadout Armory, and the final polish pass. Play-tested by the project owner (see DECISIONS, Play-test record).** The rifle and sniper keep their exact Milestone 6 stats and behavior with no attachments fitted; a frozen fixture verifies every original exported stat.
@@ -180,7 +182,7 @@ You can also open `project.godot` in the editor and press F5.
 
 On Mac keyboards, use **Fn + F5–F10** if macOS consumes the function keys. In the Godot editor, F5 also runs the project: attachment keys act inside the focused game window. Toggle F3 to see the selection list; each attachment cycle includes **None (native)**.
 
-Open the menu with **Esc**. Resume receives focus immediately. Use arrows or Tab to select controls, Left/Right to change a slider, and Enter/Space to activate a control. Controller Start opens the menu, D-pad / left stick navigates and adjusts, A activates and B resumes. Menu navigation needs no mouse. Full controller gameplay is a later phase.
+Open the menu with **Esc**. Resume receives focus immediately. Use arrows or Tab to select controls, Left/Right to change a slider, and Enter/Space to activate a control. Controller Start opens the menu, D-pad / left stick navigates and adjusts, A activates and B resumes. Menu navigation needs no mouse. Controller gameplay is implemented in Milestone 13; physical-controller validation is pending.
 
 | Setting | Default | Range / meaning |
 |---|---|---|
@@ -548,3 +550,63 @@ Time to kill is measured in physics time from the first damaging hit on each dum
 ## License
 
 TBD.
+
+## Milestone 13 — controller support (hardware play-test pending)
+
+Gameplay uses InputMap for both devices. Prompts follow the last meaningful input;
+small stick noise is ignored. Unmapped pads use Godot's generic button labels.
+Disconnecting the active pad pauses the range and clears held/toggled actions.
+
+| Controller input | Range action | Keyboard / mouse |
+|---|---|---|
+| Left stick | Move | WASD |
+| Right stick | Look | Mouse |
+| RT / LT | Fire / ADS | Left / right mouse |
+| LB / RB | Previous / next weapon | Wheel |
+| A | Jump | Space |
+| B | Crouch / slide | Ctrl / C |
+| X | Reload | R |
+| Y | Swap weapon | 1 / 2, wheel |
+| LS click | Sprint | Shift |
+| RS click | Attack with equipped knife / shield | V (or fire) |
+| D-pad Up | Cycle sniper zero | Z |
+| Back | Reset range statistics | T |
+| Start | Pause | Esc |
+| D-pad / left stick, A, B | Navigate, accept, back | Arrows, Enter, Esc |
+
+Settings includes controller X/Y rates, radial dead zone, linear/cubic ramp,
+controller invert Y, aim slowdown, rumble, hold/toggle ADS/crouch/sprint and
+auto sprint. Defaults preserve keyboard/mouse behavior. Remap controls captures
+keys, mouse buttons, pad buttons and signed axes, reports gameplay conflicts,
+and saves immediately to `user://bindings.cfg`. Restore defaults is available.
+UI navigation bindings remain available as a recovery path. Settings save on
+Save & Back / Resume to `user://settings.cfg`.
+
+### Controller play-test (human validation required)
+
+1. Record controller model, USB/Bluetooth connection and macOS version. Connect
+   it before launch; navigate Play, Settings and Armory using only the pad.
+2. Change a weapon and attachments, save, then enter the range. Check A/B menu
+   acceptance/cancellation and that no menu press fires or jumps on entry.
+3. Walk diagonally and at partial stick deflection. Jump, sprint, crouch and
+   slide; check all mappings above, switching and sniper zero.
+4. Leave the right stick centered: verify no drift. Adjust dead zone; compare
+   linear and dynamic curves, independent X/Y speeds and invert Y. Compare a
+   full-stick turn at different frame caps; turn rate should stay constant.
+5. ADS with each optic; check reduced sensitivity. Sweep across a live dummy
+   with slowdown 0, 0.5 and 1. Check slowdown without snapping; release the stick
+   and confirm no tracking. Switch to mouse and confirm its feel is unchanged.
+6. Try each hold/toggle option and auto sprint. Pause/resume while holding
+   triggers or toggled ADS; confirm no unwanted shot or stuck stance.
+7. Check rumble on firing, target hits and reloading, then disable it. **Actual
+   macOS motor output is unverified.** Player damage rumble awaits Milestone 15.
+8. Remap one keyboard key, mouse button and controller input. Try a conflict;
+   check the message. Restart and verify bindings persist. Restore defaults.
+9. Unplug the pad while moving, firing and aiming. Confirm pause/warning and no
+   stuck input. Reconnect, resume, and alternate mouse/pad to check prompts.
+10. Fire with all targets/props active at 720p. Record FPS and any hitch. Report
+    results with the controller model/connection; synthetic tests cannot certify
+    hardware mappings, Bluetooth behavior, drift, rumble or subjective feel.
+
+Challenge screens do not exist until Milestone 16; their controller navigation
+must be validated when implemented. Stop here for the Milestone 13 play-test.

@@ -1292,3 +1292,97 @@ Still open after this play-test, unchanged by it:
 - The ~220 ms stall on the first hit after switching weapons (Milestone 12, known issue above). It was not reported either way, so whether it is noticeable in play is unknown.
 - The lower 1% lows for the Cairn, Latch and fitted Foundry compared with Milestone 10, not isolated.
 - Physical controller input and the web export remain unvalidated; menus were only tested with simulated controller events.
+
+## Milestone 13: controller input
+
+`GameInput` is an always-processing input/autoload service; InputMap remains the
+source of actions. Existing mouse events still call the unchanged `_apply_look`
+using screen-relative counts, no delta or new filtering. Default hold options
+retain the prior keyboard/mouse path. Controller analog look is applied on the
+physics tick. A radius-0.15 dead zone removes drift, remaining magnitude is
+rescaled to [0,1], then either linear or cubed. This cubic “dynamic” ramp gives
+fine center control without temporal smoothing. Default X/Y rates are 180/120
+ degrees/sec; inversion is separate from mouse. Existing per-weapon ADS scaling
+multiplies the rate before conversion to radians and multiplication by delta.
+
+Slowdown is controller-only: a single 300 m sight ray (world + target layers,
+player excluded) checks for a live TargetHitZone, so cover prevents assist.
+The multiplier is `1 - 0.75 * strength`, default strength 0.5. Only nonzero stick
+look uses it. No attraction, tracking or ballistic correction exists. Manual
+stick rotation uses the same recoil absorption rule as manual mouse rotation;
+the assist itself never writes recoil, spread or projectile data. Already flying
+rounds are untouched.
+
+Last meaningful input selects prompts. Axis values below max(0.2, dead zone)
+do not steal prompts. Known pads use Xbox-style labels, unknown connected pads
+fall back to Godot's event text. Active-pad disconnection releases actions,
+clears toggle state and weapon latches, stops vibration, and pauses the range.
+Vibration calls for fire, hit and reload share a clamped 0–1 scale (default 0.5);
+`vibrate("damage")` is the future player-damage hook. There is no damage-taking
+player in this milestone. macOS motor output requires hardware validation.
+
+`user://bindings.cfg` is ConfigFile format version 1: `[format] version=1`,
+`[actions] action_name=[{type,code,sign?}, …]`. Types are key (physical code, or logical fallback with a physical flag),
+mouse, button and signed axis. Device indices are omitted so reconnects work.
+Remapping replaces the selected event category while preserving other devices.
+Gameplay conflicts are rejected with the conflicting action's name; UI actions
+are intentionally exempt so A/B, sticks and D-pad can serve menus and gameplay.
+The settings menu keeps UI navigation fixed as a recovery path and offers reset.
+All preference additions use the existing settings.cfg persistence.
+
+RS/V attacks only when a contact weapon is equipped. This milestone introduces
+no quick-melee delivery or automatic secondary selection. Challenge UI belongs
+to Milestone 16. Neither is represented as hardware-validated here.
+
+### Verification and performance
+
+Full regression run: **430/430 tests, 7,903 assertions, 264.859 s** (the 423
+previous tests plus seven new controller tests at that point). The shared-settings test updates its control count from 9 to 21 for the added
+options. A separate test-only fix corrects the casing inherited-velocity bound:
+the existing code adds two collinear ±scatter terms, so the correct bound is
+±2×scatter. Two full runs intermittently failed the old single-term bound; no
+casing behavior changed. Its isolated suite passes 11/11 tests. A final targeted run includes two further disconnect/menu tests:
+**9/9 controller tests, 56 assertions, 0.658 s** (including logical-key
+persistence). Mouse `_unhandled_input` and
+`_apply_look` were also compared with HEAD and are byte-identical. The suite
+emits the existing missing-ProjectileSystem fixture warnings, with no script or
+engine errors. A separate ten-frame headless main-menu boot is clean.
+
+Movie Maker main-menu and shared-settings frames were inspected at 720p,
+including focus scrolling to the controller rates and toggle options. The first
+temporary settings capture harness failed to compile; it was corrected and the
+capture repeated successfully. No production script failed that boot.
+
+Performance uses the target Iris Plus 655, Compatibility, 1280×720, 2 s warm-up
+and 10 s measurement, full HUD, eight awake props and 54 awake ragdoll parts.
+`--perf-controller` additionally exercises a synthetic (0.3, 0.2) stick and the
+live assist sight query every physics tick. This measures synthetic input cost,
+not USB/Bluetooth latency. Each tabled run was focused for 100% of measurement.
+
+| Run | Average | 1% low | Worst frame | Frames >25 ms |
+|---|---|---|---|---|
+| Capped, synthetic controller, first run | 59.9 fps | 38.0 fps | 31.51 ms | 2 |
+| Uncapped, synthetic controller | 97.5 fps | 57.3 fps | 19.50 ms | 0 |
+| Capped, no synthetic stick | 60.0 fps | 47.9 fps | 21.49 ms | 0 |
+| Capped, synthetic controller, repeat | 60.0 fps | 51.5 fps | 20.61 ms | 0 |
+
+These are Halberd stress runs, not a repeat of the entire Milestone 12 arsenal
+matrix. All controller runs fired 79 shots, dropped two magazines, used 187
+draw calls and dropped no projectiles. Synthetic stick rotation changes aim and
+contact counts, so the no-stick row is not an identical workload for attributing
+the capped tail to the raycast. The initial capped run misses the strict 25 ms
+budget; the capped repeat passes it, and the uncapped run clears the 90 fps
+requirement. This does not prove a strict frame-time ceiling across sessions. The known first-hit
+shader stall from Milestone 12 is not resolved or masked by this work.
+
+No physical controller or connection type was tested. All controller event,
+binding, prompt and disconnect checks are synthetic. Real device mappings,
+reconnection, drift, subjective aim feel and vibration on macOS remain
+unverified; use the numbered README play-test. Player damage and challenge
+screens await their own milestones.
+
+Final clean regression after the assertion correction and binding review:
+**432/432 tests, 7,910 assertions, 269.799 s**. The separate controller suite
+passes 9/9 with 56 assertions. Main-menu and range headless boot checks are
+clean. Milestone 13 is implemented and stops here for the physical-controller
+play-test; hardware validation is not marked complete.
