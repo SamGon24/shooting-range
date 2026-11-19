@@ -1659,3 +1659,76 @@ camera culling, pose copy, projection, native pixel sizing and resize to 1080p,
 and disabling the hidden lens render. The existing mouse look regression passes.
 Final captures were inspected for sharp lens detail, the visible receiver pose
 and 8× as the sole blackout. Controller hardware validation remains pending.
+
+
+## Weapon-driven optic motion
+
+Each 2×, 3.5× and 4× part now authors a rear-glass `LensAnchor` marker and its
+physical radius. WeaponView exposes the current world pose and neutral ADS
+reference pose after the handling animator and pivot transforms. The reference
+is assembled from authored rest transforms, rather than captured from a moving
+frame, so reloads and repeated attachment changes cannot accumulate offsets.
+No gameplay system reads this presentation pose.
+
+The lens Control lives under a Node2D carrier whose affine axes come from
+projecting the marker's local X/Y axes. Translation, roll, scale and tilt follow
+the actual animated weapon. Full ADS retains the existing comfortable lens size
+and framing; lowering blends toward the physical glass's projected location and
+size. There is no 0.85 ADS cutoff for these optics. Off-screen, rear-facing,
+near-clipped and degenerate edge-on planes are suppressed, leaving the actual
+3D model visible. The 8× blackout presentation remains unchanged.
+
+The native render looks through the displayed opening, with its up direction
+following the optic. Glass and reticle fade as the eye leaves the optical axis
+(dot-product smoothstep from 0.95 to 0.995), and the extra render stops when that
+alignment falls below 0.02. The opaque scope housing remains attached while the
+lens closes; this is local glass occlusion, not a peripheral blackout. The
+projection uses the current presentation transform and vertical FOV explicitly,
+so camera transforms changed this frame do not wait on renderer projection caches.
+
+Native render sizes round up to 64-pixel buckets and keep a high-water allocation
+per window size, preventing sway from reallocating the texture every frame.
+They never fall below the projected glass diameter; the performance probe now
+reports the peak cached size. Window resizing starts a new resolution cache.
+The first targeted camera-pose test exposed reliance on a stale projection helper;
+current-transform projection and approximate transform comparisons fixed it.
+
+Tests cover actual marker translation/roll, housing visibility and shrink on
+lowering, off-axis render shutdown, edge-on safety, native sizing and the live
+reload animator. The live reload changes both optic position and roll while the
+player's gameplay aim basis remains exactly unchanged. No input, recoil, spread,
+projectile or timing logic is changed. Movie Maker frames were inspected during
+ADS, aimed fire, magazine-out/insertion, return to aim, un-ADS, sprint and switch.
+The optic tracks the gun rather than lingering in the center during reload.
+
+For worst-case performance, `--perf-hybrid` / `--perf-2x` / `--perf-4x` keep an
+aligned, fully aimed optic pose in the benchmark even through reloads. Ordinary
+play always consumes the actual weapon pose. This deliberate probe override
+prevents off-axis render shutdown from understating peak native-render cost.
+
+### Optic-motion verification and performance
+
+Accepted focused runs on the target Iris Plus 655, Compatibility, 1280×720,
+2 s warm-up / 10 s measurement, with 54 awake ragdoll parts, eight awake props,
+three driven steel hinges, firing and the full HUD. The extra lens render stays
+active through every measured frame. Peak cached lens size was 448×448, so this
+includes native detail at the larger projected poses. No projectiles were dropped.
+
+| Motion renderer | Average | 1% low | Worst frame | Frames >25 ms |
+|---|---|---|---|---|
+| 3.5× uncapped | 75.7 fps | 45.4 fps | 26.38 ms | 2 |
+| 4× uncapped | 73.6 fps | 30.7 fps | 76.40 ms | 3 |
+| 3.5× capped | 60.0 fps | 52.3 fps | 21.19 ms | 0 |
+
+These rows were focused for 100% of measured frames. The 3.5× runs were repeated
+with one explicit window activation after startup; unfocused first attempts were
+excluded. The two 2× attempts (86% and 4% focus) are not accepted measurements.
+The 90 fps uncapped headroom target remains unmet, even though the accepted
+capped run holds 60 fps without a frame over 25 ms. This does not establish a
+universal frame-time ceiling or replace the earlier native-lens performance limits.
+
+Final verification: **438/438 GUT tests, 8,047 assertions, 271.942 s**, with clean
+main-menu and range ten-frame headless boots. Targeted tests include the actual
+reload animator, synthetic translation/roll/lowering, off-axis and edge-on
+safety, and unchanged gameplay aim. Movie Maker captures verify the visual
+sequence; physical-controller play-testing remains pending. 

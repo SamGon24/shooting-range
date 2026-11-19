@@ -624,13 +624,18 @@ The hybrid fits the rifle, SMG and LMG; other optics retain their compatibility.
 | 8× | Yes | Replaced by the blackout scope view | Existing 8× view |
 
 The 2×, 3.5× and 4× lenses render fresh scene detail instead of stretching screen
-pixels. At 720p the 374.4 px glass uses a 376×376 render target, and resolution
-grows with the window. The housing, reticle and surrounding weapon stay visible;
-the lens camera excludes the viewmodel so the gun does not block the glass.
+pixels. Render resolution follows the projected glass size, rounds up for pixel
+detail and grows with the window or a closer optic pose. The housing and reticle
+follow the actual optic anchor through sway, firing, reloads, lowering and
+switching. The lens camera excludes the viewmodel so the gun does not block
+the glass.
 The main camera retains normal FOV outside the lens. The hybrid keeps FOV-relative
 3.5× zoom and 1/3.5 sensitivity; 2× and 4× retain their authored zoom and input stats.
 
-A small cosmetic ADS pose adjustment exposes the receiver below the housing.
+The lens shrinks onto the physical optic as the weapon leaves ADS. Magnification
+and the reticle fade when the glass turns away from the eye, rather than leaving
+a frozen aiming overlay. A small cosmetic ADS pose adjustment exposes the receiver
+below the housing.
 It changes no collider, bullet path, recoil or spread. Rendering the scene again
 costs more GPU time than the removed screen-copy shortcut; measured performance
 and the known first-use hitch are recorded in DECISIONS. No blur fallback or
@@ -643,10 +648,13 @@ reduced-resolution lens is silently selected.
    They should resolve scene detail, with no enlarged-screen-pixel blur.
 3. Check the weapon remains visible below/around the scope during ADS, strafing,
    bursts and reloads. Confirm the glass stays clear of the viewmodel.
-4. Resize the window; lens resolution should track its displayed diameter.
-   Check recoil moves the world while the reticle stays centered.
-5. Save/refit/switch optics and check the 8× view still behaves as before.
-6. Test mouse and controller aiming, sensitivity settings and FPS. Report any
+4. Release ADS, reload with ADS held, sprint and switch weapons. Check the optic
+   housing and reticle move/roll with the gun and return smoothly, with no frozen
+   center overlay. Check tactical and empty reloads.
+5. Resize the window; lens resolution should track the projected glass diameter.
+   Fire bursts and check that the reticle follows the moving optic.
+6. Save/refit/switch optics and check the 8× view still behaves as before.
+7. Test mouse and controller aiming, sensitivity settings and FPS. Report any
    hitch with the weapon and optic. Physical-controller validation remains open.
 
 No Milestone 15 work is included.
