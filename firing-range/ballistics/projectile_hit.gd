@@ -8,6 +8,10 @@ var shot_id: int = -1
 ## Contact delivery can supply an impulse without inventing bullet speed.
 var impulse_override: Vector3 = Vector3.ZERO
 
+## Where non-bullet damage came from (blast centre, swing origin). INF when
+## unknown; bullets give their direction through `velocity` instead.
+var source_position: Vector3 = Vector3.INF
+
 ## World position of the impact.
 var position: Vector3
 ## Surface normal at the impact, pointing away from the surface.

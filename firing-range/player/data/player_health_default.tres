@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="PlayerHealthSettings" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://player/player_health_settings.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+max_health = 100.0
+plate_health = 50.0
+armor_plates = 3
+reset_seconds = 4.0
+pop_seconds = 0.15
+head_multiplier = 1.5
+sniper_head_multiplier = 2.0
+torso_multiplier = 1.0
+limb_multiplier = 0.8
+regen_delay_seconds = 4.0
+regen_per_second = 25.0
+spare_plates = 5
+plate_insert_seconds = 1.2
