@@ -1,6 +1,7 @@
 shader_type canvas_item;
 render_mode unshaded;
 uniform sampler2D lens_image : repeat_disable, filter_linear;
+uniform float view_strength = 1.0;
 uniform float radius = 187.2;
 uniform float unit = 1.0;
 void fragment() {
@@ -13,14 +14,15 @@ void fragment() {
 	vec3 edge = vec3(0.34, 0.38, 0.39);
 	if (d <= radius) {
 		vec2 sample_uv = vec2(0.5) + p / (radius * 2.0);
-		vec3 scene = textureLod(lens_image, sample_uv, 0.0).rgb;
+		vec3 scene = body * 0.35;
+		if (view_strength > 0.001) { scene = mix(scene, textureLod(lens_image, sample_uv, 0.0).rgb, view_strength); }
 		bool cross = (abs(q.y) <= 1.0 && abs(q.x) >= 8.0 && abs(q.x) <= 80.0)
 			|| (abs(q.x) <= 1.0 && abs(q.y) >= 8.0 && abs(q.y) <= 80.0);
 		float tx = abs(mod(abs(q.x) - 25.0 + 10.0, 20.0) - 10.0);
 		float ty = abs(mod(abs(q.y) - 25.0 + 10.0, 20.0) - 10.0);
 		bool ticks = (abs(q.y) <= 4.0 && abs(q.x) >= 24.5 && abs(q.x) <= 65.5 && tx <= 0.5)
 			|| (abs(q.x) <= 4.0 && abs(q.y) >= 24.5 && abs(q.y) <= 65.5 && ty <= 0.5);
-		COLOR = vec4((cross || ticks || length(q) < 1.5) ? ink : scene, 1.0);
+		COLOR = vec4((cross || ticks || length(q) < 1.5) ? mix(scene, ink, view_strength) : scene, 1.0);
 	} else if (d <= radius + 20.0 * unit) {
 		float ring = (d - radius) / unit;
 		vec3 color = (ring >= 5.0 && ring <= 17.0) ? body : ink;

@@ -79,6 +79,10 @@ var _models: Dictionary[WeaponData, Node3D] = {}
 var _muzzles: Dictionary[WeaponData, Node3D] = {}
 var _attachment_parts: Dictionary[WeaponData, Array] = {}
 var _native_optics: Dictionary[WeaponData, Array] = {}
+var _optic_anchor: Marker3D
+var _optic_rest: Transform3D = Transform3D.IDENTITY
+var _optic_radius: float = 0.0
+var _model_rests: Dictionary[WeaponData, Transform3D] = {}
 var _current_data: WeaponData
 var _flash_mesh: MeshInstance3D
 var _flash_particles: CPUParticles3D
@@ -122,6 +126,7 @@ func _ready() -> void:
 		# Models wait outside the tree until they are the current weapon.
 		var model := data.viewmodel_scene.instantiate() as Node3D
 		_set_viewmodel_layer(model)
+		_model_rests[data] = model.transform
 		_models[data] = model
 		_native_optics[data] = []
 		for part_name: String in ["RearSight", "FrontSightPost", "Scope", "ScopeBell", "ScopeMountFront", "ScopeMountRear"]:
@@ -488,6 +493,7 @@ func _build_muzzle_flash() -> void:
 
 
 func _rebuild_attachments(data: WeaponData) -> void:
+	_optic_anchor = null
 	var definition: WeaponData = data.definition()
 	var model: Node3D = _models.get(definition)
 	if model == null:
@@ -521,6 +527,16 @@ func _rebuild_attachments(data: WeaponData) -> void:
 		var point := part.get_node(attachment.part_mount) as Node3D
 		part.transform = point.transform.affine_inverse()
 		_attachment_parts[definition].append(part)
+		if attachment.slot == WeaponTypes.Slot.OPTIC:
+			_optic_anchor = part.get_node_or_null("LensAnchor") as Marker3D
+			if _optic_anchor != null:
+				_optic_radius = float(_optic_anchor.get_meta(&"lens_radius_m"))
+				var local: Transform3D = _optic_anchor.transform
+				var ancestor := _optic_anchor.get_parent() as Node3D
+				while ancestor != null and ancestor != model:
+					local = ancestor.transform * local
+					ancestor = ancestor.get_parent() as Node3D
+				_optic_rest = _model_rests[definition] * local
 		if attachment.slot == WeaponTypes.Slot.MUZZLE:
 			_muzzles[definition] = part.get_node_or_null("Exit") as Node3D
 
@@ -530,3 +546,15 @@ static func _set_viewmodel_layer(node: Node) -> void:
 		(node as VisualInstance3D).layers = VIEWMODEL_LAYER
 	for child: Node in node.get_children():
 		_set_viewmodel_layer(child)
+
+
+## Read-only presentation pose after the handling animator and viewmodel pivot.
+## Rest is the fully aimed pose, used to preserve the authored ADS lens framing.
+func get_optic_pose() -> Dictionary:
+	if not is_instance_valid(_optic_anchor) or not _optic_anchor.is_inside_tree() or _current_data == null:
+		return {}
+	return {
+		"world": _optic_anchor.global_transform,
+		"rest": global_transform * Transform3D(Basis.IDENTITY, _current_data.ads_position + lens_ads_offset) * _optic_rest,
+		"radius": _optic_radius,
+	}

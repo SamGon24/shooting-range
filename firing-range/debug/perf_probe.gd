@@ -47,6 +47,7 @@ var _elapsed: float = 0.0
 var _last_ticks_usec: int = 0
 var _frame_times_usec: PackedInt64Array = PackedInt64Array()
 var _probe_optic: AttachmentData
+var _lens_peak_size: int = 0
 var _lens_frames: int = 0
 var _focused_frames: int = 0
 var _firing: bool = false
@@ -227,9 +228,14 @@ func _process(delta: float) -> void:
 		# Keep the optic visible through reloads for the worst-case render budget.
 		var overlay := get_tree().get_first_node_in_group(&"hybrid_optic") as HybridOptic
 		if overlay != null and data != null:
-			overlay.update_view(data, 1.0, get_viewport().get_camera_3d())
+			var view := get_tree().get_first_node_in_group(WeaponView.GROUP) as WeaponView
+			var optic_pose: Dictionary = view.get_optic_pose() if view != null else {}
+			if not optic_pose.is_empty():
+				optic_pose["world"] = optic_pose["rest"]
+				overlay.update_view(data, 1.0, get_viewport().get_camera_3d(), optic_pose)
 			if overlay.lens_active and _elapsed >= WARMUP_SECONDS:
 				_lens_frames += 1
+				_lens_peak_size = maxi(_lens_peak_size,overlay.render_size)
 	if _elapsed < WARMUP_SECONDS:
 		return
 	_frame_times_usec.append(frame_usec)
@@ -284,6 +290,7 @@ func _report_and_quit() -> void:
 		print("optic:           ", _probe_optic.display_name)
 		print("optic view:      native-resolution lens")
 		print("lens frames:     %d / %d" % [_lens_frames, count])
+		print("lens pixels:     %d square (peak cached)" % _lens_peak_size)
 	print("adapter:         %s" % RenderingServer.get_video_adapter_name())
 	print("window pixels:   %dx%d" % [window_size.x, window_size.y])
 	print("vsync mode:      %s" % _vsync_mode_name(DisplayServer.window_get_vsync_mode()))

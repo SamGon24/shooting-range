@@ -61,11 +61,12 @@ func test_both_lenses_keep_periphery_unzoomed_and_blackout_off_under_recoil() ->
 			assert_almost_eq(player.look_sensitivity_scale, 1.0/3.5, 0.00001)
 		else:
 			assert_almost_eq(player.look_sensitivity_scale, controller.get_current_data().ads_sensitivity_scale, 0.00001)
-		var center: Vector2 = hud.hybrid.get_global_rect().get_center()
+		var anchor_before: Transform3D = view.get_optic_pose()["world"]
 		var original_basis: Basis = camera.global_basis
 		player.add_recoil(0.1, 0.04)
 		await wait_physics_frames(2)
-		assert_eq(hud.hybrid.get_global_rect().get_center(), center)
+		assert_true(view.get_optic_pose().has("world"))
+		assert_ne(anchor_before.origin, Vector3.ZERO)
 		assert_false(camera.global_basis.is_equal_approx(original_basis))
 		Input.action_press("fire")
 		await wait_physics_frames(5)
@@ -89,22 +90,100 @@ func test_native_lens_resolution_projection_and_render_lifecycle() -> void:
 	world.add_child(overlay)
 	var build := WeaponBuild.new(load("res://weapons/data/halberd_rifle.tres") as WeaponData)
 	build.set_attachment(WeaponTypes.Slot.OPTIC, HYBRID)
-	overlay.update_view(build.get_stats(),1.0,camera)
+	overlay.update_view(build.get_stats(),1.0,camera,_aligned_pose(camera))
 	assert_true(overlay.visible)
 	assert_gte(float(overlay.render_size), overlay.size.y * HybridOptic.LENS_HEIGHT_FRACTION)
 	assert_eq(overlay.viewport.world_3d, camera.get_world_3d())
-	assert_eq(overlay.lens_camera.global_transform, camera.global_transform)
+	assert_true(overlay.lens_camera.global_transform.is_equal_approx(camera.global_transform))
 	assert_almost_eq(tan(deg_to_rad(overlay.lens_camera.fov)*0.5) / HybridOptic.LENS_HEIGHT_FRACTION, tan(deg_to_rad(OpticMath.target_fov(build.get_stats(), ViewSettings.fov_degrees))*0.5),0.00001)
 	assert_eq(overlay.viewport.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
 	camera.rotate_x(0.2)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	overlay.size = Vector2(1920,1080)
-	overlay.update_view(build.get_stats(),1.0,camera)
-	assert_eq(overlay.lens_camera.global_transform,camera.global_transform)
+	overlay.update_view(build.get_stats(),1.0,camera,_aligned_pose(camera))
+	assert_true(overlay.lens_camera.global_transform.is_equal_approx(camera.global_transform))
 	assert_gte(overlay.render_size,562)
-	overlay.update_view(build.get_stats(),0.0,camera)
+	overlay.update_view(build.get_stats(),0.0,camera,{})
 	assert_false(overlay.visible)
 	assert_false(overlay.lens_active)
 	assert_eq(overlay.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED)
 	var sniper: WeaponData = load("res://weapons/data/longwatch_sniper.tres")
 	assert_false(HybridOptic.supports(sniper), "8x keeps its existing presentation")
+
+
+func _aligned_pose(camera: Camera3D) -> Dictionary:
+	var world: Transform3D = camera.global_transform * Transform3D(Basis.IDENTITY,Vector3(0,0,-0.35))
+	return {"world":world,"rest":world,"radius":0.026}
+
+func test_optic_tracks_weapon_translation_roll_and_lowering_without_steering_aim() -> void:
+	var world := Node3D.new()
+	add_child_autofree(world)
+	var camera := Camera3D.new()
+	world.add_child(camera)
+	var overlay := HybridOptic.new()
+	world.add_child(overlay)
+	var build := WeaponBuild.new(load("res://weapons/data/halberd_rifle.tres") as WeaponData)
+	build.set_attachment(WeaponTypes.Slot.OPTIC,HYBRID)
+	var pose: Dictionary = _aligned_pose(camera)
+	overlay.update_view(build.get_stats(),1.0,camera,pose)
+	var centered: Vector2 = overlay.carrier.position
+	var render_before: int = overlay.render_size
+	var shifted: Transform3D = pose["world"]
+	shifted.origin.x += 0.03
+	shifted.basis = shifted.basis.rotated(Vector3.FORWARD,0.3)
+	pose["world"] = shifted
+	overlay.update_view(build.get_stats(),1.0,camera,pose)
+	assert_gt(overlay.carrier.position.x,centered.x)
+	assert_gt(absf(overlay.carrier.transform.x.y),0.01)
+	assert_gte(overlay.render_size,render_before)
+	var big: float = overlay.carrier.transform.x.length()
+	shifted.origin = Vector3(0.16,-0.12,-0.42)
+	pose["world"] = shifted
+	overlay.update_view(build.get_stats(),0.0,camera,pose)
+	assert_true(overlay.visible,"Housing stays with the weapon at the hip")
+	assert_gt(overlay.carrier.position.x,centered.x)
+	assert_gt(overlay.carrier.position.y,centered.y)
+	assert_lt(overlay.carrier.transform.x.length(),big)
+	assert_false(overlay.lens_active,"Off-axis glass stops the extra render")
+	assert_eq(overlay.viewport.render_target_update_mode,SubViewport.UPDATE_DISABLED)
+	shifted.origin = Vector3(0,0,-0.35)
+	shifted.basis = Basis(Vector3.UP,PI*0.5)
+	pose["world"] = shifted
+	overlay.update_view(build.get_stats(),1.0,camera,pose)
+	assert_false(overlay.visible,"Edge-on glass leaves the real model visible without a singular overlay")
+	assert_false(overlay.lens_active)
+	assert_eq(camera.transform,Transform3D.IDENTITY,"Presentation cannot steer gameplay camera")
+
+func test_reload_animator_moves_optic_with_weapon_without_changing_gameplay_aim() -> void:
+	var world := Node3D.new()
+	add_child_autofree(world)
+	world.add_child(ProjectileSystem.new())
+	var player := (load("res://player/player.tscn") as PackedScene).instantiate() as PlayerController
+	world.add_child(player)
+	player.set_physics_process(false)
+	var controller := player.get_node("Weapons") as WeaponController
+	var view := player.get_node("Head/CameraFeel/Camera/WeaponView") as WeaponView
+	var hud := (load("res://ui/hud.tscn") as PackedScene).instantiate() as Hud
+	world.add_child(hud)
+	controller.request_attachment(WeaponTypes.Slot.OPTIC,HYBRID)
+	await wait_physics_frames(4)
+	Input.action_press("aim")
+	await wait_physics_frames(60)
+	var initial: Transform2D = hud.hybrid.carrier.transform
+	var aim_before: Basis = player.get_aim_basis()
+	controller.get_current_logic().ammo -= 1
+	Input.action_press("reload")
+	await wait_physics_frames(1)
+	Input.action_release("reload")
+	assert_true(controller.get_current_logic().is_reloading())
+	var travel: float = 0.0
+	var roll: float = 0.0
+	for sample: int in 16:
+		await wait_physics_frames(2)
+		travel = maxf(travel,hud.hybrid.carrier.position.distance_to(initial.origin))
+		roll = maxf(roll,absf(hud.hybrid.carrier.transform.get_rotation()-initial.get_rotation()))
+	assert_gt(travel,2.0,"Reload motion carries the optic away from its aimed position")
+	assert_gt(roll,0.02,"Reload roll rotates the optic housing and reticle")
+	assert_true(view.is_model_shown())
+	assert_true(player.get_aim_basis().is_equal_approx(aim_before),"Cosmetic reload cannot steer bullets")
+	Input.action_release("aim")
