@@ -111,7 +111,7 @@ func test_shared_settings_panels_edit_and_refresh_the_same_live_values() -> void
 	var second := SettingsPanel.new()
 	add_child_autofree(first)
 	add_child_autofree(second)
-	assert_eq(first.focusables.size(), 23)
+	assert_eq(first.focusables.size(), 24)
 	var slider := first.find_child("fov_degrees", true, false) as HSlider
 	slider.value = 81.0
 	assert_eq(ViewSettings.fov_degrees, 81.0)

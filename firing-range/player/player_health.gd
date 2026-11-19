@@ -63,6 +63,8 @@ func _ready() -> void:
 	if follow_range_setting:
 		ViewSettings.changed.connect(_follow_setting)
 		_follow_setting()
+		# At spawn, so the first vest matches the setting too.
+		_apply_preload(ViewSettings.preload_plates, true)
 	damaged.connect(func(_h: ProjectileHit, _z: Zone, _a: float, _i: Vector3, _applied: bool) -> void: GameInput.vibrate("damage"))
 	_capture_spawn.call_deferred()
 	update_zones()
@@ -77,6 +79,25 @@ func _capture_spawn() -> void:
 func _follow_setting() -> void:
 	if follow_range_setting:
 		invulnerable = ViewSettings.range_invulnerable
+		if ViewSettings.preload_plates != (vitals.start_plates < 0):
+			_apply_preload(ViewSettings.preload_plates, true)
+
+
+## Full vest (true) or an empty vest (false) at every spawn. `rearm` also
+## applies it now, with spares back to the Resource count, so the range
+## setting takes effect without dying.
+func set_preload_plates(full: bool, rearm: bool = true) -> void:
+	_apply_preload(full, rearm)
+
+
+func _apply_preload(full: bool, rearm: bool) -> void:
+	vitals.start_plates = -1 if full else 0
+	if not rearm or vitals.dead:
+		return
+	if plating:
+		cancel_plate()
+	vitals.armor = vitals.max_armor() if full else 0.0
+	vitals.spare_plates = settings.spare_plates
 
 
 func _unhandled_input(event: InputEvent) -> void:

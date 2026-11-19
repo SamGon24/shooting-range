@@ -276,6 +276,38 @@ func test_fire_cancels_plating_without_using_a_plate() -> void:
 	assert_eq(_health.vitals.spare_plates, spares)
 
 
+func test_preload_setting_empties_the_vest_now_and_at_respawn() -> void:
+	var before: bool = ViewSettings.preload_plates
+	var other := PLAYER_SCENE.instantiate() as PlayerController
+	other.position = Vector3(20.0, 0.0, 0.0)
+	ViewSettings.preload_plates = false
+	_world.add_child(other)
+	var health := other.get_node("Health") as PlayerHealth
+	assert_eq(health.vitals.armor, 0.0, "spawns with an empty vest")
+	assert_eq(health.vitals.spare_plates, health.settings.spare_plates)
+	assert_true(health.request_plate(), "plates can be inserted by hand")
+	health.cancel_plate()
+	ViewSettings.preload_plates = true
+	assert_eq(health.vitals.armor, 150.0, "turning it back on refills the vest at once")
+	ViewSettings.preload_plates = false
+	assert_eq(health.vitals.armor, 0.0)
+	health.vitals.apply_damage(500.0)
+	await wait_physics_frames(roundi(health.settings.reset_seconds * 60.0) + 3)
+	assert_false(health.is_dead())
+	assert_eq(health.vitals.armor, 0.0, "respawn keeps the vest empty")
+	ViewSettings.preload_plates = before
+
+
+func test_unrelated_setting_changes_leave_the_vest_alone() -> void:
+	var before: float = ViewSettings.fov_degrees
+	_health.follow_range_setting = true
+	_health.vitals.apply_damage(60.0)
+	ViewSettings.fov_degrees = 80.0
+	assert_eq(_health.vitals.armor, 90.0)
+	ViewSettings.fov_degrees = before
+	_health.follow_range_setting = false
+
+
 func test_no_plating_with_a_full_vest() -> void:
 	assert_false(_health.request_plate())
 	assert_false(_health.plating)

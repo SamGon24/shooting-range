@@ -3,6 +3,8 @@ extends TargetHealth
 ## Node-free player state on top of the dummy's armor-first health: delayed
 ## health regeneration, spare plates and plate insertion. Stepped at 60 Hz.
 
+## Plates in the vest at spawn and respawn; -1 fills the whole vest.
+var start_plates: int = -1
 var since_damage: float = 0.0
 var spare_plates: int = 0
 ## True while a plate insert is counting. The owner starts it only once the
@@ -21,6 +23,8 @@ func tuning() -> PlayerHealthSettings:
 
 func reset() -> void:
 	super.reset()
+	if start_plates >= 0:
+		armor = float(mini(start_plates, plate_count)) * settings.plate_health
 	since_damage = 0.0
 	spare_plates = (settings as PlayerHealthSettings).spare_plates
 	inserting = false

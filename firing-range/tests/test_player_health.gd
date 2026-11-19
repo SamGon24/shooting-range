@@ -174,6 +174,21 @@ func test_no_regeneration_while_dead() -> void:
 	assert_eq(_vitals.health, 0.0)
 
 
+func test_empty_vest_start_on_spawn_and_respawn() -> void:
+	_vitals.start_plates = 0
+	_vitals.reset()
+	assert_eq(_vitals.armor, 0.0, "no preloaded plates")
+	assert_eq(_vitals.spare_plates, _settings.spare_plates, "spares still carried")
+	assert_true(_vitals.can_insert_plate())
+	_vitals.insert_plate()
+	assert_eq(_vitals.armor, 50.0)
+	_vitals.apply_damage(400.0)
+	_step(_ticks(_settings.reset_seconds))
+	assert_false(_vitals.dead)
+	assert_eq(_vitals.armor, 0.0, "respawns with an empty vest too")
+	assert_eq(_vitals.spare_plates, _settings.spare_plates)
+
+
 # --- Damage direction maths ---
 
 

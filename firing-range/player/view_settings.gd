@@ -84,6 +84,13 @@ var range_invulnerable: bool = true:
 		range_invulnerable = value
 		changed.emit()
 
+## False spawns (and respawns) the player with an empty vest; plates are
+## then inserted from the spares by hand.
+var preload_plates: bool = true:
+	set(value):
+		preload_plates = value
+		changed.emit()
+
 ## Shows the plates in the vest and the spares carried on the HUD.
 var show_armor_plates: bool = true:
 	set(value):
@@ -102,7 +109,7 @@ var toggle_crouch: bool = false
 var toggle_sprint: bool = false
 var auto_sprint: bool = false
 
-const KEYS: PackedStringArray = ["stick_x", "stick_y", "stick_deadzone", "stick_dynamic", "stick_invert_y", "aim_assist", "rumble_scale", "toggle_ads", "toggle_crouch", "toggle_sprint", "auto_sprint", "fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps", "ttk_from_first_shot", "range_invulnerable", "show_armor_plates"]
+const KEYS: PackedStringArray = ["stick_x", "stick_y", "stick_deadzone", "stick_dynamic", "stick_invert_y", "aim_assist", "rumble_scale", "toggle_ads", "toggle_crouch", "toggle_sprint", "auto_sprint", "fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps", "ttk_from_first_shot", "range_invulnerable", "show_armor_plates", "preload_plates"]
 
 
 func _ready() -> void:
