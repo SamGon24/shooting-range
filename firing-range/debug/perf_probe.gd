@@ -74,7 +74,9 @@ func _ready() -> void:
 		set_process(false)
 		set_physics_process(false)
 		return
-	if OS.get_cmdline_user_args().has("--perf-4x"):
+	if OS.get_cmdline_user_args().has("--perf-2x"):
+		_probe_optic = preload("res://weapons/attachments/data/scope_2x.tres")
+	elif OS.get_cmdline_user_args().has("--perf-4x"):
 		_probe_optic = preload("res://weapons/attachments/data/scope_4x.tres")
 	elif OS.get_cmdline_user_args().has("--perf-hybrid"):
 		_probe_optic = preload("res://weapons/attachments/data/hybrid_35x.tres")
@@ -280,7 +282,7 @@ func _report_and_quit() -> void:
 	print("renderer:        %s" % RenderingServer.get_current_rendering_method())
 	if _probe_optic != null:
 		print("optic:           ", _probe_optic.display_name)
-		print("optic view:      screen texture lens")
+		print("optic view:      native-resolution lens")
 		print("lens frames:     %d / %d" % [_lens_frames, count])
 	print("adapter:         %s" % RenderingServer.get_video_adapter_name())
 	print("window pixels:   %dx%d" % [window_size.x, window_size.y])

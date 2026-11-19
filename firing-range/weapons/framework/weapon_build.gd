@@ -74,7 +74,7 @@ func get_stats() -> WeaponData:
 		_computed.optic_kind = optic.optic_kind
 		_computed.ads_fov_degrees = optic.optic_fov_degrees
 		_computed.sight_height_m = optic.optic_sight_height_m
-		_computed.scoped = optic.optic_kind >= 2 and optic.optic_kind <= 4
+		_computed.scoped = optic.optic_kind == 4
 		_computed.optic_magnification = optic.optic_magnification
 	var values: Dictionary[StringName, float] = {}
 	for stat: StringName in LIMITS.bounds:

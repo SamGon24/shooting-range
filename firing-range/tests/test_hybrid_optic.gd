@@ -38,7 +38,8 @@ func test_both_lenses_keep_periphery_unzoomed_and_blackout_off_under_recoil() ->
 	var hud := (load("res://ui/hud.tscn") as PackedScene).instantiate() as Hud
 	world.add_child(hud)
 	var four: AttachmentData = load("res://weapons/attachments/data/scope_4x.tres")
-	for optic: AttachmentData in [HYBRID, four]:
+	var two: AttachmentData = load("res://weapons/attachments/data/scope_2x.tres")
+	for optic: AttachmentData in [two, HYBRID, four]:
 		Input.action_release("aim")
 		assert_true(controller.request_attachment(WeaponTypes.Slot.OPTIC, optic))
 		await wait_physics_frames(4)
@@ -47,7 +48,12 @@ func test_both_lenses_keep_periphery_unzoomed_and_blackout_off_under_recoil() ->
 		assert_false(hud.is_scope_visible(), "No blackout for " + optic.display_name)
 		assert_true(hud.hybrid.visible)
 		assert_true(hud.hybrid.lens_active)
-		assert_eq(hud.hybrid.find_children("*", "SubViewport", true, false).size(), 0)
+		var view := player.get_node("Head/CameraFeel/Camera/WeaponView") as WeaponView
+		assert_true(view.is_model_shown())
+		assert_eq((view.get_current_model().get_node("Receiver") as MeshInstance3D).layers, WeaponView.VIEWMODEL_LAYER)
+		assert_eq(hud.hybrid.find_children("*", "SubViewport", true, false).size(), 1)
+		assert_gte(float(hud.hybrid.render_size), hud.hybrid.size.y * HybridOptic.LENS_HEIGHT_FRACTION)
+		assert_eq(hud.hybrid.lens_camera.cull_mask & WeaponView.VIEWMODEL_LAYER, 0)
 		var camera: Camera3D = player.get_viewport().get_camera_3d()
 		assert_almost_eq(camera.fov, ViewSettings.fov_degrees, 0.0001)
 		assert_almost_eq(hud.hybrid.sample_zoom, OpticMath.screen_lens_zoom(camera.fov, OpticMath.target_fov(controller.get_current_data(), ViewSettings.fov_degrees)), 0.0001)
@@ -69,7 +75,7 @@ func test_both_lenses_keep_periphery_unzoomed_and_blackout_off_under_recoil() ->
 	Input.action_release("aim")
 	ViewSettings.ads_sensitivity_multiplier = old_ads
 
-func test_screen_lens_projection_and_visibility_without_a_second_camera() -> void:
+func test_native_lens_resolution_projection_and_render_lifecycle() -> void:
 	for reference: float in [50.0,65.0,100.0]:
 		var target: float = OpticMath.fov_for_zoom(reference,3.5)
 		assert_almost_eq(OpticMath.screen_lens_zoom(reference,target),3.5,0.000001)
@@ -78,20 +84,27 @@ func test_screen_lens_projection_and_visibility_without_a_second_camera() -> voi
 	add_child_autofree(world)
 	var camera := Camera3D.new()
 	world.add_child(camera)
+	camera.transform = Transform3D(Basis.from_euler(Vector3(0.1,0.3,0)), Vector3(3,5,2))
 	var overlay := HybridOptic.new()
 	world.add_child(overlay)
 	var build := WeaponBuild.new(load("res://weapons/data/halberd_rifle.tres") as WeaponData)
 	build.set_attachment(WeaponTypes.Slot.OPTIC, HYBRID)
 	overlay.update_view(build.get_stats(),1.0,camera)
 	assert_true(overlay.visible)
-	var copy := overlay.get_node("ScopeWorldCopy") as BackBufferCopy
-	assert_eq(copy.copy_mode, BackBufferCopy.COPY_MODE_RECT)
-	assert_almost_eq(copy.rect.get_center().x, overlay.size.x * 0.5, 0.001)
-	assert_almost_eq(copy.rect.size.x, overlay.size.y * HybridOptic.LENS_HEIGHT_FRACTION / overlay.sample_zoom + 4.0, 0.001)
-	assert_lt(copy.rect.size.x, overlay.lens.size.x)
-	assert_eq(overlay.find_children("*", "SubViewport", true, false).size(),0)
+	assert_gte(float(overlay.render_size), overlay.size.y * HybridOptic.LENS_HEIGHT_FRACTION)
+	assert_eq(overlay.viewport.world_3d, camera.get_world_3d())
+	assert_eq(overlay.lens_camera.global_transform, camera.global_transform)
+	assert_almost_eq(tan(deg_to_rad(overlay.lens_camera.fov)*0.5) / HybridOptic.LENS_HEIGHT_FRACTION, tan(deg_to_rad(OpticMath.target_fov(build.get_stats(), ViewSettings.fov_degrees))*0.5),0.00001)
+	assert_eq(overlay.viewport.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
+	camera.rotate_x(0.2)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	overlay.size = Vector2(1920,1080)
+	overlay.update_view(build.get_stats(),1.0,camera)
+	assert_eq(overlay.lens_camera.global_transform,camera.global_transform)
+	assert_gte(overlay.render_size,562)
 	overlay.update_view(build.get_stats(),0.0,camera)
 	assert_false(overlay.visible)
 	assert_false(overlay.lens_active)
+	assert_eq(overlay.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED)
 	var sniper: WeaponData = load("res://weapons/data/longwatch_sniper.tres")
 	assert_false(HybridOptic.supports(sniper), "8x keeps its existing presentation")

@@ -97,7 +97,7 @@ var _legacy_automatic: bool = true
 @export_range(2.0, 90.0, 0.5, "suffix:°") var ads_fov_degrees: float = 45.0
 ## Mouse sensitivity multiplier when fully aimed.
 @export_range(0.05, 1.0, 0.01) var ads_sensitivity_scale: float = 0.7
-## True draws the scope overlay and hides the viewmodel when aimed.
+## True for the 8x blackout presentation, which hides the aimed viewmodel.
 @export var scoped: bool = false
 
 @export_group("Switching")

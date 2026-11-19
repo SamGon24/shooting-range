@@ -37,7 +37,7 @@ func test_optics_set_zoom_reticle_sight_height_and_restore_native_stats() -> voi
 			assert_almost_eq(computed.ads_fov_degrees, optic.optic_fov_degrees, 0.000001)
 			assert_eq(computed.optic_kind, optic.optic_kind)
 			assert_almost_eq(computed.sight_height_m, optic.optic_sight_height_m, 0.000001)
-			assert_eq(computed.scoped, optic.optic_kind >= 2 and optic.optic_kind <= 4)
+			assert_eq(computed.scoped, optic.optic_kind == 4)
 			assert_almost_eq(computed.ads_position.y + base.bore_height_m + computed.sight_height_m, 0.0, 0.000001)
 		build.set_attachment(WeaponTypes.Slot.OPTIC, null)
 		assert_eq(build.get_stats().ads_fov_degrees, base.ads_fov_degrees)

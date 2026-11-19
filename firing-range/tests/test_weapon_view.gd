@@ -164,9 +164,10 @@ func test_mounted_optics_and_camera_zoom_follow_computed_stats_and_restore() -> 
 		assert_eq(mount.get_child(0).name, StringName(optic.id))
 		Input.action_press("aim")
 		await wait_physics_frames(_seconds(_weapons.get_current_data().ads_time) + 6)
-		var expected_fov: float = ViewSettings.fov_degrees if optic.optic_kind in [3, 5] else optic.optic_fov_degrees
+		var expected_fov: float = ViewSettings.fov_degrees if optic.optic_kind in [2, 3, 5] else optic.optic_fov_degrees
 		assert_almost_eq(_camera.fov, expected_fov, 0.05)
-		assert_eq(_view.is_scope_view_active(), optic.optic_kind in [2, 4])
+		assert_eq(_view.is_scope_view_active(), optic.optic_kind == 4)
+		assert_eq(_view.is_model_shown(), optic.optic_kind != 4)
 	Input.action_release("aim")
 	_weapons.request_attachment(WeaponTypes.Slot.OPTIC, null)
 	await wait_physics_frames(30)

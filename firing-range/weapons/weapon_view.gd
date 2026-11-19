@@ -19,6 +19,8 @@ signal muzzle_flashed(world_position: Vector3)
 
 ## The flash is hidden by shrinking it, not with `visible`; see
 ## `_set_model_shown` for why.
+const VIEWMODEL_LAYER: int = 1 << 19
+
 const GROUP: StringName = &"weapon_view"
 const FLASH_HIDDEN_SCALE: Vector3 = Vector3(0.0001, 0.0001, 0.0001)
 
@@ -57,14 +59,15 @@ const FLASH_HIDDEN_SCALE: Vector3 = Vector3(0.0001, 0.0001, 0.0001)
 ## How much sway, bob and inertia remain when fully aimed.
 @export_range(0.0, 1.0, 0.05) var aimed_motion_scale: float = 0.25
 ## Offset and pitch when the weapon is put away.
+@export var lens_ads_offset: Vector3 = Vector3(0.0, -0.04, 0.04)
 @export var lowered_offset: Vector3 = Vector3(0.02, -0.32, 0.06)
 @export_range(0.0, 90.0, 1.0, "suffix:°") var lowered_pitch_degrees: float = 45.0
 ## Offset and angles while sprinting.
 @export var sprint_offset: Vector3 = Vector3(-0.05, -0.05, 0.05)
 @export var sprint_rotation_degrees: Vector3 = Vector3(-12.0, 32.0, 8.0)
 @export_range(1.0, 30.0, 0.5, "suffix:1/s") var sprint_blend_rate: float = 9.0
-## A scoped weapon's model is hidden above this aim blend (the HUD draws the
-## scope instead).
+## The 8x weapon model is hidden above this aim blend (the HUD draws the
+## blackout scope instead).
 @export_range(0.5, 1.0, 0.01) var scope_hide_threshold: float = 0.85
 
 @export_group("Muzzle flash")
@@ -118,6 +121,7 @@ func _ready() -> void:
 			continue
 		# Models wait outside the tree until they are the current weapon.
 		var model := data.viewmodel_scene.instantiate() as Node3D
+		_set_viewmodel_layer(model)
 		_models[data] = model
 		_native_optics[data] = []
 		for part_name: String in ["RearSight", "FrontSightPost", "Scope", "ScopeBell", "ScopeMountFront", "ScopeMountRear"]:
@@ -169,6 +173,8 @@ func _process(delta: float) -> void:
 
 	var bob_scale: float = ViewSettings.head_bob_scale * motion_scale
 	var offset: Vector3 = _current_data.hip_position.lerp(_current_data.ads_position, aim)
+	if HybridOptic.supports(_current_data):
+		offset += lens_ads_offset * aim
 	offset.x += sin(_bob_phase) * bob_horizontal_amplitude * _bob_weight * bob_scale
 	offset.y -= absf(sin(_bob_phase)) * bob_vertical_amplitude * _bob_weight * bob_scale
 	offset.y += _inertia_y * motion_scale
@@ -191,7 +197,7 @@ func _process(delta: float) -> void:
 	_pivot.position = offset
 	_pivot.rotation = angles
 
-	_set_model_shown(_current_data.definition(), not ((_current_data.scoped or _current_data.optic_kind == 5) and aim >= scope_hide_threshold))
+	_set_model_shown(_current_data.definition(), not (_current_data.optic_kind == 4 and aim >= scope_hide_threshold))
 
 	if _flash_time_left > 0.0:
 		_flash_time_left -= delta
@@ -201,7 +207,7 @@ func _process(delta: float) -> void:
 
 ## True when the scoped view should replace the viewmodel on screen.
 func is_scope_view_active() -> bool:
-	if _current_data == null or not _current_data.scoped or HybridOptic.supports(_current_data):
+	if _current_data == null or _current_data.optic_kind != 4:
 		return false
 	return camera_feel.aim_blend >= scope_hide_threshold
 
@@ -353,7 +359,7 @@ func _on_shot_fired(data: WeaponData) -> void:
 	# later, and the eject step skips itself while no model is on screen.
 	_queue_casing(data)
 
-	if is_scope_view_active() or (HybridOptic.supports(data) and camera_feel.aim_blend >= scope_hide_threshold) or (data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE):
+	if is_scope_view_active() or (data.delivery != null and data.delivery.kind == DeliveryData.Kind.MELEE):
 		return
 	_flash_mesh.rotation.z = randf() * TAU
 	_flash_mesh.scale = Vector3.ONE
@@ -456,6 +462,7 @@ func _build_muzzle_flash() -> void:
 	cross.rotation.z = PI * 0.5
 	cross.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_flash_mesh.add_child(cross)
+	_flash_mesh.layers = VIEWMODEL_LAYER
 	_pivot.add_child(_flash_mesh)
 
 	var spark := BoxMesh.new()
@@ -476,6 +483,7 @@ func _build_muzzle_flash() -> void:
 	_flash_particles.initial_velocity_min = 2.0
 	_flash_particles.initial_velocity_max = 5.0
 	_flash_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_flash_particles.layers = VIEWMODEL_LAYER
 	_pivot.add_child(_flash_particles)
 
 
@@ -508,9 +516,17 @@ func _rebuild_attachments(data: WeaponData) -> void:
 		if mount == null:
 			continue
 		var part := attachment.part_scene.instantiate() as Node3D
+		_set_viewmodel_layer(part)
 		mount.add_child(part)
 		var point := part.get_node(attachment.part_mount) as Node3D
 		part.transform = point.transform.affine_inverse()
 		_attachment_parts[definition].append(part)
 		if attachment.slot == WeaponTypes.Slot.MUZZLE:
 			_muzzles[definition] = part.get_node_or_null("Exit") as Node3D
+
+
+static func _set_viewmodel_layer(node: Node) -> void:
+	if node is VisualInstance3D:
+		(node as VisualInstance3D).layers = VIEWMODEL_LAYER
+	for child: Node in node.get_children():
+		_set_viewmodel_layer(child)

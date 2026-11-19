@@ -1,7 +1,6 @@
 shader_type canvas_item;
 render_mode unshaded;
-uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_linear;
-uniform float magnification = 3.5;
+uniform sampler2D lens_image : repeat_disable, filter_linear;
 uniform float radius = 187.2;
 uniform float unit = 1.0;
 void fragment() {
@@ -13,8 +12,8 @@ void fragment() {
 	vec3 body = vec3(0.16, 0.19, 0.21);
 	vec3 edge = vec3(0.34, 0.38, 0.39);
 	if (d <= radius) {
-		vec2 sample_uv = vec2(0.5) + (SCREEN_UV - vec2(0.5)) / magnification;
-		vec3 scene = textureLod(screen_texture, sample_uv, 0.0).rgb;
+		vec2 sample_uv = vec2(0.5) + p / (radius * 2.0);
+		vec3 scene = textureLod(lens_image, sample_uv, 0.0).rgb;
 		bool cross = (abs(q.y) <= 1.0 && abs(q.x) >= 8.0 && abs(q.x) <= 80.0)
 			|| (abs(q.x) <= 1.0 && abs(q.y) >= 8.0 && abs(q.y) <= 80.0);
 		float tx = abs(mod(abs(q.x) - 25.0 + 10.0, 20.0) - 10.0);
