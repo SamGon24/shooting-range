@@ -1839,14 +1839,16 @@ All values are in `player/data/player_health_default.tres`.
 | `spare_plates` | 5 | Refilled on respawn |
 | `plate_insert_seconds` | 1.2 s | Per plate, after the weapon's lower time |
 
-At these values a rifle (32 damage, torso) needs 8 hits through a full vest:
-five break the plates and three more leave 4 health, so the ninth kills. Two
-sniper headshots break a full vest's plates.
+At these values, and inside the rifle's 50 m falloff start, eight Halberd
+torso hits (32 each) kill through a full vest: the fifth breaks the last plate
+and spills 10 into health, and three more finish the remaining 90. One
+Longwatch headshot (110 × 2 = 220) breaks the whole vest and leaves 30 health,
+so a second kills.
 
 | Hit-zone box | Size (m) | Centre height standing / crouched |
 |---|---|---|
 | Head | 0.26 × 0.28 × 0.26 | 1.66 / 0.96 |
-| Torso | 0.44 × 0.62 × 0.26 | 1.21 / 0.70 |
+| Torso | 0.44 × 0.62 × 0.26 standing, 0.34 tall crouched | 1.21 / 0.65 |
 | Arms | 0.13 × 0.62 × 0.16, ±0.29 m | as torso |
 | Legs | 0.17 × 0.90 × 0.20, ±0.11 m | 0.45 / 0.24 |
 
