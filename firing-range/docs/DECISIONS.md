@@ -1890,3 +1890,38 @@ Needs a human: the feel of the regeneration and plate timings, whether the
 arcs read clearly in motion, controller plate input and damage rumble on a
 real pad, and shield blocking judged by eye. There are no bots yet, so all
 enemy fire comes from the debug probe.
+
+
+## Milestone 15.5: bug fixes
+
+### Aiming takes priority over sprint
+
+Since Milestone 2, sprinting blocked firing and dropped ADS. Milestone 13 added
+auto sprint, which counts any forward movement as sprinting, so with it on,
+moving cancelled aim. Now, while aim is held on a weapon whose data can aim,
+the weapon controller sets `PlayerController.sprint_blocked`. The weapon
+stops treating the player as sprinting on that same tick, and the player stops
+sprinting from the next tick (one 16.7 ms tick at sprint speed at most).
+The toggled sprint state is kept, and auto sprint resumes when aim is released.
+Hip fire while sprinting stays blocked, and the `WeaponLogic` rule that a
+sprinting input drops aim is unchanged; only the input it receives changes.
+The Phase 1 test that pinned "sprint blocks aim" was split into "sprint blocks
+hip fire" and two tests for aiming over held and auto sprint. This is a
+deliberate change to Phase 1 behaviour, made by this milestone.
+
+### Optional empty vest at spawn
+
+`PlayerVitals.start_plates` (-1 for a full vest, 0 for empty) is applied on
+every reset, so spawn and respawn agree. The saved `preload_plates` setting
+(default on, so Milestone 15 behaviour is unchanged) drives it in the range.
+Changing it applies at once, emptying or refilling the vest and resetting the
+spares to the Resource count. A cancelled plate insert in progress is
+cancelled first. Unrelated setting changes don't touch the vest.
+
+### Verification
+
+**484/484 GUT tests** with a clean headless range boot. Movie Maker frames
+holding forward, sprint and then aim show the sprint pose, then iron sights
+held while the player keeps moving past the firing line. Still needs a human:
+whether aiming on the move feels right, and the controller path for both fixes.
+No performance-relevant code changed (one boolean per tick).

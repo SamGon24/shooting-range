@@ -4,6 +4,8 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 ## Status
 
+**Milestone 15.5 (bug fixes) implemented: aiming now works while moving, and the vest can start empty. Play-test pending.**
+
 **Milestone 15 implemented (player health, armor plates, damage, death and respawn); play-test pending.** The range stays invulnerable by default. See [Milestone 15](#milestone-15--player-health-and-damage).
 
 **Milestones 13–14 implemented; play-tests pending.** Controller hardware validation remains open. The 2×, 3.5× and 4× optics use sharp native-resolution lenses, clear peripheral vision and visible weapons; only 8× uses blackout. See the mapping and numbered checklists below.
@@ -153,7 +155,7 @@ You can also open `project.godot` in the editor and press F5.
 |---|---|
 | Move | W A S D |
 | Look | Mouse |
-| Sprint | Shift (hold; forward only) |
+| Sprint | Shift (hold; forward only; aiming overrides it) |
 | Crouch | Ctrl or C (hold) |
 | Slide | Crouch while sprinting |
 | Jump | Space |
@@ -199,6 +201,7 @@ Open the menu with **Esc**. Resume receives focus immediately. Use arrows or Tab
 | Show gameplay FPS | On | Independent of F3 diagnostics |
 | Time to kill starts at the first shot | Off | Off: clock starts at the first damaging hit. On: at the launch of the shot that first damaged the dummy |
 | Range invulnerability | On | On: hits on you show the direction indicator and rumble but change nothing. Off: you take damage, die and respawn |
+| Spawn with plates in vest | On | Off: you spawn and respawn with an empty vest and insert your spares by hand. Changing it in the range applies at once |
 | Show armor plates (vest and spares) | On | Shows the three vest plate segments and the "VEST n/3 · SPARES n" readout above the health bar |
 
 Changes apply live and save when you resume, or choose Save & Back in main-menu Settings. Esc / B in those Settings also saves and returns. Previous view settings, including invert-Y, remain supported in the same config file. Pause freezes simulation, projectile travel, weapon/reload timing, target resets, ragdolls, props and range-stat timestamps. Menu wall time is excluded from TTK. The cursor returns to its prior capture mode on resume; menu activation cannot become a buffered shot or jump.
@@ -726,3 +729,30 @@ Tuning lives in `player/data/player_health_default.tres`; see DECISIONS.
 
 Bots do not exist yet (Milestone 17), so all enemy fire here comes from the
 debug probe. Stop here for the Milestone 15 play-test.
+
+
+## Milestone 15.5 — bug fixes
+
+- **Aiming while moving.** Sprinting used to cancel ADS, and with **Auto
+  sprint** on, every step forward counted as sprinting, so moving dropped your
+  aim. Holding aim now takes priority over sprint (held, toggled or auto): you
+  slow to walking pace and stay aimed, and the sprint resumes when you let go.
+  Firing from the hip while sprinting is still blocked. Weapons that can't aim
+  (the knife) never block sprint.
+- **Plates not preloaded.** Turn off **Spawn with plates in vest** to spawn and
+  respawn with an empty vest and your five spares, then plate up with **4** /
+  **D-pad Down**. It is on by default, so nothing changes unless you turn it
+  off. Changing it in the range empties or refills the vest straight away.
+
+### Bug-fix play-test
+
+1. Turn **Auto sprint** on. Walk forward and hold aim: you should stay aimed
+   and slow to walking pace. Release aim: the sprint resumes.
+2. With auto sprint off, hold Shift and W, then aim: the same result. Fire
+   while aimed and moving.
+3. Sprint with the knife equipped and press aim: the sprint continues.
+4. Turn **Spawn with plates in vest** off: the vest empties and shows
+   `VEST 0/3 · SPARES 5`. Insert plates with 4, then die (invulnerability
+   off, K) and check you respawn with an empty vest again.
+5. Turn the setting back on: the vest refills at once. Repeat 1 and 4 with a
+   controller (LT to aim, D-pad Down to plate).
