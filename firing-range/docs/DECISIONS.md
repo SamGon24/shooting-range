@@ -1585,3 +1585,77 @@ frames were inspected for both the 3.5× and 4×; the 4× sequence includes a re
 change. No shader or engine errors occurred in the final captures or performance
 runs. README provides the revised visual play-test. Real-controller validation
 remains pending; this revision does not claim a hardware input test.
+
+
+## Scope correction: sharp native lenses, visible weapons, 8×-only blackout
+
+The screen-copy lens is removed. It enlarged existing pixels and could not
+resolve additional detail. Optic kinds 2, 3 and 5 (2×, 4×, 3.5×) now render fresh
+scene detail through one shared-world SubViewport. Its square texture is at
+least as large as the displayed glass: ceil(diameter / 2) × 2 pixels per side,
+376×376 for 374.4 px glass at 720p. A window resize increases this resolution;
+there is no low-resolution or screen-enlargement fallback. The shader samples
+this native texture only inside the glass and retains the sharp housing/reticle.
+
+The main camera retains selected normal FOV for peripheral vision. The lens
+camera copies its rendered transform, with physics interpolation disabled to
+avoid interpolating that copy twice. Lens FOV is
+`2 atan(tan(target_fov/2) * lens_height_fraction)`, so a smaller on-screen lens
+still has the correct optical scale. 3.5× remains relative to the selected FOV;
+2× and 4× retain their authored target FOVs and input sensitivity. The shared
+World3D means no extra physics simulation. Rendering stops on un-ADS, switching
+away or hiding the lens; the viewport is freed with its HUD.
+
+Only optic kind 4 (8×) sets the computed `scoped` blackout flag and removes the
+aimed viewmodel. Other optics keep the actual weapon model attached throughout
+ADS. All viewmodel visuals and fitted parts use rendering layer 20, visible to
+the main camera but excluded from the lens camera; collision layers and hit
+shapes are untouched. Muzzle flash visuals use the same rendering layer, while
+world smoke/casings remain ordinary world effects. Non-8× aimed weapons now
+emit their normal effects because their models are present.
+
+The cosmetic lens ADS offset is (0, -0.04, +0.04) metres, exposing the receiver
+below the housing. An initial +0.16 m forward pose clipped the stock close to
+the camera and was reduced after inspecting captures. This is a WeaponView
+presentation export, not a gameplay sight-origin or weapon-stat change.
+
+New coverage checks native render resolution and resize, shared-world camera
+pose/projection, render-stop lifecycle, viewmodel visibility/layers, lens culling,
+and all optic blackout flags. The existing mouse look path is unchanged.
+Captures include 2×, 3.5× and 4× sharp scene detail and visible weapons, plus
+8× as the sole blackout view. A final 4× capture verifies the receiver pose.
+The previous single-copy performance results above do not apply to this renderer;
+the extra camera's cost is measured separately below.
+
+### Native-lens performance and limits
+
+Target Iris Plus 655, Compatibility, 1280×720, 2 s warm-up / 10 s measurement,
+54 awake ragdoll parts, eight awake props, three driven steel hinges, firing,
+full HUD and lens rendering through all measured frames including reloads.
+All rows had 100% window focus. No projectile was dropped.
+
+| Native optic | Cap | Average | 1% low | Worst frame | Frames >25 ms |
+|---|---|---|---|---|---|
+| 2× | Off | 73.6 fps | 30.2 fps | 38.22 ms | 12 |
+| 3.5× | Off | 78.7 fps | 50.9 fps | 22.52 ms | 0 |
+| 4× | Off | 81.8 fps | 57.5 fps | 23.58 ms | 0 |
+| 2× | 60 | 59.7 fps | 29.3 fps | 35.43 ms | 9 |
+| 3.5× | 60 | 58.7 fps | 25.4 fps | 64.78 ms | 15 |
+| 4× | 60 | 59.4 fps | 27.7 fps | 53.87 ms | 18 |
+
+Uncapped sampled draw calls were 263 / 254 / 240 in optic order. Native detail
+and the visible weapon cost more than the previous single-render pixel-copy
+shortcut. **The 90 fps headroom target is not met**, and the capped runs retain
+pacing dips rather than establishing a strict 60 fps / 25 ms ceiling. This
+revision prioritizes the owner's explicit request for resolved detail instead
+of restoring the rejected blur shortcut or hiding the weapon. No resolution
+reduction or stale-frame update-rate trick masks the cost. Further renderer
+optimization is still needed for the full Phase 3 performance target.
+
+Final verification: **436/436 GUT tests, 8,027 assertions, 269.625 s**, with clean
+main-menu and range ten-frame headless boots. Native-lens tests cover all three
+non-blackout optics, visible receiver meshes on the correct render layer,
+camera culling, pose copy, projection, native pixel sizing and resize to 1080p,
+and disabling the hidden lens render. The existing mouse look regression passes.
+Final captures were inspected for sharp lens detail, the visible receiver pose
+and 8× as the sole blackout. Controller hardware validation remains pending.

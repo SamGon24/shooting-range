@@ -4,7 +4,7 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 ## Status
 
-**Milestones 13–14 implemented; play-tests pending.** Controller hardware validation remains open. The 3.5× and 4× optics use a visible scope housing with localized lens magnification and clear peripheral vision. See the mapping and numbered checklists below.
+**Milestones 13–14 implemented; play-tests pending.** Controller hardware validation remains open. The 2×, 3.5× and 4× optics use sharp native-resolution lenses, clear peripheral vision and visible weapons; only 8× uses blackout. See the mapping and numbered checklists below.
 
 **MVP complete (Milestones 1 to 6), play-tested.**
 
@@ -612,42 +612,41 @@ Challenge screens do not exist until Milestone 16; their controller navigation
 must be validated when implemented. Stop here for the Milestone 13 play-test.
 
 
-## Milestone 14 — 3.5× hybrid and 4× scope views
+## Milestone 14 — sharp scope lenses and visible weapons
 
-Fit **3.5x hybrid** in the Armory on the Halberd rifle, Rill SMG or Foundry LMG.
-The existing **4x scope** keeps its original weapon compatibility. Both save with
-the loadout and use the existing Armory navigation and ADS controls (right mouse
-/ LT). Keyboard debug cycling with F7 also selects them.
+Fit optics through the existing Armory / F7 controls. ADS stays right mouse / LT.
+The hybrid fits the rifle, SMG and LMG; other optics retain their compatibility.
 
-Both views now show a circular scope housing, etched reticle and magnified lens,
-with the surrounding scene left at your selected normal FOV. Neither blacks out
-or vignettes the rest of the window. The 2× and 8× views keep their previous
-presentation. The hybrid's 3.5× magnification follows the FOV setting; the 4× keeps
-its authored zoom reference and existing sensitivity stats. Hybrid sensitivity
-remains 1/3.5 before the user's ADS multiplier.
+| Optic | Peripheral blackout | Weapon while aimed | Magnification |
+|---|---|---|---|
+| Iron / red dot | No | Visible | Existing view |
+| 2× / 3.5× / 4× | No | Visible | Fresh native-resolution lens render |
+| 8× | Yes | Replaced by the blackout scope view | Existing 8× view |
 
-The lens enlarges the already rendered scene with a screen-texture shader. This
-uses one scene render and no second camera or viewport. The trade-off is softer
-lens detail at 720p; the reticle and scope housing remain sharp. The earlier
-experimental two-camera lens and its disabled settings toggle have been removed.
-Old saved values for that setting are ignored. Projectile, recoil and spread
-logic is unchanged. The known first-use hitch remains tracked in DECISIONS.
+The 2×, 3.5× and 4× lenses render fresh scene detail instead of stretching screen
+pixels. At 720p the 374.4 px glass uses a 376×376 render target, and resolution
+grows with the window. The housing, reticle and surrounding weapon stay visible;
+the lens camera excludes the viewmodel so the gun does not block the glass.
+The main camera retains normal FOV outside the lens. The hybrid keeps FOV-relative
+3.5× zoom and 1/3.5 sensitivity; 2× and 4× retain their authored zoom and input stats.
+
+A small cosmetic ADS pose adjustment exposes the receiver below the housing.
+It changes no collider, bullet path, recoil or spread. Rendering the scene again
+costs more GPU time than the removed screen-copy shortcut; measured performance
+and the known first-use hitch are recorded in DECISIONS. No blur fallback or
+reduced-resolution lens is silently selected.
 
 ### Scope play-test
 
-1. Fit the 3.5× hybrid and then the 4×. Save/restart once to verify the loadout.
-   Repeat selection with a controller when available.
-2. ADS and inspect the visible circular housing and rim. Look at distant targets:
-   the scene inside the glass should enlarge while the outside stays normal.
-3. Check every window corner stays visible; there should be no black mask or
-   vignette outside the housing. Judge whether the enlarged lens detail is clear
-   enough at 720p.
-4. Fire bursts, strafe, crouch, reload and switch weapons. Check the reticle stays
-   centered as recoil moves the world and the hip viewmodel returns correctly.
-5. Try the hybrid at different FOV settings and ADS sensitivity multipliers.
-   Check mouse and controller aiming. Verify the 4× retains its existing feel.
-6. Confirm iron sights, red dot, 2× and 8× sniper presentation still behave as
-   before. Watch FPS and report any first-hit hitch with the weapon and optic.
+1. Aim with iron, red dot, 2×, 3.5×, 4× and 8×. Verify **only 8× blacks out**.
+2. With 2×, 3.5× and 4×, inspect distant range signs and target edges in the glass.
+   They should resolve scene detail, with no enlarged-screen-pixel blur.
+3. Check the weapon remains visible below/around the scope during ADS, strafing,
+   bursts and reloads. Confirm the glass stays clear of the viewmodel.
+4. Resize the window; lens resolution should track its displayed diameter.
+   Check recoil moves the world while the reticle stays centered.
+5. Save/refit/switch optics and check the 8× view still behaves as before.
+6. Test mouse and controller aiming, sensitivity settings and FPS. Report any
+   hitch with the weapon and optic. Physical-controller validation remains open.
 
-Controller hardware validation remains pending; this visual revision does not
-mark that play-test complete. No Milestone 15 work is included.
+No Milestone 15 work is included.
