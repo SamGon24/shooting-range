@@ -12,6 +12,10 @@ extends CanvasLayer
 @export var stats_update_seconds: float = 0.2
 
 var hybrid: HybridOptic
+var status_view: PlayerStatusView
+var damage_indicator: DamageIndicator
+var death_screen: DeathScreen
+var _health: PlayerHealth
 var _stats_dirty: bool = false
 var _stats_elapsed: float = 0.0
 
@@ -38,6 +42,15 @@ func _ready() -> void:
 	# Draw below feedback and text, above the world.
 	add_child(hybrid)
 	move_child(hybrid, 0)
+	status_view = PlayerStatusView.new()
+	status_view.name = "PlayerStatus"
+	add_child(status_view)
+	damage_indicator = DamageIndicator.new()
+	damage_indicator.name = "DamageIndicator"
+	add_child(damage_indicator)
+	death_screen = DeathScreen.new()
+	death_screen.name = "DeathScreen"
+	add_child(death_screen)
 	ViewSettings.changed.connect(_refresh_preferences)
 	_refresh_preferences()
 	feedback.feedback.connect(feedback_view.show_feedback)
@@ -124,7 +137,23 @@ func is_scope_visible() -> bool:
 	return _scope.visible
 
 
+## Connects the player's health to the status bars, direction indicator
+## and death screen. Called automatically; tests can call it directly.
+func bind_health(health: PlayerHealth) -> void:
+	_health = health
+	status_view.health = health
+	damage_indicator.player = health.player
+	death_screen.bind(health)
+	health.damaged.connect(func(_hit: ProjectileHit, _zone: TargetSettings.Zone, _amount: float, incoming: Vector3, applied: bool) -> void:
+		damage_indicator.show_damage(incoming, applied))
+	health.respawned.connect(damage_indicator.clear)
+
+
 func _bind_from_tree() -> void:
+	if _health == null:
+		var health := get_tree().get_first_node_in_group(PlayerHealth.GROUP) as PlayerHealth
+		if health != null:
+			bind_health(health)
 	if _controller != null:
 		return
 	var controller := get_tree().get_first_node_in_group(WeaponController.GROUP) as WeaponController

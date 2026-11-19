@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://player/player_controller.gd" id="1_controller"]
 [ext_resource type="Resource" path="res://player/data/movement_default.tres" id="2_settings"]
@@ -14,6 +14,7 @@
 [ext_resource type="Resource" path="res://weapons/data/primary_catalog.tres" id="10_catalog"]
 [ext_resource type="Resource" path="res://weapons/data/secondary_catalog.tres" id="11_secondaries"]
 [ext_resource type="Script" path="res://player/player_health.gd" id="12_health"]
+[ext_resource type="Script" path="res://player/plate_view.gd" id="13_plate_view"]
 
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 collision_layer = 2
@@ -43,6 +44,10 @@ script = ExtResource("7_view")
 controller = NodePath("../../../../Weapons")
 player = NodePath("../../../..")
 camera_feel = NodePath("../..")
+
+[node name="PlateView" type="Node3D" parent="Head/CameraFeel/Camera" node_paths=PackedStringArray("health")]
+script = ExtResource("13_plate_view")
+health = NodePath("../../../../Health")
 
 [node name="Weapons" type="Node" parent="." node_paths=PackedStringArray("player")]
 script = ExtResource("4_weapons")

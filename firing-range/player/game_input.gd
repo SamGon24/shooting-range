@@ -58,7 +58,7 @@ func _refresh_prompts() -> void:
 	if menu_prompts:
 		prompt_label.text += "%s Select  |  %s Back" % [prompt("ui_accept"), prompt("ui_cancel")]
 	else:
-		prompt_label.text += "%s Fire  |  %s Reload  |  %s Pause" % [prompt("fire"), prompt("reload"), prompt("pause")]
+		prompt_label.text += "%s Fire  |  %s Reload  |  %s Plate  |  %s Pause" % [prompt("fire"), prompt("reload"), prompt("apply_plate"), prompt("pause")]
 
 func _input(event: InputEvent) -> void:
 	observe(event)
