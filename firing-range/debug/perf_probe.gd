@@ -85,6 +85,10 @@ func _ready() -> void:
 	_reload_stress = _firing and OS.get_cmdline_user_args().has(RELOAD_ARGUMENT)
 	_cold = _firing and OS.get_cmdline_user_args().has(COLD_ARGUMENT)
 	process_physics_priority = -20
+	# The workload must not depend on saved preferences: auto sprint would
+	# block every shot. In memory only; the probe never saves settings.
+	ViewSettings.auto_sprint = false
+	ViewSettings.toggle_sprint = false
 	set_physics_process(_firing)
 	Input.action_press("move_forward")
 	if _firing:
