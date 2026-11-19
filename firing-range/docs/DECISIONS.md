@@ -1732,3 +1732,159 @@ main-menu and range ten-frame headless boots. Targeted tests include the actual
 reload animator, synthetic translation/roll/lowering, off-axis and edge-on
 safety, and unchanged gameplay aim. Movie Maker captures verify the visual
 sequence; physical-controller play-testing remains pending. 
+
+## Milestone 15: player health and damage
+
+### Reuse of the dummy damage model
+
+`PlayerVitals` extends the dummies' `TargetHealth`, and `PlayerHealthSettings`
+extends `TargetSettings`. The player therefore uses the dummy's own armor-first
+`apply_damage`, plate count and zone multipliers rather than a copy, so the two
+cannot drift apart. The inherited `reset_seconds` is reused as the respawn
+delay, and the inherited dead clock drives the death screen. The player adds
+regeneration, spare plates and timed plate insertion on top.
+
+Regeneration only counts the part of a tick past the delay
+(`min(delta, since_damage - delay)`), so the amount restored does not depend on
+where tick boundaries fall. A test confirms 30 Hz and 120 Hz land on the same
+value. Armor never regenerates.
+
+A plate fills the lowest cracked or empty slot to full: armor becomes
+`(floor(armor / plate) + 1) × plate`, capped at three plates. A cracked plate
+is replaced rather than topped up by a fraction, matching the HUD segments.
+
+### Hit zones and who can hit them
+
+Six `AnimatableBody3D` boxes (head, torso, two arms, two legs) sit on a new
+physics layer 16. They rotate with the player's yaw (the body itself never
+rotates) and are re-laid out only when the capsule height changes, so a
+crouch drops the head from 1.66 m to 0.96 m. The head keeps a fixed size; legs
+take 59% of the remaining height and the torso and arms the rest. They have no
+mesh and play no part in movement: the player capsule (layer 2) is unchanged.
+
+Layer 16 is outside every existing mask (projectiles 1|4|8, melee 1|8, aim
+assist 1|8, props 3, ragdolls, casings and magazines 1). The projectile system
+now stores a collision mask per pool slot, defaulting to the old 1|4|8, so the
+player's own rounds can never reach their zones, even when fired downward from
+inside the capsule. Hostile shooters pass `ProjectileSystem.HOSTILE_MASK`
+(1|4|8|16). Shields (8) stay in that mask, so a raised riot shield blocks
+incoming rounds with no extra code. Bots in Milestone 17 will use the same
+per-shot mask.
+
+Damage reaches the player through the existing `receive_hit(ProjectileHit)`
+interface, dispatched by `TargetHits` exactly like dummies and steel, with the
+hit's `source` intact. The explosion system's overlap query now includes layer
+16; a blast hits the player's torso zone with the same distance falloff,
+occlusion check and armor-first path as a dummy. Your own rocket is technically
+included, but it arms at 10 m with a 6 m radius, so it cannot reach you in
+practice. Melee hits now record `source_position` (the swing origin) and blast
+hits the blast centre, so the direction indicator knows where non-bullet damage
+came from.
+
+### Death, respawn and the weapon while busy
+
+`WeaponController.set_stowed` lowers the current weapon with its own authored
+lower time and blocks weapon input until released, keeping any switch request
+for afterwards. Death and plating both use it. Plate time therefore starts only
+once the weapon is fully away; a heavier gun takes longer to plate. That is
+intentional and stays tunable through each weapon's lower/raise times.
+
+On death the zones leave every layer, movement and look input are ignored
+(momentum still decays through friction), and the weapon is stowed. After
+`reset_seconds` (4 s) the player is teleported to the spawn point captured at
+start; vitals, every carried weapon's magazine, reloads and recoil state reset,
+and the current weapon is raised instantly.
+
+### Range invulnerability
+
+Range mode is invulnerable by default through a saved `range_invulnerable`
+setting. While invulnerable, a hit is still reported (direction indicator in
+white, rumble) but changes nothing, which keeps the range useful for testing
+the indicator and shield. `PlayerHealth.follow_range_setting` lets later game
+modes ignore the range setting and set invulnerability themselves.
+
+### Feedback is cosmetic
+
+The status bars, direction arcs, death screen and the greybox plate read
+gameplay state and never write it. The plate pose is a pure function of insert
+progress (`PlateMotion`), so the animation timeline is the gameplay timeline by
+construction; a cancelled insert resets it on the next tick. The arcs store the
+world direction and re-aim from the current yaw each frame, so they keep
+pointing at the source while you turn. The plate is hidden by shrinking, not
+with `visible`, following the existing camera-rig rule.
+
+### Test isolation from saved preferences
+
+The movement, guard and weapon tests used to read the player's real
+`user://settings.cfg`; with auto sprint saved on, nine of them failed. A GUT
+pre-run hook (`tests/fixtures/default_preferences_hook.gd`) now resets the
+in-memory `ViewSettings` to defaults before the run without saving. For the
+same reason the perf probe turns auto and toggle sprint off in memory: with
+auto sprint on, its firing run fired no shots at all.
+
+### Player health tuning reference
+
+All values are in `player/data/player_health_default.tres`.
+
+| Field | Value | Notes |
+|---|---|---|
+| `max_health` | 100 | |
+| `plate_health` | 50 | Same as dummy plates |
+| `armor_plates` | 3 | Vest size; full at spawn and respawn |
+| `head_multiplier` / `sniper_head_multiplier` | 1.5 / 2.0 | Same as dummies |
+| `torso_multiplier` / `limb_multiplier` | 1.0 / 0.8 | Same as dummies |
+| `reset_seconds` | 4.0 s | Death screen to respawn |
+| `regen_delay_seconds` | 4.0 s | Since the last damage |
+| `regen_per_second` | 25 hp/s | Full health from empty in 4 s once started |
+| `spare_plates` | 5 | Refilled on respawn |
+| `plate_insert_seconds` | 1.2 s | Per plate, after the weapon's lower time |
+
+At these values a rifle (32 damage, torso) needs 8 hits through a full vest:
+five break the plates and three more leave 4 health, so the ninth kills. Two
+sniper headshots break a full vest's plates.
+
+| Hit-zone box | Size (m) | Centre height standing / crouched |
+|---|---|---|
+| Head | 0.26 × 0.28 × 0.26 | 1.66 / 0.96 |
+| Torso | 0.44 × 0.62 × 0.26 | 1.21 / 0.70 |
+| Arms | 0.13 × 0.62 × 0.16, ±0.29 m | as torso |
+| Legs | 0.17 × 0.90 × 0.20, ±0.11 m | 0.45 / 0.24 |
+
+### Milestone 15 performance and verification
+
+Worst-case probe on the target Iris Plus 655, Compatibility, 1280×720, 2 s
+warm-up and 10 s measurement, Halberd firing full-auto while walking and
+sweeping, full HUD. "Incoming" adds a hostile round every 0.25 s through the
+player's hit zones, direction indicator and rumble path (invulnerable, so the
+weapon keeps firing). Every run was focused for 100% of measured frames and
+dropped no projectiles.
+
+| Run | Average | 1% low | Worst frame | Frames >25 ms | Draw calls |
+|---|---|---|---|---|---|
+| Capped, incoming | 60.0 fps | 50.6 fps | 20.88 ms | 0 | 194 |
+| Uncapped, incoming | 99.1 fps | 64.3 fps | 16.08 ms | 0 | 212 |
+| Uncapped, incoming, repeat | 101.7 fps | 58.0 fps | 40.86 ms | 1 | 212 |
+| Uncapped, no incoming | 98.0 fps | 52.5 fps | 25.92 ms | 1 | 194 |
+
+Both uncapped incoming runs clear 90 fps, and the capped run holds 60 fps with
+no frame over 25 ms. The single spikes in the repeat and in the run without
+incoming fire match the occasional tail recorded in earlier milestones, so
+this milestone did not add them. The new HUD adds up to 18 draw calls when arcs
+and plate segments are all visible, well inside the 300 budget, and the plate
+mesh is 12 triangles. These are Halberd probe runs without `--perf-stress`, not
+a repeat of the full Milestone 12 arsenal matrix.
+
+Verification: **479/479 GUT tests** with clean range and main-menu headless
+boots. New tests cover armor order, regeneration timing and tick-rate
+independence, plate insert timing and cancelling, damage-direction maths,
+real hostile rounds hitting each zone with the right multiplier, crouched
+zones, invulnerability, splash to the torso with falloff, death input lockout,
+the respawn state reset, the plate animation timeline and the HUD readouts.
+Movie Maker frames were inspected for the status bars, direction arcs, death
+screen, respawn and the plate insert; the first plate pose was too large and
+was moved further out and lower before committing.
+
+Needs a human: the feel of the regeneration and plate timings, whether the
+arcs read clearly in motion, controller plate input and damage rumble on a
+real pad, and shield blocking judged by eye. There are no bots yet, so all
+enemy fire comes from the debug probe.

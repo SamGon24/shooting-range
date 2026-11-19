@@ -4,6 +4,8 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 ## Status
 
+**Milestone 15 implemented (player health, armor plates, damage, death and respawn); play-test pending.** The range stays invulnerable by default. See [Milestone 15](#milestone-15--player-health-and-damage).
+
 **Milestones 13–14 implemented; play-tests pending.** Controller hardware validation remains open. The 2×, 3.5× and 4× optics use sharp native-resolution lenses, clear peripheral vision and visible weapons; only 8× uses blackout. See the mapping and numbered checklists below.
 
 **MVP complete (Milestones 1 to 6), play-tested.**
@@ -163,6 +165,8 @@ You can also open `project.godot` in the editor and press F5.
 | Cycle primary: rifle → SMG → LMG → shotgun → sniper | P |
 | Cycle secondary: pistol → rocket → knife → shield | O |
 | Incoming shield test round (shield ready only; non-scoring) | B |
+| Insert an armor plate (hold to chain plates; fire cancels) | 4 |
+| Debug: one incoming rifle round at you from a random bearing (non-scoring) | K |
 | FOV down / up | `[` / `]` |
 | Mouse sensitivity down / up | `-` / `=` |
 | Toggle debug overlay | F3 or `\` |
@@ -194,6 +198,8 @@ Open the menu with **Esc**. Resume receives focus immediately. Use arrows or Tab
 | Master / effects volume | 1.00 / 1.00 | 0–1 linear gain; 0 mutes |
 | Show gameplay FPS | On | Independent of F3 diagnostics |
 | Time to kill starts at the first shot | Off | Off: clock starts at the first damaging hit. On: at the launch of the shot that first damaged the dummy |
+| Range invulnerability | On | On: hits on you show the direction indicator and rumble but change nothing. Off: you take damage, die and respawn |
+| Show armor plates (vest and spares) | On | Shows the three vest plate segments and the "VEST n/3 · SPARES n" readout above the health bar |
 
 Changes apply live and save when you resume, or choose Save & Back in main-menu Settings. Esc / B in those Settings also saves and returns. Previous view settings, including invert-Y, remain supported in the same config file. Pause freezes simulation, projectile travel, weapon/reload timing, target resets, ragdolls, props and range-stat timestamps. Menu wall time is excluded from TTK. The cursor returns to its prior capture mode on resume; menu activation cannot become a buffered shot or jump.
 
@@ -264,6 +270,8 @@ godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-reload --
 godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-cold --perf-weapon=smg
 # The same without the particle warm-up, to see what it removes:
 godot --always-on-top -- --perf-probe --perf-fire --perf-stress --perf-cold --no-warmup
+# Player damage path: incoming rounds every 0.25 s (hit zones, indicator, rumble):
+godot --always-on-top --disable-vsync --max-fps 0 -- --perf-probe --perf-fire --incoming-fire --incoming-interval=0.25
 ```
 
 The stress fixture is opt-in: it repeatedly kills all dummies through their normal damage entry point on reset, keeps all ragdoll parts and props awake and drives steel hinges. Those fixture kills do not count as launched shots. The report verifies 54 awake parts throughout the measurement. Do not open the pause menu while benchmarking.
@@ -284,6 +292,9 @@ These go after `--` on the command line and are mainly for Movie Maker captures 
 | `--hide-overlay` | Starts with the debug overlay hidden |
 | `--no-warmup` | Skips the particle first-draw warm-up, to measure what it removes |
 | `--bullet-paths` | Starts with the bullet path view on |
+| `--incoming-fire` | Fires a non-scoring rifle round at the player every second from a random bearing (as the K key) |
+| `--incoming-interval=SECONDS` | Changes the `--incoming-fire` period |
+| `--vulnerable` | Turns range invulnerability off for this run only, without saving it |
 
 For example, switch to the pistol, aim at the unarmored 25 m dummy, fire, and log the hit:
 
@@ -298,6 +309,7 @@ For Movie Maker captures, add `--always-on-top`. macOS throttles a Godot window 
 | What | Where |
 |---|---|
 | Movement: speeds, acceleration, friction, jump, slide, crouch, capsule size | `player/data/movement_default.tres` (fields documented in `player/movement_settings.gd`) |
+| Player health, plates, hit-zone multipliers, regeneration, plate insert time, respawn delay | `player/data/player_health_default.tres` (fields in `player/player_health_settings.gd`) |
 | Camera feel: head bob, landing dip, slide tilt, FOV kick | Exported properties on the `CameraFeel` node in `player/player.tscn` |
 | Settings: FOV, sensitivity, ADS multiplier, invert Y, bob / FOV-kick scales, volume and FPS | Defaults in `player/view_settings.gd`; the player's changes are saved to `user://settings.cfg` |
 | Weapon stats: sight zero distance and height, fire rate, magazine, reload times, recoil pattern and recovery, spread and bloom, ADS time, FOV and sensitivity, bolt cycle, raise and lower times, viewmodel poses and kick | `weapons/data/halberd_rifle.tres` and `weapons/data/longwatch_sniper.tres` (fields documented in `weapons/weapon_data.gd`) |
@@ -570,6 +582,7 @@ Disconnecting the active pad pauses the range and clears held/toggled actions.
 | LS click | Sprint | Shift |
 | RS click | Attack with equipped knife / shield | V (or fire) |
 | D-pad Up | Cycle sniper zero | Z |
+| D-pad Down | Insert armor plate (hold to chain) | 4 |
 | Back | Reset range statistics | T |
 | Start | Pause | Esc |
 | D-pad / left stick, A, B | Navigate, accept, back | Arrows, Enter, Esc |
@@ -599,7 +612,7 @@ Save & Back / Resume to `user://settings.cfg`.
 6. Try each hold/toggle option and auto sprint. Pause/resume while holding
    triggers or toggled ADS; confirm no unwanted shot or stuck stance.
 7. Check rumble on firing, target hits and reloading, then disable it. **Actual
-   macOS motor output is unverified.** Player damage rumble awaits Milestone 15.
+   macOS motor output is unverified.** Damage rumble was added in Milestone 15.
 8. Remap one keyboard key, mouse button and controller input. Try a conflict;
    check the message. Restart and verify bindings persist. Restore defaults.
 9. Unplug the pad while moving, firing and aiming. Confirm pause/warning and no
@@ -658,3 +671,58 @@ reduced-resolution lens is silently selected.
    hitch with the weapon and optic. Physical-controller validation remains open.
 
 No Milestone 15 work is included.
+
+
+## Milestone 15 — player health and damage
+
+You now have **100 health and a vest with 3 plates** (50 armor each). Damage
+follows the dummies' rules exactly: armor first, the remainder spills into
+health, and head / torso / limb zones use the dummies' multipliers (head ×1.5,
+×2 for sniper rounds; limbs ×0.8). Health regenerates at 25 per second once
+you have gone 4 s without damage; armor never regenerates.
+
+- **Hit zones:** head, torso, two arms and two legs follow your facing and
+  shrink when you crouch. Only hostile shots (the K probe now, bots later) and
+  blasts can reach them; your own bullets and melee never can. A raised riot
+  shield and cover block incoming rounds as they would for anything else.
+- **Plates:** press **4** (controller **D-pad Down**) to insert one. The weapon
+  goes away, the plate takes 1.2 s, then the weapon comes back. Hold the button
+  to chain plates; firing cancels without using the plate. A plate fills the
+  lowest cracked or empty slot. You carry 5 spares, refilled on respawn.
+- **HUD:** the health bar sits bottom-centre with the three plate segments above
+  it and a `VEST n/3 · SPARES n · [4] PLATE` readout (hide both with **Show armor
+  plates**). Red arcs around the crosshair point at where damage came from and
+  re-aim as you turn; white arcs mean the hit was ignored by invulnerability.
+- **Death:** a death screen names the zone and damage source and counts down
+  4 s. You respawn at the spawn point with full health, three plates, five
+  spares, full magazines and nothing mid-reload.
+- **Range mode is invulnerable by default.** Turn off **Range invulnerability**
+  in Settings to take damage. All damage arrives through the same interface as
+  the dummies, with its source (ballistic, pellet, splash, melee). Blasts
+  reach your torso too, but your own rocket arms at 10 m and its blast radius
+  is 6 m, so in practice it cannot catch you.
+
+Tuning lives in `player/data/player_health_default.tres`; see DECISIONS.
+
+### Player damage play-test
+
+1. In the range with default settings, press **K** a few times. Arcs should
+   point at each shooter and track as you turn; health and plates stay full.
+2. Pause, turn **Range invulnerability** off, resume. Press K repeatedly and
+   watch the plate segments empty one by one before health drops.
+3. Stop taking hits. After about 4 s health should climb back; plates should not.
+4. Press **4** with a cracked vest: the weapon lowers, the plate slides in and
+   the weapon returns. Try holding 4 to chain plates, and firing mid-insert to
+   cancel (the spare count must not drop). Try with a full vest (nothing happens).
+5. Crouch and slide while taking hits; check headshots still register only
+   at head height (the death screen names the zone).
+6. Let K kill you. Check the death screen, that you can't move, look or fire,
+   and the respawn at the spawn point with full ammo, plates and spares.
+7. Raise the riot shield toward an incoming round and confirm it blocks it.
+8. Toggle **Show armor plates** and confirm the readout and segments hide.
+9. Repeat 1, 4 and 6 with a controller (D-pad Down to plate) and check damage
+   rumble. **Rumble and controller checks need a human with a real pad.**
+10. With everything firing, check the FPS readout holds 60.
+
+Bots do not exist yet (Milestone 17), so all enemy fire here comes from the
+debug probe. Stop here for the Milestone 15 play-test.
