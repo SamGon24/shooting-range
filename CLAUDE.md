@@ -207,6 +207,10 @@ Phase 1 (movement, ballistics, targets, HUD) and Phase 2 (loadout, attachments, 
     - Option to see how many plates are inside the user's armor and an animation and button to apply them.
     - **Range mode is invulnerable by default,** with a toggle. All damage goes through the existing damage interface with a `source` field.
     - Tests: armor order, regeneration timing, damage direction maths, respawn state reset.
+15.5. **Bugs and fixes** 
+    - If the player moves while aiming, it should still aim
+    - Add a functionality to not have the plates preloaded
+
 16. **Range challenges:**
     - Timed target drill, accuracy run, long-range steel challenge, and a moving-target gauntlet.
     - Medal thresholds (bronze, silver, gold) in Resources, best scores saved to `user://scores.cfg`, quick retry key.
