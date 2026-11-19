@@ -158,7 +158,10 @@ func _physics_process(delta: float) -> void:
 	_input.trigger_held = controls_live and (fire_pressed or Input.is_action_pressed("fire"))
 	_input.aim_held = controls_live and GameInput.held("aim", ViewSettings.toggle_ads)
 	_input.reload_pressed = controls_live and reload_pressed
-	_input.sprinting = player.is_sprinting
+	# Aiming wins over sprint: the weapon stops treating the player as
+	# sprinting this tick, and the player stops sprinting from the next.
+	player.sprint_blocked = _input.aim_held and logic.data.can_aim
+	_input.sprinting = player.is_sprinting and not player.sprint_blocked
 
 	var recoil: RecoilLogic = _recoils[_current]
 	recoil.tick(delta)

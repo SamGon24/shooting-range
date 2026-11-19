@@ -156,7 +156,7 @@ func test_ammo_changed_reports_each_shot() -> void:
 # --- Sprint ---
 
 
-func test_sprinting_blocks_fire_and_aim() -> void:
+func test_sprinting_blocks_hip_fire() -> void:
 	watch_signals(_weapons)
 	Input.action_press("move_forward")
 	Input.action_press("sprint")
@@ -164,16 +164,53 @@ func test_sprinting_blocks_fire_and_aim() -> void:
 	assert_true(_player.is_sprinting)
 
 	Input.action_press("fire")
-	Input.action_press("aim")
 	await wait_physics_frames(_seconds(0.5))
 	assert_signal_not_emitted(_weapons, "shot_fired")
 	assert_eq(_weapons.get_current_logic().aim_progress, 0.0)
-	assert_eq(_player.look_sensitivity_scale, 1.0)
 
 	Input.action_release("sprint")
 	await wait_physics_frames(_seconds(0.5))
 	assert_signal_emitted(_weapons, "shot_fired", "fires once the sprint ends")
-	assert_eq(_weapons.get_current_logic().aim_progress, 1.0)
+
+
+func test_aiming_overrides_held_sprint_while_moving() -> void:
+	watch_signals(_weapons)
+	Input.action_press("move_forward")
+	Input.action_press("sprint")
+	await wait_physics_frames(_seconds(0.5))
+	assert_true(_player.is_sprinting)
+
+	Input.action_press("aim")
+	await wait_physics_frames(_seconds(0.5))
+	assert_false(_player.is_sprinting, "aiming stops the sprint")
+	assert_eq(_weapons.get_current_logic().aim_progress, 1.0, "fully aimed while still moving")
+	assert_gt(_player.get_horizontal_speed(), 1.0, "still moving")
+	assert_lt(_player.get_horizontal_speed(), _player.settings.sprint_speed - 0.5, "at walking pace")
+	assert_lt(_player.look_sensitivity_scale, 1.0)
+	Input.action_press("fire")
+	await wait_physics_frames(_seconds(0.5))
+	assert_signal_emitted(_weapons, "shot_fired", "aimed fire works on the move")
+
+	Input.action_release("fire")
+	Input.action_release("aim")
+	await wait_physics_frames(_seconds(0.3))
+	assert_true(_player.is_sprinting, "releasing aim resumes the held sprint")
+
+
+func test_aiming_overrides_auto_sprint() -> void:
+	var before: bool = ViewSettings.auto_sprint
+	ViewSettings.auto_sprint = true
+	Input.action_press("move_forward")
+	await wait_physics_frames(_seconds(0.5))
+	assert_true(_player.is_sprinting, "auto sprint while moving forward")
+	Input.action_press("aim")
+	await wait_physics_frames(_seconds(0.5))
+	assert_false(_player.is_sprinting)
+	assert_eq(_weapons.get_current_logic().aim_progress, 1.0, "moving forward no longer cancels ADS")
+	Input.action_release("aim")
+	await wait_physics_frames(_seconds(0.3))
+	assert_true(_player.is_sprinting, "auto sprint resumes")
+	ViewSettings.auto_sprint = before
 
 
 # --- Aim ---

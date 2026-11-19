@@ -56,6 +56,10 @@ var recoil_yaw: float = 0.0
 
 var stance: Stance = Stance.STAND
 var is_sprinting: bool = false
+## Set by the weapon each tick while aim is held on a weapon that can aim.
+## Aiming takes priority over sprint (held, toggled or auto sprint), so
+## moving never cancels ADS.
+var sprint_blocked: bool = false
 
 var _gravity: float = 9.81
 var _capsule: CapsuleShape3D
@@ -143,6 +147,7 @@ func _physics_process(delta: float) -> void:
 	# negative when pushing forward.
 	is_sprinting = (
 		sprint_held
+		and not sprint_blocked
 		and stance == Stance.STAND
 		and -move_input.y >= settings.sprint_min_forward
 	)
