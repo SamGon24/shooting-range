@@ -40,6 +40,7 @@ func swing(system: ProjectileSystem, origin: Vector3, direction: Vector3, data: 
 		var hit := ProjectileHit.new()
 		hit.shot_id = shot_id
 		hit.source = DamageSource.Kind.MELEE
+		hit.source_position = origin
 		hit.position = _cast.get_collision_point(nearest)
 		hit.normal = _cast.get_collision_normal(nearest)
 		hit.collider = _cast.get_collider(nearest)

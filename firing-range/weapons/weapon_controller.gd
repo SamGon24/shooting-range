@@ -58,6 +58,9 @@ var _reload_latched: bool = false
 var _zero_latched: bool = false
 var _melee: MeleeSystem
 var _guard: WeaponGuard
+## Set while the hands are busy (plating, dead): the weapon goes away and
+## stays away, and weapon input is ignored.
+var _stowed: bool = false
 
 
 func _ready() -> void:
@@ -294,12 +297,23 @@ func get_raise_blend(fraction: float = 1.0) -> float:
 ## Weapon input is ignored until the mouse is captured, so the click that
 ## grabs the mouse does not also fire a shot.
 func _controls_live() -> bool:
+	if _stowed:
+		return false
 	if not player.mouse_look_enabled:
 		return true
 	return Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 
 
 func _update_switch() -> void:
+	if _stowed:
+		var held: WeaponLogic = _logics[_current]
+		if held.state != WeaponLogic.State.HOLSTERED:
+			held.start_lower()
+		return
+	if _replacement == null and _pending == -1 and _logics[_current].state in [WeaponLogic.State.HOLSTERED, WeaponLogic.State.LOWERING]:
+		# Unstowed with nothing else queued: bring the same weapon back up.
+		_logics[_current].start_raise()
+		return
 	if _replacement != null:
 		var old: WeaponLogic = _logics[_current]
 		if old.state != WeaponLogic.State.HOLSTERED:
@@ -404,6 +418,33 @@ func _on_logic_reload_cancelled(_logic: WeaponLogic) -> void:
 
 func _on_logic_shell_inserted(ammo: int) -> void:
 	shell_inserted.emit(ammo)
+
+
+## Puts the current weapon away (true) or brings it back (false). Switches
+## requested meanwhile are kept and happen once unstowed.
+func set_stowed(value: bool) -> void:
+	_stowed = value
+
+
+## True once a stow request has the weapon fully put away.
+func is_stowed() -> bool:
+	return _stowed and _current >= 0 and _logics[_current].state == WeaponLogic.State.HOLSTERED
+
+
+## Refills every carried weapon, clears reloads and recoil, and raises the
+## current weapon instantly.
+func reset_for_respawn() -> void:
+	_stowed = false
+	_pending = -1
+	_replacement = null
+	_replacement_slot = -1
+	clear_input_latches()
+	for runtime: WeaponRuntime in _inventory.values():
+		runtime.logic.reset_for_respawn()
+		runtime.recoil.reset()
+	if _current >= 0:
+		_logics[_current].equip_instantly()
+		_announce_weapon()
 
 
 ## Menu activation must not carry a buffered click into resumed gameplay.

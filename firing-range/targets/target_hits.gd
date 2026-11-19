@@ -21,6 +21,8 @@ func _on_hit(hit: ProjectileHit) -> void:
 		return
 	if hit.collider is TargetHitZone:
 		(hit.collider as TargetHitZone).receive_hit(hit)
+	elif hit.collider is PlayerHitZone:
+		(hit.collider as PlayerHitZone).receive_hit(hit)
 	elif hit.collider is SteelPlate:
 		(hit.collider as SteelPlate).receive_hit(hit)
 	elif hit.collider is PhysicsProp:

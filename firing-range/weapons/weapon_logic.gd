@@ -127,6 +127,19 @@ func equip_instantly() -> void:
 	_set_state(State.READY)
 
 
+## Full ammo, nothing in progress and put away, as after a respawn.
+func reset_for_respawn() -> void:
+	if state == State.RELOADING:
+		reload_cancelled.emit()
+	_reload_time_left = 0.0
+	reload_phase = ReloadPhase.NONE
+	_shell_fire_requested = false
+	_reload_queued = false
+	_sprint_recovery_left = 0.0
+	ammo = data.magazine_size if data.uses_ammo else 0
+	_holster()
+
+
 func is_reloading() -> bool:
 	return state == State.RELOADING
 

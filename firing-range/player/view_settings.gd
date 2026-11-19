@@ -77,6 +77,19 @@ var ttk_from_first_shot: bool = false:
 		ttk_from_first_shot = value
 		changed.emit()
 
+## Range mode: hits on the player are reported but do no damage. Game modes
+## that need a vulnerable player set this on their own PlayerHealth.
+var range_invulnerable: bool = true:
+	set(value):
+		range_invulnerable = value
+		changed.emit()
+
+## Shows the plates in the vest and the spares carried on the HUD.
+var show_armor_plates: bool = true:
+	set(value):
+		show_armor_plates = value
+		changed.emit()
+
 var stick_x: float = 180.0
 var stick_y: float = 120.0
 var stick_deadzone: float = 0.15
@@ -89,7 +102,7 @@ var toggle_crouch: bool = false
 var toggle_sprint: bool = false
 var auto_sprint: bool = false
 
-const KEYS: PackedStringArray = ["stick_x", "stick_y", "stick_deadzone", "stick_dynamic", "stick_invert_y", "aim_assist", "rumble_scale", "toggle_ads", "toggle_crouch", "toggle_sprint", "auto_sprint", "fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps", "ttk_from_first_shot"]
+const KEYS: PackedStringArray = ["stick_x", "stick_y", "stick_deadzone", "stick_dynamic", "stick_invert_y", "aim_assist", "rumble_scale", "toggle_ads", "toggle_crouch", "toggle_sprint", "auto_sprint", "fov_degrees", "mouse_sensitivity", "invert_y", "head_bob_scale", "fov_kick_scale", "ads_sensitivity_multiplier", "master_volume", "effects_volume", "show_fps", "ttk_from_first_shot", "range_invulnerable", "show_armor_plates"]
 
 
 func _ready() -> void:

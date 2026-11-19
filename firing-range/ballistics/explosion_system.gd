@@ -15,8 +15,8 @@ func _ready() -> void:
 	_sphere = SphereShape3D.new()
 	_query = PhysicsShapeQueryParameters3D.new()
 	_query.shape = _sphere
-	# World / live zones, existing corpses, and the shield layer.
-	_query.collision_mask = 1 | 4 | 8
+	# World / live zones, existing corpses, the shield layer and player zones.
+	_query.collision_mask = 1 | 4 | 8 | PlayerHitZone.LAYER
 	_visibility = PhysicsRayQueryParameters3D.new()
 	_visibility.collision_mask = 1 | 8
 
@@ -30,11 +30,15 @@ func detonate(hit: ProjectileHit) -> bool:
 	_query.transform = Transform3D(Basis.IDENTITY, hit.position)
 	var targets: Dictionary[int, TargetDummy] = {}
 	var bodies: Dictionary[int, RigidBody3D] = {}
+	var players: Dictionary[int, PlayerHealth] = {}
 	for result: Dictionary in space.intersect_shape(_query, max_candidates):
 		var collider: Object = result["collider"]
 		if collider is TargetHitZone:
 			var dummy: TargetDummy = (collider as TargetHitZone).dummy
 			targets[dummy.get_instance_id()] = dummy
+		elif collider is PlayerHitZone:
+			var health: PlayerHealth = (collider as PlayerHitZone).health
+			players[health.get_instance_id()] = health
 		elif collider is RigidBody3D:
 			var body := collider as RigidBody3D
 			bodies[body.get_instance_id()] = body
@@ -63,6 +67,15 @@ func detonate(hit: ProjectileHit) -> bool:
 		if dummy.ragdoll.active:
 			for part: RigidBody3D in dummy.ragdoll.parts:
 				bodies[part.get_instance_id()] = part
+	for health: PlayerHealth in players.values():
+		if health.is_dead():
+			continue
+		# Same torso-centred falloff and armor-first path as the dummies.
+		var zone: PlayerHitZone = health.get_torso_zone()
+		var amount: float = data.damage_at_distance(hit.position.distance_to(zone.global_position))
+		if amount <= 0.0 or not _visible(space, ray_origin, zone.global_position, zone, data):
+			continue
+		zone.receive_hit(_splash(hit, zone, amount))
 	for body: RigidBody3D in bodies.values():
 		if body.freeze:
 			continue
@@ -73,6 +86,21 @@ func detonate(hit: ProjectileHit) -> bool:
 		body.apply_impulse(impulse)
 	exploded.emit(hit.position, data)
 	return true
+
+
+func _splash(hit: ProjectileHit, zone: Node3D, amount: float) -> ProjectileHit:
+	var splash := ProjectileHit.new()
+	splash.shot_id = hit.shot_id
+	splash.spec = hit.spec
+	splash.source = DamageSource.Kind.SPLASH
+	splash.collider = zone
+	splash.position = zone.global_position
+	splash.source_position = hit.position
+	splash.normal = hit.normal
+	splash.travel_time = hit.travel_time
+	splash.travel_distance = hit.travel_distance
+	splash.damage = amount
+	return splash
 
 
 func _visible(space: PhysicsDirectSpaceState3D, origin: Vector3, point: Vector3, target: Object, data: ExplosionData) -> bool:

@@ -15,6 +15,8 @@ func _ready() -> void:
 	_add_slider("Effects volume", "effects_volume", 0.0, 1.0, 0.05)
 	_add_toggle("Show gameplay FPS", "show_fps")
 	_add_toggle("Time to kill starts at the first shot", "ttk_from_first_shot")
+	_add_toggle("Range invulnerability", "range_invulnerable")
+	_add_toggle("Show armor plates (vest and spares)", "show_armor_plates")
 	_add_slider("Controller X degrees/sec", "stick_x", 30, 360, 5)
 	_add_slider("Controller Y degrees/sec", "stick_y", 30, 360, 5)
 	_add_slider("Stick radial dead zone", "stick_deadzone", 0, 0.4, 0.01)

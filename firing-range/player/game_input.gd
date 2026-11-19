@@ -22,7 +22,7 @@ func _ready() -> void:
 		motion.axis = int(entry[1]) as JoyAxis
 		motion.axis_value = float(entry[2])
 		InputMap.action_add_event(entry[0], motion)
-	for entry: Array in [["jump",0],["crouch",1],["reload",2],["weapon_swap",3],["weapon_prev",9],["weapon_next",10],["sprint",7],["melee",8],["zero_cycle",11],["range_stats_reset",4]]:
+	for entry: Array in [["jump",0],["crouch",1],["reload",2],["weapon_swap",3],["weapon_prev",9],["weapon_next",10],["sprint",7],["melee",8],["zero_cycle",11],["range_stats_reset",4],["apply_plate",12]]:
 		var button := InputEventJoypadButton.new()
 		button.device = -1
 		button.button_index = int(entry[1]) as JoyButton
@@ -215,7 +215,7 @@ func prompt(action: StringName) -> String:
 		if controller_active and event is InputEventJoypadButton:
 			if active_device in Input.get_connected_joypads() and not Input.is_joy_known(active_device):
 				return event.as_text()
-			var labels: Dictionary = {0:"A",1:"B",2:"X",3:"Y",4:"Back",6:"Start",7:"LS",8:"RS",9:"LB",10:"RB",11:"D-pad Up"}
+			var labels: Dictionary = {0:"A",1:"B",2:"X",3:"Y",4:"Back",6:"Start",7:"LS",8:"RS",9:"LB",10:"RB",11:"D-pad Up",12:"D-pad Down"}
 			return str(labels.get((event as InputEventJoypadButton).button_index, event.as_text()))
 		if controller_active and event is InputEventJoypadMotion:
 			return {4:"LT",5:"RT"}.get((event as InputEventJoypadMotion).axis, event.as_text())

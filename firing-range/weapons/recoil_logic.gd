@@ -26,6 +26,13 @@ func _init(weapon_data: WeaponData, rng: RandomNumberGenerator) -> void:
 	_rng = rng
 
 
+## Clears pattern position and bloom, as after a respawn.
+func reset() -> void:
+	shot_index = 0
+	bloom = 0.0
+	time_since_shot = 1000.0
+
+
 ## Advances time by one tick. Call before this tick's shots.
 func tick(delta: float) -> void:
 	time_since_shot += delta

@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://player/player_controller.gd" id="1_controller"]
 [ext_resource type="Resource" path="res://player/data/movement_default.tres" id="2_settings"]
@@ -13,6 +13,7 @@
 [ext_resource type="Resource" path="res://weapons/data/range_loadout.tres" id="9_loadout"]
 [ext_resource type="Resource" path="res://weapons/data/primary_catalog.tres" id="10_catalog"]
 [ext_resource type="Resource" path="res://weapons/data/secondary_catalog.tres" id="11_secondaries"]
+[ext_resource type="Script" path="res://player/player_health.gd" id="12_health"]
 
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 collision_layer = 2
@@ -53,3 +54,8 @@ player = NodePath("..")
 [node name="Audio" type="Node" parent="Weapons" node_paths=PackedStringArray("controller")]
 script = ExtResource("8_audio")
 controller = NodePath("..")
+
+[node name="Health" type="Node3D" parent="." node_paths=PackedStringArray("player", "weapons")]
+script = ExtResource("12_health")
+player = NodePath("..")
+weapons = NodePath("../Weapons")

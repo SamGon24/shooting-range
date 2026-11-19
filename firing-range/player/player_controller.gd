@@ -41,6 +41,10 @@ var mouse_look_enabled: bool = true:
 		if is_inside_tree():
 			_apply_mouse_mode()
 
+## False while dead: movement and look input are ignored, but momentum
+## still decays through friction.
+var input_enabled: bool = true
+
 ## Look angles in radians. Yaw turns around +Y, pitch is positive looking up.
 var yaw: float = 0.0
 var pitch: float = 0.0
@@ -103,7 +107,7 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not mouse_look_enabled:
+	if not mouse_look_enabled or not input_enabled:
 		return
 	if event is InputEventMouseMotion:
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -124,13 +128,13 @@ func _physics_process(delta: float) -> void:
 	_previous_recoil = Vector2(recoil_pitch, recoil_yaw)
 
 	var on_floor: bool = is_on_floor()
-	var move_input: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var crouch_held: bool = GameInput.held("crouch", ViewSettings.toggle_crouch)
-	var crouch_pressed: bool = Input.is_action_just_pressed("crouch")
-	var sprint_held: bool = GameInput.held("sprint", ViewSettings.toggle_sprint) or ViewSettings.auto_sprint
+	var move_input: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_back") if input_enabled else Vector2.ZERO
+	var crouch_held: bool = input_enabled and GameInput.held("crouch", ViewSettings.toggle_crouch)
+	var crouch_pressed: bool = input_enabled and Input.is_action_just_pressed("crouch")
+	var sprint_held: bool = input_enabled and (GameInput.held("sprint", ViewSettings.toggle_sprint) or ViewSettings.auto_sprint)
 
 	_tick_timers(delta, on_floor)
-	if Input.is_action_just_pressed("jump"):
+	if input_enabled and Input.is_action_just_pressed("jump"):
 		_jump_buffer = settings.jump_buffer_time
 
 	_update_stance(on_floor, crouch_held, crouch_pressed)
@@ -415,7 +419,7 @@ func _update_head(fraction: float) -> void:
 
 
 func _controller_look(delta: float, probe: bool = false) -> void:
-	if not probe and (not mouse_look_enabled or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED or not GameInput.controller_active):
+	if not probe and (not input_enabled or not mouse_look_enabled or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED or not GameInput.controller_active):
 		return
 	var stick := Vector2(Input.get_axis("look_left", "look_right"), Input.get_axis("look_up", "look_down"))
 	if probe:
