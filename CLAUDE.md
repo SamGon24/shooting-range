@@ -204,6 +204,7 @@ Phase 1 (movement, ballistics, targets, HUD) and Phase 2 (loadout, attachments, 
 15. **Player health and damage:**
     - Health 100 plus 3 armor plates (the same armor-first rules as dummies), health regeneration after a delay, and a damage-direction indicator.
     - Player hit zones (head, torso, limbs) so bots can headshot you. Death shows a death screen, then respawns.
+    - Option to see how many plates are inside the user's armor and an animation and button to apply them.
     - **Range mode is invulnerable by default,** with a toggle. All damage goes through the existing damage interface with a `source` field.
     - Tests: armor order, regeneration timing, damage direction maths, respawn state reset.
 16. **Range challenges:**
