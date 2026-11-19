@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ChallengeRule" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://range/challenges/challenge_rule.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"accuracy"
+title = "Accuracy run"
+objective = "Land as many of your ten shots as possible on dummies or steel."
+target = 1
+seconds = 0
+shots_allowed = 10
+medals = Vector3i(50, 70, 90)

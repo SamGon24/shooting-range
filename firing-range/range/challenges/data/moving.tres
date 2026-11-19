@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ChallengeRule" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://range/challenges/challenge_rule.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"moving"
+title = "Moving-target gauntlet"
+objective = "Hit the moving dummies on the rails in 30 seconds."
+target = 3
+seconds = 30
+shots_allowed = 0
+medals = Vector3i(4, 9, 16)

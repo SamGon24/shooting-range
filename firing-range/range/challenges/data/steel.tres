@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ChallengeRule" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://range/challenges/challenge_rule.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"steel"
+title = "Long-range steel"
+objective = "Ring the 100, 200 or 300 m plates from behind the firing line in 40 seconds."
+target = 2
+seconds = 40
+shots_allowed = 0
+medals = Vector3i(3, 7, 12)
