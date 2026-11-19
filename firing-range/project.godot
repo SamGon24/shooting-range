@@ -220,6 +220,11 @@ secondary_next={
 "events": [Object(InputEventKey,"physical_keycode":79)]
 }
 
+debug_incoming_fire={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":75)]
+}
+
 apply_plate={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"physical_keycode":52)]

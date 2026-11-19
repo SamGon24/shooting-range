@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://range/range_builder.gd" id="1_builder"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -19,6 +19,7 @@
 [ext_resource type="Script" path="res://ballistics/explosion_system.gd" id="14_explosions"]
 [ext_resource type="Script" path="res://debug/guard_probe.gd" id="15_guard_probe"]
 [ext_resource type="Script" path="res://weapons/effects/explosion_effects.gd" id="16_blast_fx"]
+[ext_resource type="Script" path="res://debug/hostile_probe.gd" id="17_hostile"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_material"]
 sky_top_color = Color(0.32, 0.5, 0.74, 1)
@@ -98,3 +99,6 @@ script = ExtResource("13_attachments")
 
 [node name="GuardProbe" type="Node" parent="."]
 script = ExtResource("15_guard_probe")
+
+[node name="HostileProbe" type="Node" parent="."]
+script = ExtResource("17_hostile")

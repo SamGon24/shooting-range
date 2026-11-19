@@ -174,6 +174,21 @@ func test_splash_hits_the_torso_armor_first_with_falloff() -> void:
 	assert_almost_eq(DamageDirection.screen_angle(_damage[0]["incoming"], _player.yaw), 0.0, 0.01, "blast in front")
 
 
+func test_hostile_probe_round_reaches_the_player_from_its_bearing() -> void:
+	var probe := HostileProbe.new()
+	_world.add_child(probe)
+	await wait_physics_frames(2)
+	_health.invulnerable = true
+	# From behind; a side shot would take the arm first.
+	assert_gt(probe.fire_once(PI), -1)
+	for _tick: int in 10:
+		_system.advance(TICK)
+	assert_eq(_damage.size(), 1)
+	assert_eq(_damage[0]["zone"], TargetSettings.Zone.TORSO)
+	assert_false((_damage[0]["hit"] as ProjectileHit).spec.stats_eligible, "never counts in range stats")
+	assert_almost_eq(absf(DamageDirection.screen_angle(_damage[0]["incoming"], _player.yaw)), PI, 0.01, "from behind")
+
+
 # --- Death and respawn ---
 
 

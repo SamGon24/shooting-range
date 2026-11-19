@@ -75,7 +75,8 @@ func _capture_spawn() -> void:
 
 
 func _follow_setting() -> void:
-	invulnerable = ViewSettings.range_invulnerable
+	if follow_range_setting:
+		invulnerable = ViewSettings.range_invulnerable
 
 
 func _unhandled_input(event: InputEvent) -> void:
