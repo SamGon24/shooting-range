@@ -126,6 +126,21 @@ func test_ignores_colliders_outside_the_collision_mask() -> void:
 	assert_eq(_hits.size(), 0, "layer 2 (the player's layer) is not hit")
 
 
+func test_per_shot_mask_reaches_player_hit_zones_only_for_hostile_shots() -> void:
+	var wall: StaticBody3D = _add_wall(20.0, 0.5)
+	wall.collision_layer = 16
+	await wait_physics_frames(2)
+	_system.fire(EYE, DOWNRANGE, _spec)
+	_advance(5)
+	assert_eq(_hits.size(), 0, "the default mask leaves player hit zones out")
+	_system.fire(EYE, DOWNRANGE, _spec, ProjectileSystem.HOSTILE_MASK)
+	_advance(5)
+	assert_eq(_hits.size(), 1, "a hostile shot hits layer 16")
+	_system.fire(EYE, DOWNRANGE, _spec)
+	_advance(5)
+	assert_eq(_hits.size(), 1, "the reused slot reverts to the default mask")
+
+
 # --- Pooling ---
 
 

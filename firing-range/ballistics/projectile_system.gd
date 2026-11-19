@@ -17,12 +17,15 @@ signal shot_started(shot_id: int)
 signal shot_finished(shot_id: int)
 
 const GROUP: StringName = &"projectile_system"
+## Default layers plus the player's hit zones, for shots fired at the player.
+const HOSTILE_MASK: int = 1 | 4 | 8 | 16
 
 ## Maximum projectiles alive at once. A shot fired when every slot is in use
 ## is dropped and counted in `get_dropped_count`.
 @export_range(8, 1024) var capacity: int = 128
 ## Physics layers a projectile can hit: world and targets (1), corpses (4)
-## and shields (8).
+## and shields (8). Player hit zones (16) are left out, so the player's own
+## shots can never hit them; hostile shooters pass `HOSTILE_MASK` per shot.
 @export_flags_3d_physics var collision_mask: int = 1 | 4 | 8
 @export var collide_with_areas: bool = false
 ## Air density for drag, kg/m³. Sea level at 15 °C by default.
@@ -38,6 +41,7 @@ var _distances: PackedFloat32Array = PackedFloat32Array()
 var _drags: PackedFloat32Array = PackedFloat32Array()
 var _specs: Array[ProjectileSpec] = []
 var _shot_ids: PackedInt64Array = PackedInt64Array()
+var _masks: PackedInt32Array = PackedInt32Array()
 var _remaining: Dictionary[int, int] = {}
 var _unscored: Dictionary[int, bool] = {}
 var _next_shot_id: int = 0
@@ -61,6 +65,7 @@ func _ready() -> void:
 	_drags.resize(capacity)
 	_specs.resize(capacity)
 	_shot_ids.resize(capacity)
+	_masks.resize(capacity)
 	_free_slots.resize(capacity)
 	for slot: int in capacity:
 		# Popped from the back, so slot 0 is handed out first.
@@ -76,19 +81,19 @@ func _physics_process(delta: float) -> void:
 
 
 ## Launches a projectile from `origin` along `direction`. Returns its slot,
-## or -1 if the pool is full.
-func fire(origin: Vector3, direction: Vector3, spec: ProjectileSpec) -> int:
+## or -1 if the pool is full. `mask` overrides `collision_mask` for this shot.
+func fire(origin: Vector3, direction: Vector3, spec: ProjectileSpec, mask: int = -1) -> int:
 	if spec == null or direction.is_zero_approx():
 		return -1
 	if _free_slots.is_empty():
 		_dropped_count += 1
 		return -1
-	return _launch(origin, direction, spec, _begin_shot(1, spec.stats_eligible))
+	return _launch(origin, direction, spec, _begin_shot(1, spec.stats_eligible), mask)
 
 
 ## Atomic volley: either every pellet launches, or none does. Uses exactly
 ## the same pool, integration and collision sweep as a single projectile.
-func fire_volley(origin: Vector3, directions: PackedVector3Array, spec: ProjectileSpec) -> int:
+func fire_volley(origin: Vector3, directions: PackedVector3Array, spec: ProjectileSpec, mask: int = -1) -> int:
 	if spec == null or directions.is_empty():
 		return -1
 	for direction: Vector3 in directions:
@@ -100,7 +105,7 @@ func fire_volley(origin: Vector3, directions: PackedVector3Array, spec: Projecti
 	var shot_id: int = _begin_shot(directions.size(), spec.stats_eligible)
 	var first_slot: int = -1
 	for direction: Vector3 in directions:
-		var slot: int = _launch(origin, direction, spec, shot_id)
+		var slot: int = _launch(origin, direction, spec, shot_id, mask)
 		if first_slot < 0:
 			first_slot = slot
 	return first_slot
@@ -132,8 +137,7 @@ func is_scoring_shot(shot_id: int) -> bool:
 	return _remaining.has(shot_id) and not _unscored.has(shot_id)
 
 
-func _launch(origin: Vector3, direction: Vector3, spec: ProjectileSpec, shot_id: int) -> int:
-
+func _launch(origin: Vector3, direction: Vector3, spec: ProjectileSpec, shot_id: int, mask: int = -1) -> int:
 	var slot: int = _free_slots[_free_slots.size() - 1]
 	_free_slots.remove_at(_free_slots.size() - 1)
 	var velocity: Vector3 = direction.normalized() * spec.muzzle_velocity
@@ -145,6 +149,7 @@ func _launch(origin: Vector3, direction: Vector3, spec: ProjectileSpec, shot_id:
 	_drags[slot] = spec.drag_factor(air_density)
 	_specs[slot] = spec
 	_shot_ids[slot] = shot_id
+	_masks[slot] = collision_mask if mask < 0 else mask
 	_active_count += 1
 	projectile_fired.emit(slot, origin, velocity, spec)
 	return slot
@@ -170,6 +175,7 @@ func advance(delta: float) -> void:
 
 		_query.from = from
 		_query.to = to
+		_query.collision_mask = _masks[slot]
 		var result: Dictionary = space.intersect_ray(_query)
 		if not result.is_empty():
 			var point: Vector3 = result["position"]
