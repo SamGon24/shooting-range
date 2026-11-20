@@ -145,6 +145,11 @@ weapon_prev={
 ]
 }
 
+challenge_retry={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":89), Object(InputEventJoypadButton,"button_index":14)]
+}
+
 range_stats_reset={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"physical_keycode":84)]

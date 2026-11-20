@@ -1,6 +1,7 @@
 class_name MainMenu
 extends Control
 signal play_requested
+signal challenges_requested
 signal armory_requested
 signal quit_requested
 
@@ -33,10 +34,11 @@ func _ready() -> void:
 	play_button = MenuStyle.button("Play", func() -> void: play_requested.emit())
 	armory_button = MenuStyle.button("Armory", func() -> void: armory_requested.emit())
 	settings_button = MenuStyle.button("Settings", show_settings)
+	var challenges: Button = MenuStyle.button("Challenges", func() -> void: challenges_requested.emit())
 	var quit_button: Button = MenuStyle.button("Quit", func() -> void: quit_requested.emit())
-	for button: Button in [play_button, armory_button, settings_button, quit_button]:
+	for button: Button in [play_button, armory_button, settings_button, challenges, quit_button]:
 		_home.add_child(button)
-	SettingsPanel.wire_focus([play_button, armory_button, settings_button, quit_button])
+	SettingsPanel.wire_focus([play_button, armory_button, settings_button, challenges, quit_button])
 	var summary := VBoxContainer.new()
 	summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	summary.size_flags_vertical = Control.SIZE_SHRINK_CENTER

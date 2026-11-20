@@ -64,6 +64,11 @@ func _ready() -> void:
 	_bind_from_tree.call_deferred()
 
 
+func hide_free_range_stats() -> void:
+	$Stats.hide()
+	feedback.stats_changed.disconnect(_mark_stats_dirty)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("range_stats_reset") and not event.is_echo():
 		_reset_latched = true

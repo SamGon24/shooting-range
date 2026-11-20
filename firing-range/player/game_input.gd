@@ -215,7 +215,7 @@ func prompt(action: StringName) -> String:
 		if controller_active and event is InputEventJoypadButton:
 			if active_device in Input.get_connected_joypads() and not Input.is_joy_known(active_device):
 				return event.as_text()
-			var labels: Dictionary = {0:"A",1:"B",2:"X",3:"Y",4:"Back",6:"Start",7:"LS",8:"RS",9:"LB",10:"RB",11:"D-pad Up",12:"D-pad Down"}
+			var labels: Dictionary = {0:"A",1:"B",2:"X",3:"Y",4:"Back",6:"Start",7:"LS",8:"RS",9:"LB",10:"RB",11:"D-pad Up",12:"D-pad Down",14:"D-pad Right"}
 			return str(labels.get((event as InputEventJoypadButton).button_index, event.as_text()))
 		if controller_active and event is InputEventJoypadMotion:
 			return {4:"LT",5:"RT"}.get((event as InputEventJoypadMotion).axis, event.as_text())
