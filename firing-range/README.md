@@ -4,6 +4,8 @@ A first-person shooter MVP set on a military-style firing range, built in Godot 
 
 ## Status
 
+**Milestone 16 implemented.** Select **Challenges** on the main menu to play one of four scored runs. Owner play-test pending. [Rules and play-test](#milestone-16--range-challenges).
+
 **Milestone 15.5 (bug fixes) implemented: aiming now works while moving, and the vest can start empty. Play-test pending.**
 
 **Milestone 15 implemented (player health, armor plates, damage, death and respawn); play-test pending.** The range stays invulnerable by default. See [Milestone 15](#milestone-15--player-health-and-damage).
@@ -176,6 +178,7 @@ You can also open `project.godot` in the editor and press F5.
 | Cycle muzzle / barrel / optic / stock / magazine | F5 / F6 / F7 / F8 / F9 |
 | Clear all attachments on the equipped weapon | F10 |
 | Reset range stats, hitmarkers and damage numbers | T |
+| Quick retry during a challenge or on its results screen | Y |
 | Pause / resume; release / restore mouse | Esc or controller Start |
 | Navigate menus and Armory | Up/Down, Tab/Shift+Tab; controller D-pad or left stick |
 | Adjust focused slider | Left/Right; controller D-pad or left stick |
@@ -295,6 +298,7 @@ These go after `--` on the command line and are mainly for Movie Maker captures 
 | `--hide-overlay` | Starts with the debug overlay hidden |
 | `--no-warmup` | Skips the particle first-draw warm-up, to measure what it removes |
 | `--bullet-paths` | Starts with the bullet path view on |
+| `--challenge=timed\|accuracy\|steel\|moving` | Start a challenge directly with the saved loadout |
 | `--incoming-fire` | Fires a non-scoring rifle round at the player every second from a random bearing (as the K key) |
 | `--incoming-interval=SECONDS` | Changes the `--incoming-fire` period |
 | `--vulnerable` | Turns range invulnerability off for this run only, without saving it |
@@ -587,6 +591,7 @@ Disconnecting the active pad pauses the range and clears held/toggled actions.
 | D-pad Up | Cycle sniper zero | Z |
 | D-pad Down | Insert armor plate (hold to chain) | 4 |
 | Back | Reset range statistics | T |
+| D-pad Right | Quick retry during a challenge or at results | Y |
 | Start | Pause | Esc |
 | D-pad / left stick, A, B | Navigate, accept, back | Arrows, Enter, Esc |
 
@@ -624,8 +629,7 @@ Save & Back / Resume to `user://settings.cfg`.
     results with the controller model/connection; synthetic tests cannot certify
     hardware mappings, Bluetooth behavior, drift, rumble or subjective feel.
 
-Challenge screens do not exist until Milestone 16; their controller navigation
-must be validated when implemented. Stop here for the Milestone 13 play-test.
+The Milestone 16 checklist covers challenge navigation on a physical controller. Stop here for the Milestone 13 play-test.
 
 
 ## Milestone 14 — sharp scope lenses and visible weapons
@@ -756,3 +760,39 @@ debug probe. Stop here for the Milestone 15 play-test.
    off, K) and check you respawn with an empty vest again.
 5. Turn the setting back on: the vest refills at once. Repeat 1 and 4 with a
    controller (LT to aim, D-pad Down to plate).
+
+## Milestone 16 — range challenges
+
+Choose **Challenges** from the main menu. Each attempt starts with your Armory
+loadout and a three-second countdown. The top-centre panel shows the objective
+and remaining time or shot count. Pause stops the clock. A timed run scores
+impacts before the buzzer. In Accuracy, the last of the ten shots has time to
+land. One shell or volley can score at most one hit.
+
+| Challenge | Objective | Bronze / Silver / Gold |
+|---|---|---|
+| Timed target drill | Hit stationary dummies in 30 s | 6 / 14 / 24 hits |
+| Accuracy run | Hit any dummy or steel with ten shots | 50 / 70 / 90% |
+| Long-range steel | Hit any steel plate in 40 s, firing from behind the line | 3 / 7 / 12 hits |
+| Moving-target gauntlet | Hit moving dummies in 30 s | 4 / 9 / 16 hits |
+
+**Y / D-pad Right** starts a fresh attempt during play or at results. Finishing
+shows your medal and personal best. Each challenge keeps its own record in
+`user://scores.cfg`. The range stats reset (T / Back) only clears free-range
+counters. A retry or exit before completion discards the unfinished score.
+
+### Challenge play-test
+
+1. From the main menu enter Challenges, select a drill and read the countdown.
+   Check that Play still opens ordinary free practice.
+2. Try each timed drill. Compare eligible and ineligible hits, walk past the
+   line in Steel, and pause mid-run. Check that the objective and timer are
+   readable with your usual HUD and optics. **Readability needs human judgment.**
+3. Finish Accuracy with ten shots, including a miss and a pellet volley. Check
+   that the last shot has time to land and the result matches the hits.
+4. Retry during play, then retry from results. Check for fresh targets, full
+   magazines, zero progress and a new countdown. Beat a personal best, finish
+   with a lower score, and relaunch to check the higher record survives.
+5. Navigate the picker, pause, results, retry and back with a physical pad.
+   Record controller model and connection. **Hardware mapping, input feel
+   and medal difficulty need an owner play-test.**

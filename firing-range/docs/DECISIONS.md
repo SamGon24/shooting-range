@@ -1925,3 +1925,82 @@ holding forward, sprint and then aim show the sprint pose, then iron sights
 held while the player keeps moving past the firing line. Still needs a human:
 whether aiming on the move feels right, and the controller path for both fixes.
 No performance-relevant code changed (one boolean per tick).
+
+## Milestone 16 — range challenges
+
+Challenge runs use the existing range layout and the saved Armory loadout. A
+retry constructs a fresh range so targets, magazines, timers and live shot IDs
+start in the same state as a new run. Free practice and the challenge scores
+have independent lifetimes. Resetting the HUD statistics has no effect on a
+challenge. The results screen and challenge picker share the menu focus and
+input handling.
+
+The simulation supplies the countdown and the time limit in physics time.
+Timed events require both launch and contact during the scoring window. The
+fixed-shot accuracy rule admits the first ten logical launches, then waits for
+all ten to finish. Each eligible group can score once, including pellet and
+splash groups. A non-scoring debug launch is ignored. The existing dummy
+damage and steel ring signals identify a qualifying hit. Steel checks the
+player's position at launch, allowing lateral movement and requiring the
+player to stay at or behind the painted line for a shot to count.
+
+### Initial tuning
+
+Each row is a Resource in `range/challenges/data/`. Timed runs count hits so
+weapons with different damage values can score on the same targets. The
+three-second countdown allows time to orient after range entry. Thresholds
+are initial play-test values.
+
+| Resource | Scoring window | Qualifying target | Bronze | Silver | Gold |
+|---|---|---|---:|---:|---:|
+| timed | 30 s | Stationary dummy | 6 | 14 | 24 |
+| accuracy | 10 shots | Any dummy or steel | 50% | 70% | 90% |
+| steel | 40 s | Steel, from behind the line | 3 | 7 | 12 |
+| moving | 30 s | Rail-mounted dummy | 4 | 9 | 16 |
+
+Completed scores use stable challenge IDs in the `best` section of
+`user://scores.cfg`. Zero is a completed score. A missing entry has no best
+yet. Only a higher score replaces an existing best, and a save error is shown
+on the result screen. Automated persistence and flow tests use scratch files.
+
+### Performance and verification
+
+Measured on the target Iris Plus 655, Compatibility, 1280×720, using
+`--challenge=moving --perf-probe --perf-fire --perf-stress`. Each measurement
+had 100% window focus, eight awake props, 54 awake ragdoll parts, moving steel,
+79 Halberd shots including warm-up, and zero dropped projectiles. The stress
+fixture keeps the dummies down. These runs measure rendering, firing and the
+challenge clock under load. The flow tests exercise registered target hits.
+
+| HUD / test | Average fps | 1% low fps | Worst ms | Frames >25 ms | Draw calls |
+|---|---:|---:|---:|---:|---:|
+| Free range, capped | 59.4 | 30.3 | 34.10 | 22 | 194 |
+| Free range, uncapped | 99.5 | 64.3 | 16.50 | 0 | 194 |
+| Both stats panels, capped | 59.9 | 35.5 | 56.88 | 1 | 196 |
+| Both stats panels, uncapped | 91.7 | 42.1 | 32.67 | 2 | 196 |
+| Challenge panel only, capped | 60.1 | 32.3 | 31.68 | 6 | 194 |
+| Challenge panel only, uncapped | 88.3 | 42.2 | 29.62 | 2 | 194 |
+| Final challenge HUD, uncapped | 100.3 | 70.3 | 16.04 | 0 | 194 |
+| Final challenge HUD, capped | 60.0 | 37.8 | 30.67 | 4 | 194 |
+| Final challenge HUD, capped repeat | 60.0 | 49.2 | 24.49 | 0 | 194 |
+
+The challenge panel replaces the general stats display during a run. It checks
+progress ten times per second and formats text when a displayed value changes.
+Device changes and resuming after remapping refresh the retry prompt. The final
+uncapped run clears the 90 fps target. Only one of the two final capped runs
+meets the 25 ms limit. The free-range baseline also exceeded that limit.
+These short runs do not identify a single cause for the intermittent stalls.
+
+A separate headless Accuracy run entered via GameFlow and fired the equipped
+weapon through InputMap. Ten live shots produced four qualifying hits and
+40%, which reloaded as 40% from a scratch score file. The results screen
+stayed open for a second before shutdown. Movie Maker frames were inspected
+for the picker with medal thresholds, the steel countdown HUD, and the result
+screen with score, medal, personal best, and focused Retry button.
+
+Final GUT run: **489/489 tests**, 8,450 assertions, 298.857 s. New coverage
+includes medal boundaries, timeout and final-shot timing, per-shot and
+per-target eligibility, independent persistent bests, controller retry,
+pause and firing-line eligibility. Headless main menu, free range and
+challenge boots completed cleanly. Physical controller validation, HUD
+readability during play, and medal tuning await the owner's play-test.
